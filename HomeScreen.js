@@ -1,46 +1,49 @@
 import React from "react";
-import { View, Text, Image, TextInput, TouchableOpacity, ScrollView } from "react-native";
+import { View, Text, Image, TextInput, TouchableOpacity, ScrollView, StyleSheet } from "react-native";
 
 const HomeScreen = () => {
   return (
-    <View style={{ flex: 1, backgroundColor: "#fff", paddingTop: 40 }}>
+    <View style={styles.container}>
       {/* Header */}
-      <View style={{ flexDirection: "row", justifyContent: "space-between", paddingHorizontal: 20 }}>
-        <Text style={{ fontSize: 18, fontWeight: "bold", color: "#d43f57" }}>MTB</Text>
-        <Text style={{ fontSize: 18, fontWeight: "bold", color: "#d43f57" }}>67CS1</Text>
-        <TouchableOpacity>
-          <Text style={{ fontSize: 24 }}>☰</Text>
+      <View style={styles.header}>
+        <View style={styles.headerLeft}>
+          <Image source={require("./assets/images/icon1.png")} style={styles.logo} />
+          <Text style={styles.headerText}>MTV 67CS1</Text>
+        </View>
+        <TouchableOpacity style={styles.menuButton}>
+          <Text style={styles.menuIcon}>☰</Text>
         </TouchableOpacity>
       </View>
 
       {/* Tabs */}
-      <View style={{ flexDirection: "row", justifyContent: "space-around", marginVertical: 10 }}>
-        <Text style={{ fontSize: 16, fontWeight: "bold", color: "#d43f57" }}>Đang Chiếu</Text>
-        <Text style={{ fontSize: 16 }}>Đặc Biệt</Text>
-        <Text style={{ fontSize: 16 }}>Sắp Chiếu</Text>
+      <View style={styles.tabs}>
+        <Text style={styles.activeTab}>Đang Chiếu</Text>
+        <Text style={styles.inactiveTab}>Đặc Biệt</Text>
+        <Text style={styles.inactiveTab}>Sắp Chiếu</Text>
       </View>
 
       {/* Search Bar */}
-      <View style={{ marginHorizontal: 20, marginBottom: 20, borderWidth: 1, borderRadius: 10, padding: 10 }}>
-        <TextInput placeholder="Tìm rạp gần bạn" style={{ fontSize: 16 }} />
+      <View style={styles.searchBox}>
+        <TextInput placeholder="Tìm rạp gần bạn" style={styles.searchInput} />
       </View>
 
       {/* Movie List */}
       <ScrollView>
-        <View style={{ alignItems: "center", paddingBottom: 20 }}>
+        <View style={styles.movieContainer}>
           <Image 
-            source={{ uri: "https://example.com/poster.jpg" }}
-            style={{ width: 250, height: 350, borderRadius: 10 }}
+            source={require("./assets/images/nhagiatien.png")}  
+            style={styles.posterImage}
           />
-          <View style={{ backgroundColor: "#fff", padding: 10, alignItems: "center", marginTop: -30, borderRadius: 10, width: 250, shadowOpacity: 0.1, shadowRadius: 10 }}>
-            <Text style={{ fontSize: 18, fontWeight: "bold" }}>Nhà gia tiên</Text>
+         
+          <View style={styles.movieDetails}>
+            <Text style={styles.movieTitle}>Nhà gia tiên</Text>
             <Text>Đạo diễn: Huỳnh Lập</Text>
             <Text>Thể loại: Gia đình, Hài</Text>
             <Text>Khởi chiếu: 21/02/2025</Text>
             <Text>Thời lượng: 117 phút</Text>
             <Text>Ngôn ngữ: Tiếng Việt - Phụ đề Tiếng Anh</Text>
-            <TouchableOpacity style={{ backgroundColor: "#d43f57", padding: 10, borderRadius: 10, marginTop: 10 }}>
-              <Text style={{ color: "#fff", fontWeight: "bold" }}>Đặt vé</Text>
+            <TouchableOpacity style={styles.bookButton}>
+              <Text style={styles.bookButtonText}>Đặt vé</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -48,5 +51,100 @@ const HomeScreen = () => {
     </View>
   );
 };
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: "#fff",
+    paddingTop: 40,
+  },
+  header: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    paddingHorizontal: 20,
+  },
+  headerLeft: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  logo: {
+    width: 40,
+    height: 40,
+    marginRight: 10,
+    
+  },
+  headerText: {
+    fontSize: 18,
+    fontWeight: "bold",
+    color: "#d43f57",
+  },
+  menuButton: {
+    padding: 10,
+  },
+  menuIcon: {
+    fontSize: 24,
+  },
+  tabs: {
+    flexDirection: "row",
+    justifyContent: "space-around",
+    marginVertical: 10,
+  },
+  activeTab: {
+    fontSize: 16,
+    fontWeight: "bold",
+    color: "#d43f57",
+  },
+  inactiveTab: {
+    fontSize: 16,
+    color: "#555",
+  },
+  searchBox: {
+    marginHorizontal: 20,
+    marginBottom: 20,
+    borderWidth: 1,
+    borderRadius: 10,
+    padding: 10,
+  },
+  searchInput: {
+    fontSize: 16,
+  },
+  movieContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingBottom: 20,
+    paddingHorizontal: 20,
+  },
+  posterImage: {
+    width: 150,
+    height: 220,
+    borderRadius: 10,
+  },
+  movieDetails: {
+    flex: 1,
+    marginLeft: 15,
+    backgroundColor: "#fff",
+    padding: 10,
+    borderRadius: 10,
+    shadowOpacity: 0.1,
+    shadowRadius: 10,
+  },
+  movieTitle: {
+    fontSize: 18,
+    fontWeight: "bold",
+    marginBottom: 5,
+  },
+  bookButton: {
+    backgroundColor: "#d43f57",
+    padding: 10,
+    borderRadius: 10,
+    marginTop: 10,
+    alignSelf: "flex-start",
+  },
+  bookButtonText: {
+    color: "#fff",
+    fontWeight: "bold",
+  },
+});
 
 export default HomeScreen;
