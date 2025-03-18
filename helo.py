@@ -1,5 +1,0 @@
-print("heello")
-print("concac")
-print("hehe")
-print("Hoangdepz")
-print("hea")
