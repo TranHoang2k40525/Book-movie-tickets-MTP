@@ -1,14 +1,17 @@
 import React from "react";
 import { View, Text, Image, TextInput, TouchableOpacity, ScrollView, StyleSheet } from "react-native";
+import { useNavigation } from "@react-navigation/native";
 
 const HomeScreen = () => {
+  const navigation = useNavigation();
+
   return (
     <View style={styles.container}>
       {/* Header */}
       <View style={styles.header}>
         <View style={styles.headerLeft}>
           <Image source={require("./assets/images/icon1.png")} style={styles.logo} />
-          <Text style={styles.headerText}>MTV 67CS1</Text>
+          <Text style={styles.headerText}>MTB 67CS1</Text>
         </View>
         <TouchableOpacity style={styles.menuButton}>
           <Text style={styles.menuIcon}>☰</Text>
@@ -42,7 +45,10 @@ const HomeScreen = () => {
             <Text>Khởi chiếu: 21/02/2025</Text>
             <Text>Thời lượng: 117 phút</Text>
             <Text>Ngôn ngữ: Tiếng Việt - Phụ đề Tiếng Anh</Text>
-            <TouchableOpacity style={styles.bookButton}>
+            <TouchableOpacity 
+              style={styles.bookButton} 
+              onPress={() => navigation.navigate("BookingScreen")}
+            >
               <Text style={styles.bookButtonText}>Đặt vé</Text>
             </TouchableOpacity>
           </View>
@@ -72,7 +78,6 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     marginRight: 10,
-    
   },
   headerText: {
     fontSize: 18,
