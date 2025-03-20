@@ -17,15 +17,15 @@ const moviesData = [
     date: '21 Th4 2025',
     duration: '1 giờ 52 phút',
     format: 'STARIUM',
-    image: require('./assets/1.jpg'),
+    image: require('./assets/images/nhagiatien.png'),
   },
   {
     id: '2',
-    title: 'NỮ TÙ BÓNG TỐI',
+    title: 'NỮ TU BÓNG TỐI',
     date: '21 Th4 2025',
     duration: '1 giờ 54 phút',
     format: 'ULTRA 4DX',
-    image: require('./assets/2.png'),
+    image: require('./assets/images/nutubongtoi.jpg'),
   },
   {
     id: '3',
@@ -33,7 +33,7 @@ const moviesData = [
     date: '21 Th4 2025',
     duration: '1 giờ 58 phút',
     format: 'SCREEN X, IMAX, ULTRA 4DX',
-    image: require('./assets/3.jpg'),
+    image: require('./assets/images/captainamerica.png'),
   },
   {
     id: '4',
@@ -41,7 +41,7 @@ const moviesData = [
     date: '21 Th4 2025',
     duration: '1 giờ 57 phút',
     format: '2D',
-    image: require('./assets/4.jpg'),
+    image: require('./assets/images/giaohangchoma.jpg'),
   },
   {
     id: '5',
@@ -49,7 +49,7 @@ const moviesData = [
     date: '21 Th4 2025',
     duration: '1 giờ 53 phút',
     format: '2D',
-    image: require('./assets/5.jpg'),
+    image: require('./assets/images/nuhonbacty.jpg'),
   },
   {
     id: '6',
@@ -57,7 +57,7 @@ const moviesData = [
     date: '21 Th4 2025',
     duration: '1 giờ 56 phút',
     format: '2D',
-    image: require('./assets/6.jpg'),
+    image: require('./assets/images/yeunhambanthan.jpg'),
   },
 ];
 
