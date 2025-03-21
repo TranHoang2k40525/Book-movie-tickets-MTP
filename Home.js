@@ -12,8 +12,18 @@ import {
 import { FlatList } from "react-native-gesture-handler";
 import Icon from "react-native-vector-icons/FontAwesome"
 import Icon1 from "react-native-vector-icons/MaterialCommunityIcons";
-
-const moviesNowShowing = [
+import { NavigationProp } from '@react-navigation/native';
+interface Movie {
+  id: string;
+  title: string;
+  releaseDate: string;
+  image: any;
+  director?: string;
+  genre?: string;
+  duration?: string;
+  language?: string;
+}
+const moviesNowShowing:Movie[] = [
   {
     id: "1",
     title: "Transformers Một",
@@ -53,7 +63,7 @@ const moviesNowShowing = [
     image: require("./assets/images/natra2.jpg"),
   },
 ];
-const moviesComingSoon = [
+const moviesComingSoon:Movie[] = [
  
   {
     id: "2",
@@ -88,12 +98,12 @@ const moviesComingSoon = [
     image: require("./assets/images/natra2.jpg"),
   },
 ];
-const moviesSpecial = [
+const moviesSpecial:Movie[] = [
   { id: "1", title: "Transformers Một", releaseDate: "29.2.2025", image: require("./assets/images/transformers.jpg") 
   
   }
 ]
-const allMovies = [
+const allMovies:Movie[] = [
  
   {
     id: "4",
@@ -135,16 +145,30 @@ const allMovies = [
   },
 ];
 
-export default function Home() {
+
+
+interface HomeProps {
+  navigation: NavigationProp<any>;
+}
+
+export default function Home({ navigation }: HomeProps) {
   const [selectedTab, setSelectedTab] = useState("Đang chiếu");
   const [searchText, setSearchText] = useState("");
   const [menuVisible, setMenuVisible] = useState(false);
   const toggleMenu = () => {
     setMenuVisible(!menuVisible);
   };
+  const renderMovieCard = ({ item }: { item: Movie }) => (
+    <View style={styles.movieCard}>
+      <Image source={item.image} style={styles.movieImage} />
+      <Text style={styles.movieTitle}>{item.title}</Text>
+      <Text style={styles.movieDate}>Khởi chiếu {item.releaseDate}</Text>
+    </View>
+  );
   return (
     <View style={styles.container}>
       {/* Tabs */}
+      <View style={styles.fixedHeader}>
       <View style={styles.header}>
         <Image
           source={require("./assets/images/logo.png")}
@@ -161,72 +185,111 @@ export default function Home() {
         <Text style={styles.menuText}>≡</Text>
       </TouchableOpacity>
 
-      {/* Lớp menu mở khi bấm */}
+      {/* Menu Modal */}
       <Modal
-        visible={menuVisible}
-        transparent={true}
-        animationType="fade"
-        onRequestClose={() => setMenuVisible(false)}
-      >
-        <TouchableOpacity style={styles.overlay} onPress={toggleMenu}>
-        <View style={styles.menu}>
-  
-      {/* Logo */}
-      <Icon1 name="movie-roll" size={60} color="#FFD700" style={styles.menuLogo} />
+              visible={menuVisible}
+              transparent={true}
+              animationType="fade"
+              onRequestClose={() => setMenuVisible(false)}
+            >
+              <TouchableOpacity style={styles.overlay} onPress={toggleMenu}>
+                <View style={styles.menu}>
+                  {/* Avatar trống (chưa đăng nhập) */}
+                  <View style={styles.avatarContainer}>
+                    <TouchableOpacity style={styles.notificationButton}>
+                      <Icon1 name="bell" size={24} color="#fff" />
+                    </TouchableOpacity>
+                    <Icon1 name="account-circle" size={60} color="#fff" />
+                    <TouchableOpacity style={styles.settingsButton}>
+                      <Icon1 name="cog" size={24} color="#fff" />
+                    </TouchableOpacity>
+                  </View>
 
-{/* Các mục đặt vé */}
-<TouchableOpacity><Text style={styles.menuTitle}>Đăng nhập </Text></TouchableOpacity>
-<TouchableOpacity><Text style={styles.menuTitle}>Đăng kí </Text></TouchableOpacity>
-<TouchableOpacity><Text style={styles.menuTitle}>Đặt vé theo phim</Text></TouchableOpacity>
-<TouchableOpacity><Text style={styles.menuTitle}>Đặt vé theo rạp</Text></TouchableOpacity>
+                  {/* Các mục đăng nhập/đăng ký */}
+                  <View style={styles.authButtons}>
+                  <TouchableOpacity
+                      style={styles.authButton}
+                      onPress={() => {
+                        console.log("Navigating to Login"); // Kiểm tra sự kiện
+                        navigation.navigate("Login");
+                      }}
+                    >
+                      <Text style={styles.authButtonText}>Đăng nhập</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={styles.authButton}
+                      onPress={() => {
+                        console.log("Navigating to Register"); // Kiểm tra sự kiện
+                        navigation.navigate("Register"); // Điều hướng tới Register
+                      }}
+                    >
+                      <Text style={styles.authButtonText}>Đăng ký</Text>
+                    </TouchableOpacity>
+                  </View>
 
+                  {/* Các mục đặt vé */}
+                  <View style={styles.menuSection}>
+                    <TouchableOpacity style={styles.menuRow}>
+                      <Icon1 name="movie" size={24} color="#fff" style={styles.menuIcon} />
+                      <Text style={styles.menuItem}>Đặt vé theo phim</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity style={styles.menuRow}>
+                      <Icon1 name="map-marker" size={24} color="#fff" style={styles.menuIcon} />
+                      <Text style={styles.menuItem}>Đặt vé theo rạp</Text>
+                    </TouchableOpacity>
+                  </View>
 
+                  {/* Các mục menu chính */}
+                  <View style={styles.menuSection}>
+                    <TouchableOpacity style={styles.menuRow}>
+                      <Icon1 name="home" size={24} color="#fff" style={styles.menuIcon} />
+                      <Text style={styles.menuItem}>Trang chủ</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity style={styles.menuRow}>
+                      <Icon1 name="account" size={24} color="#fff" style={styles.menuIcon} />
+                      <Text style={styles.menuItem}>Thành viên</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity style={styles.menuRow}>
+                      <Icon1 name="map-marker" size={24} color="#fff" style={styles.menuIcon} />
+                      <Text style={styles.menuItem}>Rạp</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity style={styles.menuRow}>
+                      <Icon1 name="star" size={24} color="#fff" style={styles.menuIcon} />
+                      <Text style={styles.menuItem}>Rạp đặc biệt</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity style={styles.menuRow}>
+                      <Icon1 name="ticket-confirmation" size={24} color="#fff" style={styles.menuIcon} />
+                      <Text style={styles.menuItem}>Vé của tôi</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity style={styles.menuRow}>
+                      <Icon1 name="store" size={24} color="#fff" style={styles.menuIcon} />
+                      <Text style={styles.menuItem}>Store</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity style={styles.menuRow}>
+                      <Icon1 name="gift" size={24} color="#fff" style={styles.menuIcon} />
+                      <Text style={styles.menuItem}>eGift</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity style={styles.menuRow}>
+                      <Icon1 name="sale" size={24} color="#fff" style={styles.menuIcon} />
+                      <Text style={styles.menuItem}>Đổi ưu đãi</Text>
+                    </TouchableOpacity>
+                  </View>
 
-
-{/* Các mục menu với icon */}
-<TouchableOpacity style={styles.menuRow}>
-  <Icon1 name="home" size={24} color="#fff" style={styles.menuIcon} />
-  <Text style={styles.menuItem}>Trang chủ</Text>
-</TouchableOpacity>
-
-<TouchableOpacity style={styles.menuRow}>
-  <Icon1 name="account" size={24} color="#fff" style={styles.menuIcon} />
-  <Text style={styles.menuItem}>Thành viên</Text>
-</TouchableOpacity>
-
-<TouchableOpacity style={styles.menuRow}>
-  <Icon1 name="map-marker" size={24} color="#fff" style={styles.menuIcon} />
-  <Text style={styles.menuItem}>Rạp</Text>
-</TouchableOpacity>
-<TouchableOpacity style={styles.menuRow}>
-  <Icon1 name="sale" size={24} color="#fff" style={styles.menuIcon} />
-  <Text style={styles.menuItem}>Rạp đặc biệt</Text>
-</TouchableOpacity>
-<TouchableOpacity style={styles.menuRow}>
-  <Icon1 name="ticket-confirmation" size={24} color="#fff" style={styles.menuIcon} />
-  <Text style={styles.menuItem}>Vé của tôi</Text>
-</TouchableOpacity>
-
-<TouchableOpacity style={styles.menuRow}>
-  <Icon1 name="store" size={24} color="#fff" style={styles.menuIcon} />
-  <Text style={styles.menuItem}>Store</Text>
-</TouchableOpacity>
-
-<TouchableOpacity style={styles.menuRow}>
-  <Icon1 name="gift" size={24} color="#fff" style={styles.menuIcon} />
-  <Text style={styles.menuItem}>eGift</Text>
-</TouchableOpacity>
-
-<TouchableOpacity style={styles.menuRow}>
-  <Icon1 name="sale" size={24} color="#fff" style={styles.menuIcon} />
-  <Text style={styles.menuItem}>Đổi ưu đãi</Text>
-</TouchableOpacity>
-</View>
-
-        </TouchableOpacity>
-      </Modal>
-      </View>
-      </View>
+                  {/* Tin tức & Sự kiện */}
+                  <View style={styles.menuSection}>
+                    <TouchableOpacity style={styles.menuRow}>
+                      <Icon1 name="newspaper" size={24} color="#fff" style={styles.menuIcon} />
+                      <Text style={styles.menuItem}>Tin tức & Sự kiện</Text>
+                      <View style={styles.badge}>
+                        <Text style={styles.badgeText}>NEW</Text>
+                      </View>
+                    </TouchableOpacity>
+                  </View>
+                </View>
+              </TouchableOpacity>
+            </Modal>
+          </View>
+        </View>
       
       <View style={styles.tabContainer}>
         {["Đang chiếu", "Đặc biệt", "Sắp chiếu"].map((tab) => (
@@ -261,60 +324,43 @@ export default function Home() {
           </Text>
         </TouchableOpacity>
       </View>
-
+</View>
       {/* Movie List (Đang Chiếu & Sắp Chiếu) */}
-      {selectedTab === "Đang chiếu" && (
-        <FlatList
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          data={moviesNowShowing}
-          keyExtractor={(item) => item.id}
-          renderItem={({ item }) => (
-            <View style={styles.movieCard}>
-              <Image source={item.image} style={styles.movieImage} />
-              <Text style={styles.movieTitle}>{item.title}</Text>
-              <Text style={styles.movieDate}>Khởi chiếu {item.releaseDate}</Text>
+      <ScrollView style={styles.scrollContent}>
+        {/* Movie List ngang */}
+        <View style={styles.horizontalMovieContainer}>
+          <FlatList
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            data={
+              selectedTab === "Đang chiếu" ? moviesNowShowing :
+              selectedTab === "Đặc biệt" ? moviesSpecial :
+              moviesComingSoon
+            }
+            keyExtractor={(item) => item.id}
+            renderItem={renderMovieCard}
+          />
+        </View>
+
+        {/* Full Movie List dọc */}
+        <View style={styles.fullMovieList}>
+          {allMovies.map((movie) => (
+            <View key={movie.id} style={styles.fullMovieCard}>
+              <Image source={movie.image} style={styles.fullMovieImage} />
+              <View style={styles.movieInfo}>
+                <Text style={styles.fullMovieTitle}>{movie.title}</Text>
+                {movie.director && <Text>Đạo diễn: {movie.director}</Text>}
+                {movie.genre && <Text>Thể loại: {movie.genre}</Text>}
+                <Text>Khởi chiếu: {movie.releaseDate}</Text>
+                {movie.duration && <Text>Thời lượng: {movie.duration}</Text>}
+                {movie.language && <Text>Ngôn ngữ: {movie.language}</Text>}
+                <TouchableOpacity style={styles.bookButton}>
+                  <Text style={styles.bookButtonText}>Đặt vé</Text>
+                </TouchableOpacity>
+              </View>
             </View>
-          )}
-        />
-      )}
-      {selectedTab === "Đặc biệt" && ( 
-        <FlatList horizontal showsHorizontalScrollIndicator={false} data={moviesSpecial} keyExtractor={(item) => item.id} renderItem={({ item }) => ( <View style={styles.movieCard}> <Image source={item.image} style={styles.movieImage} /> <Text style={styles.movieTitle}>{item.title}</Text> <Text style={styles.movieDate}>Khởi chiếu {item.releaseDate}</Text> </View> )} /> )}  
-      
-        {selectedTab === "Sắp chiếu" && (
-        <FlatList
-          horizontal
-          
-          showsHorizontalScrollIndicator={false}
-          data={moviesComingSoon}
-          keyExtractor={(item) => item.id}
-          renderItem={({ item }) => (
-            <View style={styles.movieCard}>
-              <Image source={item.image} style={styles.movieImage} />
-              <Text style={styles.movieTitle}>{item.title}</Text>
-              <Text style={styles.movieDate}>Khởi chiếu {item.releaseDate}</Text>
-            </View>
-          )}
-        />
-      )} 
-      {/* Full Movie List (Scrollable) */}
-      <ScrollView style={styles.fullMovieList}>
-        {allMovies.map((movie) => (
-          <View key={movie.id} style={styles.fullMovieCard}>
-            <Image source={movie.image} style={styles.fullMovieImage} />
-            <View style={styles.movieInfo}>
-              <Text style={styles.fullMovieTitle}>{movie.title}</Text>
-              <Text>Đạo diễn: {movie.director}</Text>
-              <Text>Thể loại: {movie.genre}</Text>
-              <Text>Khởi chiếu: {movie.releaseDate}</Text>
-              <Text>Thời lượng: {movie.duration}</Text>
-              <Text>Ngôn ngữ: {movie.language}</Text>
-              <TouchableOpacity style={styles.bookButton}>
-                <Text style={styles.bookButtonText}>Đặt vé</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        ))}
+          ))}
+        </View>
       </ScrollView>
     </View>
   );
@@ -322,6 +368,9 @@ export default function Home() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "white", paddingTop: 0 },
+  fixedHeader: {
+    backgroundColor: "white",
+  },
   header: {
     flexDirection: "row",
     alignItems: "center",
@@ -331,18 +380,17 @@ const styles = StyleSheet.create({
     backgroundColor: "white",
     height: 70,
   },
+  scrollContent: {
+    flex: 1,
+  },
+  horizontalMovieContainer: {
+    paddingVertical: 10,
+  },
   logo: {
     width: 35,
     height: 35,
     resizeMode: "contain",
     padding: 10,
-  },
-  centerText: {
-    position: "absolute",
-    left: "50%",
-    transform: [{ translateX: -30 }],
-    flexDirection: "row",
-    alignItems: "center",
   },
   headerText: {
     fontSize: 16,
@@ -361,64 +409,90 @@ const styles = StyleSheet.create({
     resizeMode: "contain",
     marginRight: 10,
   },
-  // Style cho menu
   menuButton: {
     padding: 5,
   },
   menuText: {
     fontSize: 28,
-    color: "#black",
+    color: "black",
     fontWeight: "bold",
-    
   },
   overlay: {
-  flex: 1,
-  backgroundColor: "rgba(0, 0, 0, 0.7)", // Làm tối nền mờ hơn
-  justifyContent: "center",
-  alignItems: "flex-end",
-},
-
-
+    flex: 1,
+    backgroundColor: "rgba(45, 43, 43, 0.41)",
+    justifyContent: "center",
+    alignItems: "flex-end",
+  },
   menu: {
-    backgroundColor: "rgba(30, 29, 29, 0.64)", // Làm tối menu để nổi bật
-    width: "80%", 
-    height: "100%", 
+    backgroundColor: "#1E1D1D",
+    width: "80%",
+    height: "100%",
     paddingVertical: 20,
     paddingHorizontal: 15,
-    borderTopLeftRadius: 15, // Bo góc bên trái trên
-    borderBottomLeftRadius: 15, // Bo góc bên trái dưới
+    borderTopLeftRadius: 15,
+    borderBottomLeftRadius: 15,
+  },
+  avatarContainer: {
     alignItems: "center",
+    marginBottom: 20,
   },
-  menuLogo: {
-    width: 80,
-    height: 80,
-    marginBottom: 10,
-    alignItems:"center",
+  notificationButton: {
+    position: "absolute",
+    left: 50, // Điều chỉnh vị trí nút thông báo
+    top: 20
   },
-  menuTitle: {
-    fontSize: 16,
+  settingsButton: {
+    position: "absolute",
+    top: 20,
+    right: 50, // Điều chỉnh vị trí nút cài đặt
+  },
+  authButtons: {
+    flexDirection: "row",
+    justifyContent: "space-around",
+    marginBottom: 20,
+  },
+  authButton: {
+    backgroundColor: "#FF4D6D",
     paddingVertical: 10,
-    color: "#fff",
+    paddingHorizontal: 20,
+    borderRadius: 20,
+  },
+  authButtonText: {
+    color: "white",
     fontWeight: "bold",
-    textAlign: "center",
+    fontSize: 16,
+  },
+  menuSection: {
+    borderTopWidth: 1,
+    borderTopColor: "rgba(255, 255, 255, 0.2)",
+    paddingVertical: 10,
   },
   menuRow: {
-    flexDirection: "column",
+    flexDirection: "row",
     alignItems: "center",
-    width: "100%",
-    paddingVertical: 10,
-    paddingHorizontal: 15,
+    paddingVertical: 15,
+    paddingHorizontal: 10,
   },
   menuIcon: {
-    marginRight: 0,
+    marginRight: 15,
   },
   menuItem: {
-    fontSize: 14,
+    fontSize: 16,
     color: "#fff",
     fontWeight: "bold",
+    flex: 1,
   },
-
-
+  badge: {
+    backgroundColor: "#FF4D6D",
+    borderRadius: 10,
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+  },
+  badgeText: {
+    color: "white",
+    fontSize: 12,
+    fontWeight: "bold",
+  },
   tabContainer: {
     flexDirection: "row",
     justifyContent: "space-around",
@@ -429,7 +503,6 @@ const styles = StyleSheet.create({
   activeTab: { borderBottomWidth: 2, borderBottomColor: "#ff4d6d" },
   tabText: { fontSize: 16, color: "#444" },
   activeTabText: { fontWeight: "bold", color: "#ff4d6d" },
-  
   searchContainer: {
     flexDirection: "row",
     alignItems: "center",
@@ -443,7 +516,6 @@ const styles = StyleSheet.create({
   searchInput: { flex: 1, fontSize: 16, color: "#333" },
   searchButton: { padding: 5, borderRadius: 10 },
   searchButtonText: { fontSize: 18, color: "#fff", fontWeight: "bold" },
-
   movieCard: {
     flex: 1,
     margin: 5,
@@ -452,7 +524,7 @@ const styles = StyleSheet.create({
     overflow: "hidden",
     elevation: 3,
   },
-  movieImage: { width: 'auto', height: 200, resizeMode: "cover" },
+  movieImage: { width: "auto", height: 200, resizeMode: "cover" },
   movieTitle: { fontWeight: "bold", textAlign: "center", padding: 5 },
   movieDate: { textAlign: "center", color: "gray" },
   fullMovieList: { marginTop: 20, paddingHorizontal: 10 },
