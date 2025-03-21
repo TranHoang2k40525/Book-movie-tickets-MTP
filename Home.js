@@ -53,8 +53,48 @@ const moviesNowShowing = [
     image: require("./assets/images/natra2.jpg"),
   },
 ];
-
+const moviesComingSoon = [
+ 
+  {
+    id: "2",
+    title: "Kẻ đồng hành",
+    releaseDate: "15.3.2025",
+    image: require("./assets/images/kedonghanh.png"),
+  },
+  {
+    id: "3",
+    title: "Nhà gia tiên",
+    releaseDate: "1.4.2025",
+    image: require("./assets/images/nhagiatien.png"),
+  },
+  {
+    id: "4",
+    title: "Nhà gia tiên",
+    director: "Huỳnh Lập",
+    genre: "Gia đình, Hài",
+    releaseDate: "21/02/2025",
+    duration: "117 phút",
+    language: "Tiếng Việt - Phụ đề Tiếng Anh",
+    image: require("./assets/images/nhagiatien.png"),
+  },
+  {
+    id: "5",
+    title: "Natra 2",
+    director: "Director 5",
+    genre: "Hành động",
+    releaseDate: "10/03/2025",
+    duration: "120 phút",
+    language: "Tiếng Việt",
+    image: require("./assets/images/natra2.jpg"),
+  },
+];
+const moviesSpecial = [
+  { id: "1", title: "Transformers Một", releaseDate: "29.2.2025", image: require("./assets/images/transformers.jpg") 
+  
+  }
+]
 const allMovies = [
+ 
   {
     id: "4",
     title: "Nhà gia tiên",
@@ -130,9 +170,9 @@ export default function Home() {
       >
         <TouchableOpacity style={styles.overlay} onPress={toggleMenu}>
         <View style={styles.menu}>
-  {/* Logo */}
-   {/* Logo */}
-   <Icon1 name="movie-roll" size={60} color="#FFD700" style={styles.menuLogo} />
+  
+      {/* Logo */}
+      <Icon1 name="movie-roll" size={60} color="#FFD700" style={styles.menuLogo} />
 
 {/* Các mục đặt vé */}
 <TouchableOpacity><Text style={styles.menuTitle}>Đăng nhập </Text></TouchableOpacity>
@@ -222,21 +262,41 @@ export default function Home() {
         </TouchableOpacity>
       </View>
 
-      {/* Movie List (Swipeable) */}
-      <FlatList
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        data={moviesNowShowing}
-        keyExtractor={(item) => item.id}
-        renderItem={({ item }) => (
-          <View style={styles.movieCard}>
-            <Image source={item.image} style={styles.movieImage} />
-            <Text style={styles.movieTitle}>{item.title}</Text>
-            <Text style={styles.movieDate}>Khởi chiếu {item.releaseDate}</Text>
-          </View>
-        )}
-      />
-
+      {/* Movie List (Đang Chiếu & Sắp Chiếu) */}
+      {selectedTab === "Đang chiếu" && (
+        <FlatList
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          data={moviesNowShowing}
+          keyExtractor={(item) => item.id}
+          renderItem={({ item }) => (
+            <View style={styles.movieCard}>
+              <Image source={item.image} style={styles.movieImage} />
+              <Text style={styles.movieTitle}>{item.title}</Text>
+              <Text style={styles.movieDate}>Khởi chiếu {item.releaseDate}</Text>
+            </View>
+          )}
+        />
+      )}
+      {selectedTab === "Đặc biệt" && ( 
+        <FlatList horizontal showsHorizontalScrollIndicator={false} data={moviesSpecial} keyExtractor={(item) => item.id} renderItem={({ item }) => ( <View style={styles.movieCard}> <Image source={item.image} style={styles.movieImage} /> <Text style={styles.movieTitle}>{item.title}</Text> <Text style={styles.movieDate}>Khởi chiếu {item.releaseDate}</Text> </View> )} /> )}  
+      
+        {selectedTab === "Sắp chiếu" && (
+        <FlatList
+          horizontal
+          
+          showsHorizontalScrollIndicator={false}
+          data={moviesComingSoon}
+          keyExtractor={(item) => item.id}
+          renderItem={({ item }) => (
+            <View style={styles.movieCard}>
+              <Image source={item.image} style={styles.movieImage} />
+              <Text style={styles.movieTitle}>{item.title}</Text>
+              <Text style={styles.movieDate}>Khởi chiếu {item.releaseDate}</Text>
+            </View>
+          )}
+        />
+      )} 
       {/* Full Movie List (Scrollable) */}
       <ScrollView style={styles.fullMovieList}>
         {allMovies.map((movie) => (
@@ -261,14 +321,14 @@ export default function Home() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#f8f8f8", paddingTop: 0 },
+  container: { flex: 1, backgroundColor: "white", paddingTop: 0 },
   header: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
     paddingVertical: 10,
     paddingHorizontal: 10,
-    backgroundColor: "#fff",
+    backgroundColor: "white",
     height: 70,
   },
   logo: {
@@ -320,7 +380,7 @@ const styles = StyleSheet.create({
 
 
   menu: {
-    backgroundColor: "rgba(0, 0, 0, 0.8)", // Làm tối menu để nổi bật
+    backgroundColor: "rgba(30, 29, 29, 0.64)", // Làm tối menu để nổi bật
     width: "80%", 
     height: "100%", 
     paddingVertical: 20,
@@ -385,17 +445,19 @@ const styles = StyleSheet.create({
   searchButtonText: { fontSize: 18, color: "#fff", fontWeight: "bold" },
 
   movieCard: {
-    width: "auto",
-    margin: 10,
+    flex: 1,
+    margin: 5,
     backgroundColor: "white",
     borderRadius: 10,
     overflow: "hidden",
+    elevation: 3,
   },
-  movieImage: { width: "auto", height: 250 },
+  movieImage: { width: 'auto', height: 200, resizeMode: "cover" },
   movieTitle: { fontWeight: "bold", textAlign: "center", padding: 5 },
   movieDate: { textAlign: "center", color: "gray" },
   fullMovieList: { marginTop: 20, paddingHorizontal: 10 },
   fullMovieCard: {
+    flex: 1,
     flexDirection: "row",
     backgroundColor: "white",
     marginBottom: 15,
