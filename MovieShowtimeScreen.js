@@ -18,32 +18,32 @@ const MovieShowtimeScreen = ({ navigation }) => {
 
   const cinemas = [
     {
-      name: 'CGV Aeon Canary',
+      name: ' Aeon Canary',
       distance: '1.28Km',
       showtimes: ['14:50', '15:30', '16:05', '16:40', '17:20', '18:00'],
     },
     {
-      name: 'CGV Aeon Hà Đông',
+      name: ' Aeon Hà Đông',
       distance: '2.50Km',
       showtimes: ['12:00', '13:45', '15:30', '17:15', '19:00', '20:45'],
     },
     {
-      name: 'CGV Vincom Bà Triệu',
+      name: ' Vincom Bà Triệu',
       distance: '3.00Km',
       showtimes: ['11:00', '13:00', '15:00', '17:00', '19:00'],
     },
     {
-      name: 'CGV Vincom Nguyễn Chí Thanh',
+      name: ' Vincom Nguyễn Chí Thanh',
       distance: '4.20Km',
       showtimes: ['10:30', '12:45', '15:00', '17:15', '19:30'],
     },
     {
-      name: 'CGV IPH Xuân Thủy',
+      name: ' Xuân Thủy',
       distance: '5.60Km',
       showtimes: ['09:00', '11:00', '13:00', '15:00', '17:00', '19:00'],
     },
     {
-      name: 'CGV Vincom Royal City',
+      name: ' Vincom Royal City',
       distance: '6.80Km',
       showtimes: ['10:00', '12:30', '15:00', '17:30', '20:00'],
     },
