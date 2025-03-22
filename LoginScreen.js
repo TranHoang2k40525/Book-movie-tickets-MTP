@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   View,
   Text,
@@ -11,17 +11,47 @@ import {
 } from "react-native";
 import Icon from "react-native-vector-icons/FontAwesome";
 
-const LoginScreen = ({ navigation }) => {
+const LoginScreen = ({ navigation , route}) => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [isPasswordVisible, setIsPasswordVisible] = useState(false);
-
-  const handleLogin = () => {
+  // Nhận email và mật khẩu từ ResetPasswordScreen (nếu có)
+  useEffect(() => {
+    if (route.params?.email) {
+      setEmail(route.params.email);
+    }
+    if (route.params?.password) {
+      setPassword(route.params.password);
+    }
+  }, [route.params]);
+  const handleLogin = async () => {
     if (!email || !password) {
       Alert.alert("Lỗi", "Vui lòng điền đầy đủ thông tin!");
       return;
     }
-    navigation.navigate("HomeScreen");
+  
+    try {
+      const response = await fetch('http://localhost:3000/api/login', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ email, password }),
+      });
+  
+      const data = await response.json();
+      if (response.ok) {
+        Alert.alert("Thành công", "Đăng nhập thành công!");
+        // Lưu token nếu cần (ví dụ: dùng AsyncStorage)
+        navigation.navigate("Home", { token: data.token, user: data.user });
+      } else {
+        Alert.alert("Lỗi", data.message);
+      }
+    } catch (err) {
+      Alert.alert("Lỗi", "Không thể kết nối đến server!");
+      console.error(err);
+    }
+    navigation.navigate("Home");
   };
 
   return (
@@ -93,8 +123,10 @@ const LoginScreen = ({ navigation }) => {
           <Text style={styles.loginButtonText}>Đăng nhập</Text>
         </TouchableOpacity>
 
-        <TouchableOpacity style={styles.forgotPassword}>
-          <Text style={styles.forgotPasswordText}>Quên mật khẩu?</Text>
+        <TouchableOpacity
+                style={styles.forgotPassword}
+                onPress={() => navigation.navigate("ForgotPassword")} >
+                <Text style={styles.forgotPasswordText}>Quên mật khẩu?</Text>
         </TouchableOpacity>
 
         <View style={styles.orContainer}>

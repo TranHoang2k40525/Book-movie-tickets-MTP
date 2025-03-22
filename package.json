@@ -6,7 +6,9 @@
     "start": "expo start",
     "android": "expo run:android",
     "ios": "expo run:ios",
-    "web": "expo start --web"
+    "web": "expo start --web",
+    "start1": "node server.js",
+    "dev": "nodemon server.js"
   },
   "dependencies": {
     "@expo/metro-runtime": "~4.0.1",
@@ -16,8 +18,12 @@
     "@react-navigation/native": "^7.0.17",
     "@react-navigation/native-stack": "^7.3.1",
     "@react-navigation/stack": "^7.2.1",
+    "bcrypt": "^5.1.1",
+    "dotenv": "^16.4.7",
     "expo": "~52.0.38",
     "expo-status-bar": "~2.0.1",
+    "express": "^4.21.2",
+    "jsonwebtoken": "^9.0.2",
     "mssql": "^11.0.1",
     "react": "18.3.1",
     "react-dom": "18.3.1",
