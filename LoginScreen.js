@@ -9,9 +9,18 @@ import {
   ImageBackground,
   Alert,
 } from "react-native";
+import { accounts } from "./User/datagiasu.json";
+
 import Icon from "react-native-vector-icons/FontAwesome";
 
-const LoginScreen = ({ navigation , route}) => {
+import { NavigationProp, RouteProp } from '@react-navigation/native';
+
+type LoginScreenProps = {
+  navigation: NavigationProp<any>;
+  route: RouteProp<any>;
+};
+
+const LoginScreen = ({ navigation, route }: LoginScreenProps) => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [isPasswordVisible, setIsPasswordVisible] = useState(false);
@@ -29,31 +38,24 @@ const LoginScreen = ({ navigation , route}) => {
       Alert.alert("Lỗi", "Vui lòng điền đầy đủ thông tin!");
       return;
     }
-  
-    try {
-      const response = await fetch('http://localhost:3000/api/login', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ email, password }),
-      });
-  
-      const data = await response.json();
-      if (response.ok) {
-        Alert.alert("Thành công", "Đăng nhập thành công!");
-        // Lưu token nếu cần (ví dụ: dùng AsyncStorage)
-        navigation.navigate("Home", { token: data.token, user: data.user });
-      } else {
-        Alert.alert("Lỗi", data.message);
-      }
-    } catch (err) {
-      Alert.alert("Lỗi", "Không thể kết nối đến server!");
-      console.error(err);
-    }
-    navigation.navigate("Home");
-  };
 
+    
+  
+    const account = accounts.find((acc) => acc.AccountName === email);
+    if (!account) {
+      Alert.alert("Lỗi", "Tài khoản không tồn tại!");
+      return;
+    }
+
+    if (account.AccountPassword !== password) {
+      Alert.alert("Lỗi", "Mật khẩu không đúng!");
+      return;
+    }
+
+    Alert.alert("Thành công", "Đăng nhập thành công!");
+    navigation.navigate("Home", { user: account });
+  };
+  
   return (
     <View style={styles.container}>
       {/* Header */}
@@ -65,18 +67,18 @@ const LoginScreen = ({ navigation , route}) => {
           style={styles.backButton}
           onPress={() => navigation.goBack()}
         >
-    
-          <Text style={{ color: "#fff" }}><Icon name="arrow-left" size={24} color="#fff" />  Quay lại</Text>
+          <Text style={{ color: "#fff" }}>
+            <Icon name="arrow-left" size={24} color="#fff" /> Quay lại
+          </Text>
         </TouchableOpacity>
 
         <View style={styles.header}>
           <View style={styles.squareContainer}>
             <View style={styles.innerSquare}>
-            <Text style={styles.headerText} numberOfLines={3}>
+              <Text style={styles.headerText} numberOfLines={3}>
                 Rạp chiếu phim MTB 67CS1
               </Text>
               <Image
-              
                 source={require("./assets/images/logo.png")} // Logo bên cạnh chữ
                 style={styles.logo}
               />
@@ -124,9 +126,10 @@ const LoginScreen = ({ navigation , route}) => {
         </TouchableOpacity>
 
         <TouchableOpacity
-                style={styles.forgotPassword}
-                onPress={() => navigation.navigate("ForgotPassword")} >
-                <Text style={styles.forgotPasswordText}>Quên mật khẩu?</Text>
+          style={styles.forgotPassword}
+          onPress={() => navigation.navigate("ForgotPassword")}
+        >
+          <Text style={styles.forgotPasswordText}>Quên mật khẩu?</Text>
         </TouchableOpacity>
 
         <View style={styles.orContainer}>
@@ -139,7 +142,9 @@ const LoginScreen = ({ navigation , route}) => {
           style={styles.registerButton}
           onPress={() => navigation.navigate("Register")} // Điều hướng đến màn hình đăng ký
         >
-          <Text style={styles.registerButtonText}>Đăng ký tài khoản MTB 67CS1</Text>
+          <Text style={styles.registerButtonText}>
+            Đăng ký tài khoản MTB 67CS1
+          </Text>
         </TouchableOpacity>
       </View>
     </View>
@@ -193,10 +198,8 @@ const styles = StyleSheet.create({
     color: "#fff",
     width: 100, // Giới hạn chiều rộng để chữ xuống dòng
     textAlign: "center", // Căn giữa chữ
-    
   },
   logo: {
-    
     width: 40,
     height: 40,
     resizeMode: "contain",

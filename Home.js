@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useContext } from "react";
 import {
   View,
   Text,
@@ -7,12 +7,14 @@ import {
   Image,
   StyleSheet,
   TextInput,
-  Modal 
+  
 } from "react-native";
 import { FlatList } from "react-native-gesture-handler";
-import Icon from "react-native-vector-icons/FontAwesome"
+import Icon from "react-native-vector-icons/FontAwesome";
 import Icon1 from "react-native-vector-icons/MaterialCommunityIcons";
-import { NavigationProp } from '@react-navigation/native';
+import { NavigationProp } from "@react-navigation/native";
+import Menu from "./Menu";
+import { UserContext } from "./User/UserContext";
 interface Movie {
   id: string;
   title: string;
@@ -23,23 +25,29 @@ interface Movie {
   duration?: string;
   language?: string;
 }
-const moviesNowShowing:Movie[] = [
+const moviesNowShowing: Movie[] = [
   {
     id: "1",
     title: "Transformers Một",
     releaseDate: "29.2.2025",
+    duration: "120 phút",
+    language: "Tiếng Việt",
     image: require("./assets/images/transformers.jpg"),
   },
   {
     id: "2",
     title: "Kẻ đồng hành",
     releaseDate: "15.3.2025",
+    duration: "120 phút",
+    language: "Tiếng Việt",
     image: require("./assets/images/kedonghanh.png"),
   },
   {
     id: "3",
     title: "Nhà gia tiên",
     releaseDate: "1.4.2025",
+    duration: "120 phút",
+    language: "Tiếng Việt",
     image: require("./assets/images/nhagiatien.png"),
   },
   {
@@ -63,18 +71,21 @@ const moviesNowShowing:Movie[] = [
     image: require("./assets/images/natra2.jpg"),
   },
 ];
-const moviesComingSoon:Movie[] = [
- 
+const moviesComingSoon: Movie[] = [
   {
     id: "2",
     title: "Kẻ đồng hành",
     releaseDate: "15.3.2025",
+    duration: "120 phút",
+    language: "Tiếng Việt",
     image: require("./assets/images/kedonghanh.png"),
   },
   {
     id: "3",
     title: "Nhà gia tiên",
     releaseDate: "1.4.2025",
+    duration: "120 phút",
+    language: "Tiếng Việt",
     image: require("./assets/images/nhagiatien.png"),
   },
   {
@@ -98,13 +109,17 @@ const moviesComingSoon:Movie[] = [
     image: require("./assets/images/natra2.jpg"),
   },
 ];
-const moviesSpecial:Movie[] = [
-  { id: "1", title: "Transformers Một", releaseDate: "29.2.2025", image: require("./assets/images/transformers.jpg") 
-  
-  }
-]
-const allMovies:Movie[] = [
- 
+const moviesSpecial: Movie[] = [
+  {
+    id: "1",
+    title: "Transformers Một",
+    releaseDate: "29.2.2025",
+    duration: "120 phút",
+    language: "Tiếng Việt",
+    image: require("./assets/images/transformers.jpg"),
+  },
+];
+const allMovies: Movie[] = [
   {
     id: "4",
     title: "Nhà gia tiên",
@@ -113,39 +128,80 @@ const allMovies:Movie[] = [
     releaseDate: "21/02/2025",
     duration: "117 phút",
     language: "Tiếng Việt - Phụ đề Tiếng Anh",
+    Akteur:"Jack Quaid, Lukas Gage, Sophie Thatcher",
     image: require("./assets/images/nhagiatien.png"),
+    MovieContent: "Nhà Gia Tiên xoay quanh câu chuyện đa góc nhìn về các thế hệ khác nhau trong một gia đình, có hai nhân vật chính là Gia Minh (Huỳnh Lập) và Mỹ Tiên (Phương Mỹ Chi). Trở về căn nhà gia tiên để quay các video “triệu view” trên mạng xã hội, Mỹ Tiên - một nhà sáng tạo nội dung thuộc thế hệ Z vốn không tin vào chuyện tâm linh, hoàn toàn mất kết nối với gia đình, bất ngờ nhìn thấy Gia Minh - người anh trai đã mất từ lâu. Để hồn ma của Gia Minh có thể siêu thoát và không tiếp tục làm phiền mình, Mỹ Tiên bắt tay cùng Gia Minh lên kế hoạch giữ lấy căn nhà gia tiên đang bị họ hàng tranh chấp, đòi ông nội chia tài sản. Đứng trước hàng loạt bí mật động trời trong căn nhà gia tiên, liệu Mỹ Tiên có vượt qua được tất cả để hoàn thành di nguyện của Gia Minh?",
   },
   {
     id: "5",
     title: "Natra2 ",
-    director: "Director 5",
+    director: "Giảo Tử",
     genre: "Hành động",
     releaseDate: "10/03/2025",
     duration: "120 phút",
     language: "Tiếng Việt",
+    Akteur:"Jack Quaid, Lukas Gage, Sophie Thatcher",
     image: require("./assets/images/natra2.jpg"),
+    MovieContent: "Na Tra 2: Ma Đồng Náo Hải tiếp tục câu chuyện đầy bi kịch xoay quanh Na Tra và Ngao Bính. Sau cuộc chiến oanh liệt với ác ma, mặc dù linh hồn của họ được cứu rỗi, nhưng thân xác của Na Tra và Ngao Bính đã bị tổn thương nặng nề, sắp sụp đổ hoàn toàn. Thái Ất Chân Nhân, với lòng từ bi và mong muốn được giúp đỡ hai con sứ giả nhân trời, quyết định sử dụng Bảy Đóa Sen Sắc Màu – trân bảo hiếm có có khả năng tái tạo thân xác – để cứu họ. Dự định này đã xen vào vô vàn thử thách.",
   },
   {
     id: "1",
     title: "Transformers Một",
+    director: "Director 5",
+    genre: "Hành động",
     releaseDate: "29.2.2025",
     image: require("./assets/images/transformers.jpg"),
+    MovieContent:"Nội dung phim: Transformers Một là một bộ phim hành động, viễn tưởng của Mỹ năm 2007 do Michael Bay đạo diễn, dựa trên loạt phim hoạt hình cùng tên của Hasbro. Phim có sự tham gia của các diễn viên Shia LaBeouf, Tyrese Gibson, Josh Duhamel, Anthony Anderson, Megan Fox, Rachael Taylor, John Turturro, Jon Voight và Hugo Weaving. Phim kể về cuộc chiến giữa các robot biến hình Autobots và Decepticons trên Trái Đất. Phim được công chiếu vào ngày 3 tháng 7 năm 2007 tại Việt Nam.",
   },
   {
     id: "2",
     title: "Kẻ đồng hành",
+    director: "Drew Hancock ",
+    genre: "Rùng rợn, Viễn tưởng",
     releaseDate: "15.3.2025",
+    duration: "120 phút",
+    language: "Tiếng Việt",
+    Akteur:"Jack Quaid, Lukas Gage, Sophie Thatcher",
     image: require("./assets/images/kedonghanh.png"),
+    MovieContent: "",
+
   },
   {
     id: "3",
     title: "Nhà gia tiên",
+    director: "Director 5",
+    genre: "Hành động",
     releaseDate: "1.4.2025",
+    duration: "120 phút",
+    language: "Tiếng Việt",
+    Akteur:" Huỳnh Lập, Phương Mỹ Chi, NSƯT Hạnh Thúy, NSƯT Ngọc Hiệp, Hồng Đào, Anh Tú, Trương Thế Vinh, Trương Minh Quốc Thái, Tiểu Bảo Quốc, NSƯT Thanh Hằng, NSƯT Hiền Anh",
     image: require("./assets/images/nhagiatien.png"),
+    MovieContent: "Nhà Gia Tiên xoay quanh câu chuyện đa góc nhìn về các thế hệ khác nhau trong một gia đình, có hai nhân vật chính là Gia Minh (Huỳnh Lập) và Mỹ Tiên (Phương Mỹ Chi). Trở về căn nhà gia tiên để quay các video “triệu view” trên mạng xã hội, Mỹ Tiên - một nhà sáng tạo nội dung thuộc thế hệ Z vốn không tin vào chuyện tâm linh, hoàn toàn mất kết nối với gia đình, bất ngờ nhìn thấy Gia Minh - người anh trai đã mất từ lâu. Để hồn ma của Gia Minh có thể siêu thoát và không tiếp tục làm phiền mình, Mỹ Tiên bắt tay cùng Gia Minh lên kế hoạch giữ lấy căn nhà gia tiên đang bị họ hàng tranh chấp, đòi ông nội chia tài sản. Đứng trước hàng loạt bí mật động trời trong căn nhà gia tiên, liệu Mỹ Tiên có vượt qua được tất cả để hoàn thành di nguyện của Gia Minh?",
+  },
+  {
+    id: "6",
+    title: "Captain America thế giới mới",
+    director: "Director 5",
+    genre: "Hành động",
+    releaseDate: "1.4.2025",
+    duration: "120 phút",
+    language: "Tiếng Việt",
+    Akteur:"Harrison Ford, Anthoy Mackie, Giancarlo Esposito, Rosa Salazar, Seth Rollins, Shira Haas",
+    image: require("./assets/images/CAPTAINAMERICA.png"),
+    MovieContent: "",
+  },
+  {
+    id: "7",
+    title: "Giao hoa cho mama",
+    director: "Director 5",
+    genre: "Hành động",
+    releaseDate: "1.4.2025",
+    duration: "120 phút",
+    language: "Tiếng Việt",
+    image: require("./assets/images/giaohangchoma.jpg"),
+    MovieContent: "",
   },
 ];
-
-
 
 interface HomeProps {
   navigation: NavigationProp<any>;
@@ -154,177 +210,74 @@ interface HomeProps {
 export default function Home({ navigation }: HomeProps) {
   const [selectedTab, setSelectedTab] = useState("Đang chiếu");
   const [searchText, setSearchText] = useState("");
-  const [menuVisible, setMenuVisible] = useState(false);
-  const toggleMenu = () => {
-    setMenuVisible(!menuVisible);
-  };
+  const { user } = useContext(UserContext);
   const renderMovieCard = ({ item }: { item: Movie }) => (
-    <View style={styles.movieCard}>
-      <Image source={item.image} style={styles.movieImage} />
-      <Text style={styles.movieTitle}>{item.title}</Text>
-      <Text style={styles.movieDate}>Khởi chiếu {item.releaseDate}</Text>
-    </View>
+    <TouchableOpacity
+      onPress={() => navigation.navigate("MovieDetail", { movie: item })}
+    >
+      <View style={styles.movieCard}>
+        <Image source={item.image} style={styles.movieImage} />
+        <Text style={styles.movieTitle}>{item.title}</Text>
+        <Text style={styles.movieDate}>Khởi chiếu {item.releaseDate}</Text>
+      </View>
+    </TouchableOpacity>
   );
   return (
     <View style={styles.container}>
       {/* Tabs */}
       <View style={styles.fixedHeader}>
-      <View style={styles.header}>
-        <Image
-          source={require("./assets/images/logo.png")}
-          style={styles.logo}
-        />
-        <Text style={styles.headerText}>MTB 67CS1</Text>
-        <View style={styles.rightSection}>
-        <Image
-          source={require("./assets/images/icon1.png")}
-          style={styles.ticketIcon}
-        />
-        {/* Nút mở menu */}
-      <TouchableOpacity style={styles.menuButton} onPress={toggleMenu}>
-        <Text style={styles.menuText}>≡</Text>
-      </TouchableOpacity>
-
-      {/* Menu Modal */}
-      <Modal
-              visible={menuVisible}
-              transparent={true}
-              animationType="fade"
-              onRequestClose={() => setMenuVisible(false)}
-            >
-              <TouchableOpacity style={styles.overlay} onPress={toggleMenu}>
-                <View style={styles.menu}>
-                  {/* Avatar trống (chưa đăng nhập) */}
-                  <View style={styles.avatarContainer}>
-                    <TouchableOpacity style={styles.notificationButton}>
-                      <Icon1 name="bell" size={24} color="#fff" />
-                    </TouchableOpacity>
-                    <Icon1 name="account-circle" size={60} color="#fff" />
-                    <TouchableOpacity style={styles.settingsButton}>
-                      <Icon1 name="cog" size={24} color="#fff" />
-                    </TouchableOpacity>
-                  </View>
-
-                  {/* Các mục đăng nhập/đăng ký */}
-                  <View style={styles.authButtons}>
-                  <TouchableOpacity
-                      style={styles.authButton}
-                      onPress={() => {
-                        console.log("Navigating to Login"); // Kiểm tra sự kiện
-                        navigation.navigate("Login");
-                      }}
-                    >
-                      <Text style={styles.authButtonText}>Đăng nhập</Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity
-                      style={styles.authButton}
-                      onPress={() => {
-                        console.log("Navigating to Register"); // Kiểm tra sự kiện
-                        navigation.navigate("Register"); // Điều hướng tới Register
-                      }}
-                    >
-                      <Text style={styles.authButtonText}>Đăng ký</Text>
-                    </TouchableOpacity>
-                  </View>
-
-                  {/* Các mục đặt vé */}
-                  <View style={styles.menuSection}>
-                    <TouchableOpacity style={styles.menuRow}>
-                      <Icon1 name="movie" size={24} color="#fff" style={styles.menuIcon} />
-                      <Text style={styles.menuItem}>Đặt vé theo phim</Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity style={styles.menuRow}>
-                      <Icon1 name="map-marker" size={24} color="#fff" style={styles.menuIcon} />
-                      <Text style={styles.menuItem}>Đặt vé theo rạp</Text>
-                    </TouchableOpacity>
-                  </View>
-
-                  {/* Các mục menu chính */}
-                  <View style={styles.menuSection}>
-                    <TouchableOpacity style={styles.menuRow}>
-                      <Icon1 name="home" size={24} color="#fff" style={styles.menuIcon} />
-                      <Text style={styles.menuItem}>Trang chủ</Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity style={styles.menuRow}>
-                      <Icon1 name="account" size={24} color="#fff" style={styles.menuIcon} />
-                      <Text style={styles.menuItem}>Thành viên</Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity style={styles.menuRow}>
-                      <Icon1 name="map-marker" size={24} color="#fff" style={styles.menuIcon} />
-                      <Text style={styles.menuItem}>Rạp</Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity style={styles.menuRow}>
-                      <Icon1 name="star" size={24} color="#fff" style={styles.menuIcon} />
-                      <Text style={styles.menuItem}>Rạp đặc biệt</Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity style={styles.menuRow}>
-                      <Icon1 name="ticket-confirmation" size={24} color="#fff" style={styles.menuIcon} />
-                      <Text style={styles.menuItem}>Vé của tôi</Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity style={styles.menuRow}>
-                      <Icon1 name="store" size={24} color="#fff" style={styles.menuIcon} />
-                      <Text style={styles.menuItem}>Store</Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity style={styles.menuRow}>
-                      <Icon1 name="gift" size={24} color="#fff" style={styles.menuIcon} />
-                      <Text style={styles.menuItem}>eGift</Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity style={styles.menuRow}>
-                      <Icon1 name="sale" size={24} color="#fff" style={styles.menuIcon} />
-                      <Text style={styles.menuItem}>Đổi ưu đãi</Text>
-                    </TouchableOpacity>
-                  </View>
-
-                  {/* Tin tức & Sự kiện */}
-                  <View style={styles.menuSection}>
-                    <TouchableOpacity style={styles.menuRow}>
-                      <Icon1 name="newspaper" size={24} color="#fff" style={styles.menuIcon} />
-                      <Text style={styles.menuItem}>Tin tức & Sự kiện</Text>
-                      <View style={styles.badge}>
-                        <Text style={styles.badgeText}>NEW</Text>
-                      </View>
-                    </TouchableOpacity>
-                  </View>
-                </View>
-              </TouchableOpacity>
-            </Modal>
+        <View style={styles.header}>
+          <Image
+            source={require("./assets/images/logo.png")}
+            style={styles.logo}
+          />
+          <Text style={styles.headerText}>MTB 67CS1</Text>
+          <View style={styles.rightSection}>
+            <Image
+              source={require("./assets/images/icon1.png")}
+              style={styles.ticketIcon}
+            />
+            {/* Nút mở menu */}
+            
+            <Menu navigation={navigation} />
           </View>
         </View>
-      
-      <View style={styles.tabContainer}>
-        {["Đang chiếu", "Đặc biệt", "Sắp chiếu"].map((tab) => (
-          <TouchableOpacity
-            key={tab}
-            onPress={() => setSelectedTab(tab)}
-            style={[styles.tab, selectedTab === tab && styles.activeTab]}
-          >
-            <Text
-              style={[
-                styles.tabText,
-                selectedTab === tab && styles.activeTabText,
-              ]}
+
+        <View style={styles.tabContainer}>
+          {["Đang chiếu", "Đặc biệt", "Sắp chiếu"].map((tab) => (
+            <TouchableOpacity
+              key={tab}
+              onPress={() => setSelectedTab(tab)}
+              style={[styles.tab, selectedTab === tab && styles.activeTab]}
             >
-              {tab}
+              <Text
+                style={[
+                  styles.tabText,
+                  selectedTab === tab && styles.activeTabText,
+                ]}
+              >
+                {tab}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+
+        {/* Search Nearby Theaters */}
+        <View style={styles.searchContainer}>
+          <TextInput
+            style={styles.searchInput}
+            placeholder="Tìm kiếm rạp gần đây..."
+            placeholderTextColor="#888"
+            value={searchText}
+            onChangeText={setSearchText}
+          />
+          <TouchableOpacity style={styles.searchButton}>
+            <Text style={styles.searchButtonText}>
+              <Icon name="search" size={24} color="black" />
             </Text>
           </TouchableOpacity>
-        ))}
+        </View>
       </View>
-
-      {/* Search Nearby Theaters */}
-      <View style={styles.searchContainer}>
-        <TextInput
-          style={styles.searchInput}
-          placeholder="Tìm kiếm rạp gần đây..."
-          placeholderTextColor="#888"
-          value={searchText}
-          onChangeText={setSearchText}
-        />
-        <TouchableOpacity style={styles.searchButton}>
-          <Text style={styles.searchButtonText}><Icon name="search" size={24} color="black" />
-          </Text>
-        </TouchableOpacity>
-      </View>
-</View>
       {/* Movie List (Đang Chiếu & Sắp Chiếu) */}
       <ScrollView style={styles.scrollContent}>
         {/* Movie List ngang */}
@@ -333,32 +286,38 @@ export default function Home({ navigation }: HomeProps) {
             horizontal
             showsHorizontalScrollIndicator={false}
             data={
-              selectedTab === "Đang chiếu" ? moviesNowShowing :
-              selectedTab === "Đặc biệt" ? moviesSpecial :
-              moviesComingSoon
+              selectedTab === "Đang chiếu"
+                ? moviesNowShowing
+                : selectedTab === "Đặc biệt"
+                ? moviesSpecial
+                : moviesComingSoon
             }
             keyExtractor={(item) => item.id}
             renderItem={renderMovieCard}
           />
         </View>
 
-        {/* Full Movie List dọc */}
         <View style={styles.fullMovieList}>
           {allMovies.map((movie) => (
-            <View key={movie.id} style={styles.fullMovieCard}>
-              <Image source={movie.image} style={styles.fullMovieImage} />
-              <View style={styles.movieInfo}>
-                <Text style={styles.fullMovieTitle}>{movie.title}</Text>
-                {movie.director && <Text>Đạo diễn: {movie.director}</Text>}
-                {movie.genre && <Text>Thể loại: {movie.genre}</Text>}
-                <Text>Khởi chiếu: {movie.releaseDate}</Text>
-                {movie.duration && <Text>Thời lượng: {movie.duration}</Text>}
-                {movie.language && <Text>Ngôn ngữ: {movie.language}</Text>}
-                <TouchableOpacity style={styles.bookButton}>
-                  <Text style={styles.bookButtonText}>Đặt vé</Text>
-                </TouchableOpacity>
+            <TouchableOpacity
+              key={movie.id}
+              onPress={() => navigation.navigate("MovieDetail", { movie })}
+            >
+              <View style={styles.fullMovieCard}>
+                <Image source={movie.image} style={styles.fullMovieImage} />
+                <View style={styles.movieInfo}>
+                  <Text style={styles.fullMovieTitle}>{movie.title}</Text>
+                  {movie.director && <Text>Đạo diễn: {movie.director}</Text>}
+                  {movie.genre && <Text>Thể loại: {movie.genre}</Text>}
+                  <Text>Khởi chiếu: {movie.releaseDate}</Text>
+                  {movie.duration && <Text>Thời lượng: {movie.duration}</Text>}
+                  {movie.language && <Text>Ngôn ngữ: {movie.language}</Text>}
+                  <TouchableOpacity style={styles.bookButton}>
+                    <Text style={styles.bookButtonText}>Đặt vé</Text>
+                  </TouchableOpacity>
+                </View>
               </View>
-            </View>
+            </TouchableOpacity>
           ))}
         </View>
       </ScrollView>
@@ -408,90 +367,6 @@ const styles = StyleSheet.create({
     height: 18,
     resizeMode: "contain",
     marginRight: 10,
-  },
-  menuButton: {
-    padding: 5,
-  },
-  menuText: {
-    fontSize: 28,
-    color: "black",
-    fontWeight: "bold",
-  },
-  overlay: {
-    flex: 1,
-    backgroundColor: "rgba(45, 43, 43, 0.41)",
-    justifyContent: "center",
-    alignItems: "flex-end",
-  },
-  menu: {
-    backgroundColor: "#1E1D1D",
-    width: "80%",
-    height: "100%",
-    paddingVertical: 20,
-    paddingHorizontal: 15,
-    borderTopLeftRadius: 15,
-    borderBottomLeftRadius: 15,
-  },
-  avatarContainer: {
-    alignItems: "center",
-    marginBottom: 20,
-  },
-  notificationButton: {
-    position: "absolute",
-    left: 50, // Điều chỉnh vị trí nút thông báo
-    top: 20
-  },
-  settingsButton: {
-    position: "absolute",
-    top: 20,
-    right: 50, // Điều chỉnh vị trí nút cài đặt
-  },
-  authButtons: {
-    flexDirection: "row",
-    justifyContent: "space-around",
-    marginBottom: 20,
-  },
-  authButton: {
-    backgroundColor: "#FF4D6D",
-    paddingVertical: 10,
-    paddingHorizontal: 20,
-    borderRadius: 20,
-  },
-  authButtonText: {
-    color: "white",
-    fontWeight: "bold",
-    fontSize: 16,
-  },
-  menuSection: {
-    borderTopWidth: 1,
-    borderTopColor: "rgba(255, 255, 255, 0.2)",
-    paddingVertical: 10,
-  },
-  menuRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingVertical: 15,
-    paddingHorizontal: 10,
-  },
-  menuIcon: {
-    marginRight: 15,
-  },
-  menuItem: {
-    fontSize: 16,
-    color: "#fff",
-    fontWeight: "bold",
-    flex: 1,
-  },
-  badge: {
-    backgroundColor: "#FF4D6D",
-    borderRadius: 10,
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-  },
-  badgeText: {
-    color: "white",
-    fontSize: 12,
-    fontWeight: "bold",
   },
   tabContainer: {
     flexDirection: "row",

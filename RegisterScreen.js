@@ -12,20 +12,21 @@ import {
 import { Picker } from "@react-native-picker/picker";
 import Icon from "react-native-vector-icons/Ionicons";
 import DateTimePicker from "@react-native-community/datetimepicker";
+import { customers, accounts } from "./User/datagiasu.json"; // Giả sử file này đã được đổi tên từ `users.js` thành `datagiasu.js`
 
 export default function RegisterScreen({ navigation }) {
   // Trạng thái cho các input
-  const [fullName, setFullName] = useState("");
-  const [phoneNumber, setPhoneNumber] = useState("");
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [selectedGender, setSelectedGender] = useState("");
-  const [selectedArea, setSelectedArea] = useState("");
+  const [customerName, setCustomerName] = useState("");
+  const [customerEmail, setCustomerEmail] = useState("");
+  const [customerPhone, setCustomerPhone] = useState("");
+  const [customerAddress, setCustomerAddress] = useState("");
+  const [password, setPassword] = useState(""); // Thêm trạng thái cho mật khẩu
   const [showPassword, setShowPassword] = useState(false);
-  const [date, setDate] = useState(new Date());
+  const [customerDate, setCustomerDate] = useState(new Date()); // Đổi tên từ `date` thành `customerDate` cho rõ ràng
   const [showDatePicker, setShowDatePicker] = useState(false);
+  const [customerGender, setCustomerGender] = useState(""); // Thêm trạng thái cho giới tính
 
-  // Danh sách khu vực (có thể thay đổi theo dữ liệu thực tế)
+  // Danh sách khu vực
   const areas = [
     { label: "Chọn khu vực", value: "" },
     { label: "Hà Nội", value: "hanoi" },
@@ -37,34 +38,87 @@ export default function RegisterScreen({ navigation }) {
   // Hàm xử lý khi nhấn nút Đăng ký
   const handleRegister = () => {
     // Kiểm tra các trường bắt buộc
-    if (!fullName || !phoneNumber || !email || !password || !selectedGender || !selectedArea || !date) {
+    if (
+      !customerName ||
+      !customerPhone ||
+      !customerEmail ||
+      !password ||
+      !customerGender ||
+      !customerAddress ||
+      !customerDate
+    ) {
       Alert.alert("Lỗi", "Vui lòng điền đầy đủ các thông tin bắt buộc!");
       return;
     }
 
     // Kiểm tra định dạng email
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(email)) {
+    if (!emailRegex.test(customerEmail)) {
       Alert.alert("Lỗi", "Email không hợp lệ!");
       return;
     }
 
-    // Kiểm tra số điện thoại (ví dụ: 10 chữ số)
+    // Kiểm tra số điện thoại (10 chữ số)
     const phoneRegex = /^\d{10}$/;
-    if (!phoneRegex.test(phoneNumber)) {
+    if (!phoneRegex.test(customerPhone)) {
       Alert.alert("Lỗi", "Số điện thoại phải có 10 chữ số!");
       return;
     }
 
-    // Kiểm tra độ dài mật khẩu (ví dụ: tối thiểu 6 ký tự)
+    // Kiểm tra độ dài mật khẩu
     if (password.length < 6) {
       Alert.alert("Lỗi", "Mật khẩu phải có ít nhất 6 ký tự!");
       return;
     }
 
-    // Nếu tất cả hợp lệ, có thể gửi dữ liệu lên server hoặc xử lý tiếp
+    // Kiểm tra email đã tồn tại chưa
+    if (accounts.some((acc) => acc.AccountName === customerEmail)) {
+      Alert.alert("Lỗi", "Email đã được sử dụng!");
+      return;
+    }
+
+    // Tính tuổi từ ngày sinh
+    const today = new Date();
+    const birthDate = new Date(customerDate);
+    let customerAge = today.getFullYear() - birthDate.getFullYear();
+    const monthDiff = today.getMonth() - birthDate.getMonth();
+    if (
+      monthDiff < 0 ||
+      (monthDiff === 0 && today.getDate() < birthDate.getDate())
+    ) {
+      customerAge--;
+    }
+
+    // Tạo ID mới
+    const newCustomerId = `CUST${customers.length + 1}`.padStart(7, "0");
+    const newAccountId = `ACC${accounts.length + 1}`.padStart(7, "0");
+
+    // Tạo đối tượng khách hàng mới
+    const newCustomer = {
+      CustomerId: newCustomerId,
+      CustomerName: customerName,
+      CustomerEmail: customerEmail,
+      CustomerPhone: customerPhone,
+      CustomerAge: customerAge,
+      CustomerAddress: customerAddress,
+      CustomerGender: customerGender, // Thêm giới tính
+      CustomerDate: customerDate.toISOString(), // Lưu ngày sinh dưới dạng chuỗi ISO
+    };
+
+    // Tạo đối tượng tài khoản mới
+    const newAccount = {
+      AccountId: newAccountId,
+      AccountName: customerEmail, // Dùng email làm tên tài khoản
+      AccountPassword: password, // Lưu plaintext (có thể mã hóa nếu cần)
+      CustomerId: newCustomerId,
+    };
+
+    // Thêm vào mảng
+    customers.push(newCustomer);
+    accounts.push(newAccount);
+
     Alert.alert("Thành công", "Đăng ký thành công!", [
-      { text: "OK", onPress: () => navigation.goBack() },
+      { text: "OK", onPress: () => navigation.navigate("Login") }, // Chuyển về màn hình đăng nhập
     ]);
   };
 
@@ -77,10 +131,10 @@ export default function RegisterScreen({ navigation }) {
           style={styles.logo}
         />
         <Text style={styles.headerText}>MTB 67CS1</Text>
-        
         <TouchableOpacity onPress={() => navigation.goBack()}>
-        <Text style={styles.registerText}><Icon name="arrow-back" size={20}  color="white" /> Đăng kí</Text>
-          
+          <Text style={styles.registerText}>
+            <Icon name="arrow-back" size={20} color="white" /> Đăng ký
+          </Text>
         </TouchableOpacity>
       </View>
 
@@ -91,8 +145,8 @@ export default function RegisterScreen({ navigation }) {
       <TextInput
         style={styles.input}
         placeholder="Nhập họ và tên"
-        value={fullName}
-        onChangeText={setFullName}
+        value={customerName}
+        onChangeText={setCustomerName}
       />
 
       <Text style={styles.label}>
@@ -101,9 +155,9 @@ export default function RegisterScreen({ navigation }) {
       <TextInput
         style={styles.input}
         placeholder="Nhập số điện thoại"
+        value={customerPhone}
+        onChangeText={setCustomerPhone}
         keyboardType="phone-pad"
-        value={phoneNumber}
-        onChangeText={setPhoneNumber}
       />
 
       <Text style={styles.label}>
@@ -112,9 +166,9 @@ export default function RegisterScreen({ navigation }) {
       <TextInput
         style={styles.input}
         placeholder="Nhập email"
+        value={customerEmail}
+        onChangeText={setCustomerEmail}
         keyboardType="email-address"
-        value={email}
-        onChangeText={setEmail}
       />
 
       <Text style={styles.label}>
@@ -124,12 +178,16 @@ export default function RegisterScreen({ navigation }) {
         <TextInput
           style={styles.passwordInput}
           placeholder="Nhập mật khẩu"
-          secureTextEntry={!showPassword}
           value={password}
           onChangeText={setPassword}
+          secureTextEntry={!showPassword} // Sửa để toggle hiển thị mật khẩu
         />
         <TouchableOpacity onPress={() => setShowPassword(!showPassword)}>
-          <Icon name={showPassword ? "eye-off" : "eye"} size={20} color="gray" />
+          <Icon
+            name={showPassword ? "eye-off" : "eye"}
+            size={20}
+            color="gray"
+          />
         </TouchableOpacity>
       </View>
 
@@ -144,7 +202,7 @@ export default function RegisterScreen({ navigation }) {
             style={styles.datePicker}
           >
             <Text style={styles.dateText}>
-              {date.toLocaleDateString("vi-VN", {
+              {customerDate.toLocaleDateString("vi-VN", {
                 day: "2-digit",
                 month: "2-digit",
                 year: "numeric",
@@ -153,12 +211,12 @@ export default function RegisterScreen({ navigation }) {
           </TouchableOpacity>
           {showDatePicker && (
             <DateTimePicker
-              value={date}
+              value={customerDate}
               mode="date"
               display={Platform.OS === "ios" ? "spinner" : "default"}
               onChange={(event, selectedDate) => {
                 setShowDatePicker(Platform.OS === "ios"); // Giữ picker mở trên iOS
-                if (selectedDate) setDate(selectedDate);
+                if (selectedDate) setCustomerDate(selectedDate);
               }}
             />
           )}
@@ -170,10 +228,11 @@ export default function RegisterScreen({ navigation }) {
           </Text>
           <View style={styles.pickerWrapper}>
             <Picker
-              selectedValue={selectedGender}
-              onValueChange={(itemValue) => setSelectedGender(itemValue)}
+              selectedValue={customerGender}
+              onValueChange={(itemValue) => setCustomerGender(itemValue)}
               style={styles.picker}
             >
+              <Picker.Item label="Chọn giới tính" value="" />
               <Picker.Item label="Nam" value="male" />
               <Picker.Item label="Nữ" value="female" />
             </Picker>
@@ -186,12 +245,16 @@ export default function RegisterScreen({ navigation }) {
       </Text>
       <View style={styles.pickerWrapper}>
         <Picker
-          selectedValue={selectedArea}
-          onValueChange={(itemValue) => setSelectedArea(itemValue)}
+          selectedValue={customerAddress}
+          onValueChange={(itemValue) => setCustomerAddress(itemValue)}
           style={styles.picker}
         >
           {areas.map((area) => (
-            <Picker.Item key={area.value} label={area.label} value={area.value} />
+            <Picker.Item
+              key={area.value}
+              label={area.label}
+              value={area.value}
+            />
           ))}
         </Picker>
       </View>
