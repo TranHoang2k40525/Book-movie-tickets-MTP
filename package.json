@@ -1,5 +1,5 @@
 {
-  "name": "BOOK_MOVIE-TICKETS-MTV",
+  "name": "book_movie-tickets-mtv",
   "version": "1.0.0",
   "main": "index.ts",
   "scripts": {
@@ -45,5 +45,9 @@
     "nodemon": "^3.0.1",
     "typescript": "^5.3.3"
   },
-  "private": true
+  "private": true,
+  "description": "",
+  "keywords": [],
+  "author": "",
+  "license": "ISC"
 }
