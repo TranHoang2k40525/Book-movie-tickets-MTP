@@ -7,14 +7,14 @@ import RegisterScreen from "./RegisterScreen";
 import ForgotPasswordScreen from "./ForgotPasswordScreen";
 import ResetPasswordScreen from "./ResetPasswordScreen";
 import MovieDetail from "./MovieDetail";
-import { UserProvider } from "./User/UserContext";
+
 
 const Stack = createStackNavigator();
 
 export default function App() {
-  console.log("App.js được render, UserProvider đang được áp dụng");
+ 
   return (
-    <UserProvider>
+   
       <NavigationContainer>
         <Stack.Navigator initialRouteName="Home">
           <Stack.Screen
@@ -49,6 +49,6 @@ export default function App() {
           />
         </Stack.Navigator>
       </NavigationContainer>
-    </UserProvider>
+    
   );
 }

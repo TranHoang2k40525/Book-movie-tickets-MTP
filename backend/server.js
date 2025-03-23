@@ -1,71 +1,48 @@
 const express = require('express');
-const connectDB = require('./db');
-const bcrypt = require('bcrypt');
-const jwt = require('jsonwebtoken');
-require('dotenv').config();
+const SQLServer = require('SqlServer');
+const bodyParser = require('body-parser');
+const cors = require('cors');
 
 const app = express();
-const PORT = process.env.PORT || 3000;
-
-// Middleware để parse JSON
-app.use(express.json());
-
-// Kết nối database
-let dbPool;
-(async () => {
-  dbPool = await connectDB();
-})();
-
-// API đăng nhập
-app.post('/api/login', async (req, res) => {
-  const { email, password } = req.body; // Frontend gửi email và password
-
-  // Kiểm tra dữ liệu đầu vào
-  if (!email || !password) {
-    return res.status(400).json({ message: 'Vui lòng điền đầy đủ thông tin!' });
-  }
-
-  try {
-    // Truy vấn người dùng từ bảng Account
-    const result = await dbPool.request()
-      .input('email', email)
-      .query('SELECT * FROM [dbo].[Account] WHERE [AccountName] = @email');
-
-    const user = result.recordset[0];
-    if (!user) {
-      return res.status(401).json({ message: 'Email không tồn tại!' });
-    }
-
-    // So sánh mật khẩu
-    const isMatch = await bcrypt.compare(password, user.AccountPassword);
-    if (!isMatch) {
-      return res.status(401).json({ message: 'Mật khẩu không đúng!' });
-    }
-
-    // Tạo JWT token
-    const token = jwt.sign(
-      { id: user.AccountID, email: user.AccountName, type: user.AccountType },
-      process.env.JWT_SECRET,
-      { expiresIn: '1h' }
-    );
-
-    // Trả về thông tin đăng nhập thành công
-    res.status(200).json({
-      message: 'Đăng nhập thành công!',
-      token,
-      user: {
-        id: user.AccountID,
-        email: user.AccountName,
-        type: user.AccountType
-      }
-    });
-  } catch (err) {
-    console.error('Login error:', err);
-    res.status(500).json({ message: 'Lỗi server!' });
-  }
+app.use(bodyParser.json());
+app.use(cors());
+const db =  SQLServer.createConnection({
+  host: 'localhost',
+  user:'',
+  password:'',
+  port:'',
+  database:'',
 });
-
-// Khởi động server
-app.listen(PORT, () => {
-  console.log(`Server is running on port ${PORT}`);
+db.connect();
+// xu ly get (select)
+app.get('/api/accounts', (req, res)  => {
+    var sql = 'SELECT * FROM accounts';
+    db.query(sql,(err, result)=>{
+        if(err) throw err;
+        console.log(result);
+        res.send(result); // gui ket qua cho react native
+    })
+});
+// xu ly post (insert)
+app.post('/api/accounts', (req, res)  => {
+  console.log(req.body);
+  // tham so truyen 
+    var data = {name:req.body.name, email:req.body.email, password:req.body.password};
+    var sql = 'INSERT INTO accounts SET ?';
+    db.query(sql,data, req.body,(err, result)=>{
+        if(err) throw err;
+        console.log(result);
+        res.send(result); // gui ket qua cho react native
+        res.send ({
+          status: "dữ liệu đã được gửi thành công",
+          message: "Account created successfully",
+          no:null,
+          name:req.body.name,
+          email:req.body.email,
+          password:req.body.password
+        })
+    })
+});
+app.listen(3000,'192.168.1.103',()=>{
+  console.log('Server đang chạy ở cổng 3000');
 });

@@ -9,7 +9,7 @@ import {
 } from "react-native";
 import Icon1 from "react-native-vector-icons/MaterialCommunityIcons";
 import { NavigationProp } from "@react-navigation/native";
-import { UserContext } from "./User/UserContext";
+ 
 interface MenuProps {
   navigation: NavigationProp<any>;
 }

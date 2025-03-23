@@ -8,27 +8,14 @@ import {
   StyleSheet,
 } from "react-native";
 import Icon from "react-native-vector-icons/FontAwesome";
-import { NavigationProp } from "@react-navigation/native";
+
 import Menu from "./Menu";
 import { UserContext } from "./User/UserContext";
-interface Movie {
-  id: string;
-  title: string;
-  releaseDate: string;
-  image: any;
-  director?: string;
-  genre?: string;
-  duration?: string;
-  language?: string;
-  description?: string;
-}
 
-interface MovieDetailProps {
-  navigation: NavigationProp<any>;
-  route: any;
-}
 
-export default function MovieDetail({ navigation, route }: MovieDetailProps) {
+
+
+export default function MovieDetail({ navigation, route }) {
     const { movie } = route.params || {};
     const { user } = useContext(UserContext);
     const [menuVisible, setMenuVisible] = useState(false);
