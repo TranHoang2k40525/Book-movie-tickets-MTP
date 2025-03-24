@@ -12,7 +12,7 @@ import {
 import { Picker } from "@react-native-picker/picker";
 import Icon from "react-native-vector-icons/Ionicons";
 import DateTimePicker from "@react-native-community/datetimepicker";
-import { customers, accounts } from "./User/datagiasu.json"; // Giả sử file này đã được đổi tên từ `users.js` thành `datagiasu.js`
+import axios from 'axios';
 
 export default function RegisterScreen({ navigation }) {
   // Trạng thái cho các input
@@ -29,14 +29,14 @@ export default function RegisterScreen({ navigation }) {
   // Danh sách khu vực
   const areas = [
     { label: "Chọn khu vực", value: "" },
-    { label: "Hà Nội", value: "hanoi" },
-    { label: "TP. Hồ Chí Minh", value: "hcm" },
-    { label: "Đà Nẵng", value: "danang" },
-    { label: "Cần Thơ", value: "cantho" },
+    { label: "Hà Nội", value: "Hà Nội" },
+    { label: "TP. Hồ Chí Minh", value: "TP. Hồ Chí Minh" },
+    { label: "Đà Nẵng", value: "Đà Nẵng" },
+    { label: "Cần Thơ", value: "Cần Thơ" },
   ];
 
   // Hàm xử lý khi nhấn nút Đăng ký
-  const handleRegister = () => {
+  const handleRegister = async () => {
     // Kiểm tra các trường bắt buộc
     if (
       !customerName ||
@@ -50,7 +50,22 @@ export default function RegisterScreen({ navigation }) {
       Alert.alert("Lỗi", "Vui lòng điền đầy đủ các thông tin bắt buộc!");
       return;
     }
-
+    try {
+      const response = await axios.post('http://192.168.126.105:3000/api/register', {
+        customerName,
+        customerEmail,
+        customerPhone,
+        password,
+        customerGender,
+        customerDate: customerDate.toISOString().split('T')[0],
+        customerAddress
+      });
+      Alert.alert("Thành công", response.data.message, [
+        { text: "OK", onPress: () => navigation.navigate("Login") }
+      ]);
+    } catch (error) {
+      Alert.alert("Lỗi", error.response?.data?.message || "Đăng ký thất bại!");
+    }
     // Kiểm tra định dạng email
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(customerEmail)) {
@@ -72,50 +87,7 @@ export default function RegisterScreen({ navigation }) {
     }
 
     // Kiểm tra email đã tồn tại chưa
-    if (accounts.some((acc) => acc.AccountName === customerEmail)) {
-      Alert.alert("Lỗi", "Email đã được sử dụng!");
-      return;
-    }
-
-    // Tính tuổi từ ngày sinh
-    const today = new Date();
-    const birthDate = new Date(customerDate);
-    let customerAge = today.getFullYear() - birthDate.getFullYear();
-    const monthDiff = today.getMonth() - birthDate.getMonth();
-    if (
-      monthDiff < 0 ||
-      (monthDiff === 0 && today.getDate() < birthDate.getDate())
-    ) {
-      customerAge--;
-    }
-
-    // Tạo ID mới
-    const newCustomerId = `CUST${customers.length + 1}`.padStart(7, "0");
-    const newAccountId = `ACC${accounts.length + 1}`.padStart(7, "0");
-
-    // Tạo đối tượng khách hàng mới
-    const newCustomer = {
-      CustomerId: newCustomerId,
-      CustomerName: customerName,
-      CustomerEmail: customerEmail,
-      CustomerPhone: customerPhone,
-      CustomerAge: customerAge,
-      CustomerAddress: customerAddress,
-      CustomerGender: customerGender, // Thêm giới tính
-      CustomerDate: customerDate.toISOString(), // Lưu ngày sinh dưới dạng chuỗi ISO
-    };
-
-    // Tạo đối tượng tài khoản mới
-    const newAccount = {
-      AccountId: newAccountId,
-      AccountName: customerEmail, // Dùng email làm tên tài khoản
-      AccountPassword: password, // Lưu plaintext (có thể mã hóa nếu cần)
-      CustomerId: newCustomerId,
-    };
-
-    // Thêm vào mảng
-    customers.push(newCustomer);
-    accounts.push(newAccount);
+    
 
     Alert.alert("Thành công", "Đăng ký thành công!", [
       { text: "OK", onPress: () => navigation.navigate("Login") }, // Chuyển về màn hình đăng nhập

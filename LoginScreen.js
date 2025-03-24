@@ -9,10 +9,8 @@ import {
   ImageBackground,
   Alert,
 } from "react-native";
-import { accounts } from "./User/datagiasu.json";
-
 import Icon from "react-native-vector-icons/FontAwesome";
-
+import axios from 'axios';
 import { NavigationProp, RouteProp } from '@react-navigation/native';
 
 type LoginScreenProps = {
@@ -41,18 +39,17 @@ const LoginScreen = ({ navigation, route }: LoginScreenProps) => {
 
     
   
-    const account = accounts.find((acc) => acc.AccountName === email);
-    if (!account) {
-      Alert.alert("Lỗi", "Tài khoản không tồn tại!");
-      return;
+    const trimmedEmail = email.trim(); // Loại bỏ khoảng trắng
+    console.log('Dữ liệu gửi đi:', { email: trimmedEmail, password });
+    try {
+        const response = await axios.post('http://192.168.126.105:3000/api/login', { email: trimmedEmail, password });
+        Alert.alert("Thành công", response.data.message);
+        navigation.navigate("Home", { user: response.data.user });
+    } catch (error) {
+        console.error('Lỗi đăng nhập từ frontend:', error);
+        Alert.alert("Lỗi", error.response?.data?.message || "Đăng nhập thất bại!");
     }
 
-    if (account.AccountPassword !== password) {
-      Alert.alert("Lỗi", "Mật khẩu không đúng!");
-      return;
-    }
-
-    Alert.alert("Thành công", "Đăng nhập thành công!");
     navigation.navigate("Home", { user: account });
   };
   
