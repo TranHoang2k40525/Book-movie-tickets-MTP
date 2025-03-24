@@ -1,14 +1,21 @@
 import React, { useState } from "react";
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert } from "react-native";
+import {
+  View,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  StyleSheet,
+  Alert,
+} from "react-native";
 import Icon from "react-native-vector-icons/FontAwesome";
-import axios from 'axios';
+import axios from "axios";
 
 export default function ResetPasswordScreen({ navigation, route }) {
-  const { email } = route.params|| {};
+  const { email = "", from = null } = route.params || {};
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [error, setError] = useState("");
-
+  console.log("Route params in ResetPasswordScreen:", route.params);
   const handleResetPassword = async () => {
     if (!newPassword || !confirmPassword) {
       setError("Vui lòng nhập đầy đủ mật khẩu!");
@@ -28,19 +35,36 @@ export default function ResetPasswordScreen({ navigation, route }) {
     const payload = { email, newPassword };
     console.log("Dữ liệu gửi đi:", payload);
     try {
-      const response = await axios.post('http://10.10.2.135:3000/api/reset-password', payload, {
-        timeout: 5000,
-        headers: { 'Content-Type': 'application/json' },
-      });
+      const response = await axios.post(
+        "http://192.168.1.102:3000/api/reset-password",
+        payload,
+        {
+          timeout: 5000,
+          headers: { "Content-Type": "application/json" },
+        }
+      );
+
+      const targetScreen = from === "Member" ? "Member" : "Login";
       Alert.alert("Thành công", response.data.message, [
-        { text: "OK", onPress: () => navigation.navigate("Login", { email, password: newPassword }) }
+        {
+          text: "OK",
+          onPress: () => {
+            if (from === "Member") {
+              // Quay lại Member mà không đăng xuất
+              navigation.navigate("Member");
+            } else {
+              // Điều hướng về Login cho các trường hợp khác
+              navigation.navigate("Login", { email, password: newPassword });
+            }
+          },
+        },
       ]);
     } catch (error) {
       console.error("Lỗi đổi mật khẩu:", error);
       setError(error.response?.data?.message || "Đổi mật khẩu thất bại!");
     }
   };
-
+  const headerTitle = from === "Member" ? "Đổi mật khẩu" : "Đặt lại mật khẩu";
   return (
     <View style={styles.container}>
       {/* Header */}
@@ -51,6 +75,7 @@ export default function ResetPasswordScreen({ navigation, route }) {
           </Text>
         </TouchableOpacity>
         <Text style={styles.headerText}>Đặt lại mật khẩu</Text>
+        <Text style={styles.headerText}>{headerTitle}</Text>
       </View>
 
       {/* Form */}
@@ -83,7 +108,10 @@ export default function ResetPasswordScreen({ navigation, route }) {
 
         {error ? <Text style={styles.errorText}>{error}</Text> : null}
 
-        <TouchableOpacity style={styles.continueButton} onPress={handleResetPassword}>
+        <TouchableOpacity
+          style={styles.continueButton}
+          onPress={handleResetPassword}
+        >
           <Text style={styles.continueButtonText}>Đổi mật khẩu</Text>
         </TouchableOpacity>
       </View>
@@ -150,4 +178,3 @@ const styles = StyleSheet.create({
     fontSize: 18,
   },
 });
-

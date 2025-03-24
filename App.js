@@ -8,8 +8,8 @@ import RegisterScreen from "./RegisterScreen";
 import ForgotPasswordScreen from "./ForgotPasswordScreen";
 import ResetPasswordScreen from "./ResetPasswordScreen";
 import MovieDetail from "./MovieDetail";
-
-
+import MemberScreen from "./MemberScreen";
+import AccountInfoScreen from "./AccountInfoScreen";
 const Stack = createStackNavigator();
 
 export default function App() {
@@ -46,6 +46,16 @@ export default function App() {
           <Stack.Screen
             name="MovieDetail"
             component={MovieDetail}
+            options={{ headerShown: false }}
+          />
+          <Stack.Screen
+            name="Member" 
+            component={MemberScreen}
+            options={{ headerShown: false }}
+          />
+          <Stack.Screen
+            name="AccountInfo"
+            component={AccountInfoScreen}
             options={{ headerShown: false }}
           />
         </Stack.Navigator>

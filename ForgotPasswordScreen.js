@@ -4,7 +4,7 @@ import Icon from "react-native-vector-icons/FontAwesome";
 import { NavigationProp } from '@react-navigation/native';
 import axios from 'axios';
 
-export default function ForgotPasswordScreen({ navigation }: { navigation: NavigationProp<any> }) {
+export default function ForgotPasswordScreen({ navigation, route }) {
   const [email, setEmail] = useState("");
   const [otp, setOtp] = useState(["", "", "", "", "", ""]);
   const [isOtpSent, setIsOtpSent] = useState(false);
@@ -51,7 +51,7 @@ export default function ForgotPasswordScreen({ navigation }: { navigation: Navig
     }
 
     try {
-      const response = await axios.post('http://10.10.2.135:3000/api/send-otp', { email });
+      const response = await axios.post('http://192.168.1.102:3000/api/send-otp', { email });
       const newOtp = generateOtp();
       setGeneratedOtp(newOtp);
       setIsOtpSent(true);
@@ -74,9 +74,9 @@ export default function ForgotPasswordScreen({ navigation }: { navigation: Navig
       Alert.alert("Lỗi", "Mã OTP không đúng!");
       return;
     }
-
+    console.log("Route params in ForgotPasswordScreen:", route.params);
     // Chuyển thẳng sang ResetPassword mà không hiển thị thông báo
-    navigation.navigate("ResetPassword", { email });
+    navigation.navigate("ResetPassword", { email ,from: route.params?.from });
   };
 
   const handleOtpChange = (text, index) => {

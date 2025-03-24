@@ -38,17 +38,45 @@ function LoginScreen({ navigation, route }: LoginScreenProps) {
       Alert.alert("Lỗi", "Vui lòng điền đầy đủ thông tin!");
       return;
     }
-
+    
 
 
     const trimmedEmail = email.trim();
     console.log('Dữ liệu gửi đi:', { email: trimmedEmail, password });
     try {
-      const response = await axios.post('http://10.10.2.135:3000/api/login', { email: trimmedEmail, password });
+      // Gọi API đăng nhập
+      const response = await axios.post("http://192.168.1.102:3000/api/login", {
+        email: trimmedEmail,
+        password,
+      });
+      const userData = response.data.user;
+
+      // Gọi API để lấy thông tin khách hàng
+      const customerResponse = await axios.post("http://192.168.1.102:3000/api/get-customer", {
+        accountID: userData.AccountID,
+      });
+      const customerData = customerResponse.data.customer;
+
+      // Kết hợp thông tin user và customer
+      const userWithCustomer = {
+        ...userData,
+        customerID: customerData.CustomerID,
+        customerName: customerData.CustomerName,
+      };
+
+      // Lưu vào UserContext
+      setUser(userWithCustomer);
       Alert.alert("Thành công", response.data.message);
-      setUser(response.data.user);
-      navigation.navigate("Home", { user: response.data.user });
+
+      // Điều hướng về Home hoặc Member tùy theo nguồn gốc
+      if (route.params?.from === "Member") {
+        navigation.navigate("Member");
+      } else {
+        navigation.navigate("Home", { user: userWithCustomer });
+      }
     } catch (error) {
+
+
       console.error('Lỗi đăng nhập từ frontend:', error);
       if (error.response) {
         

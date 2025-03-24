@@ -1,19 +1,26 @@
-// Menu.js
 import React, { useState, useContext } from "react";
-import { View, Text, TouchableOpacity, Image, StyleSheet, Modal, Alert } from "react-native";
+import {
+  View,
+  Text,
+  TouchableOpacity,
+  Image,
+  StyleSheet,
+  Modal,
+  Alert,
+} from "react-native";
 import Icon1 from "react-native-vector-icons/MaterialCommunityIcons";
 import { NavigationProp } from "@react-navigation/native";
 import { UserContext } from "./User/UserContext";
 
-export default function Menu({ navigation }: { navigation: NavigationProp<any> })  {
+export default function Menu({ navigation }: { navigation: NavigationProp<any> }) {
   const [menuVisible, setMenuVisible] = useState(false);
   const { user, setUser } = useContext(UserContext);
 
   const toggleMenu = () => {
     setMenuVisible(!menuVisible);
   };
+
   const handleLogout = () => {
-    // Hiển thị thông báo xác nhận
     Alert.alert(
       "Xác nhận",
       "Bạn có chắc chắn muốn đăng xuất không?",
@@ -25,9 +32,9 @@ export default function Menu({ navigation }: { navigation: NavigationProp<any> }
         {
           text: "Đăng xuất",
           onPress: () => {
-            setUser(null); 
-            setMenuVisible(false); 
-            navigation.navigate("Home"); 
+            setUser(null);
+            setMenuVisible(false);
+            navigation.navigate("Home");
           },
           style: "destructive",
         },
@@ -35,6 +42,21 @@ export default function Menu({ navigation }: { navigation: NavigationProp<any> }
       { cancelable: true }
     );
   };
+
+  const handleMemberPress = () => {
+    setMenuVisible(false);
+    if (!user) {
+      navigation.navigate("Login", { from: "Member" });
+    } else {
+      navigation.navigate("Member");
+    }
+  };
+
+  const closeMenuAndNavigate = (screen: string, params?: object) => {
+    setMenuVisible(false);
+    navigation.navigate(screen, params);
+  };
+
   return (
     <>
       {/* Nút mở menu */}
@@ -58,7 +80,11 @@ export default function Menu({ navigation }: { navigation: NavigationProp<any> }
               {user ? (
                 <>
                   <Image
-                    source={require("./assets/images/transformers.jpg")} 
+                    source={
+                      user.AvatarUrl 
+                        ? { uri: user.AvatarUrl } 
+                        : require("./assets/images/transformers.jpg")
+                    }
                     style={styles.avatar}
                   />
                   <Text style={styles.userName}>{user.customerName}</Text>
@@ -73,10 +99,7 @@ export default function Menu({ navigation }: { navigation: NavigationProp<any> }
 
             {/* Hiển thị nút đăng nhập/đăng ký hoặc đăng xuất */}
             {user ? (
-              <TouchableOpacity
-                style={styles.authButton}
-                onPress={handleLogout}
-              >
+              <TouchableOpacity style={styles.authButton} onPress={handleLogout}>
                 <Text style={styles.authButtonText}>Đăng xuất</Text>
               </TouchableOpacity>
             ) : (
@@ -95,100 +118,51 @@ export default function Menu({ navigation }: { navigation: NavigationProp<any> }
                 </TouchableOpacity>
               </View>
             )}
+
             {/* Các mục đặt vé */}
             <View style={styles.menuSection}>
               <TouchableOpacity style={styles.menuRow}>
-                <Icon1
-                  name="movie"
-                  size={24}
-                  color="#fff"
-                  style={styles.menuIcon}
-                />
+                <Icon1 name="movie" size={24} color="#fff" style={styles.menuIcon} />
                 <Text style={styles.menuItem}>Đặt vé theo phim</Text>
               </TouchableOpacity>
               <TouchableOpacity style={styles.menuRow}>
-                <Icon1
-                  name="map-marker"
-                  size={24}
-                  color="#fff"
-                  style={styles.menuIcon}
-                />
+                <Icon1 name="map-marker" size={24} color="#fff" style={styles.menuIcon} />
                 <Text style={styles.menuItem}>Đặt vé theo rạp</Text>
               </TouchableOpacity>
             </View>
 
             {/* Các mục menu chính */}
             <View style={styles.menuSection}>
-              <TouchableOpacity style={styles.menuRow}>
-                <Icon1
-                  name="home"
-                  size={24}
-                  color="#fff"
-                  style={styles.menuIcon}
-                />
+              <TouchableOpacity style={styles.menuRow} onPress={() => closeMenuAndNavigate("Home")}>
+                <Icon1 name="home" size={24} color="#fff" style={styles.menuIcon} />
                 <Text style={styles.menuItem}>Trang chủ</Text>
               </TouchableOpacity>
-              <TouchableOpacity style={styles.menuRow}>
-                <Icon1
-                  name="account"
-                  size={24}
-                  color="#fff"
-                  style={styles.menuIcon}
-                />
+              <TouchableOpacity style={styles.menuRow} onPress={handleMemberPress}>
+                <Icon1 name="account" size={24} color="#fff" style={styles.menuIcon} />
                 <Text style={styles.menuItem}>Thành viên</Text>
               </TouchableOpacity>
               <TouchableOpacity style={styles.menuRow}>
-                <Icon1
-                  name="map-marker"
-                  size={24}
-                  color="#fff"
-                  style={styles.menuIcon}
-                />
+                <Icon1 name="map-marker" size={24} color="#fff" style={styles.menuIcon} />
                 <Text style={styles.menuItem}>Rạp</Text>
               </TouchableOpacity>
               <TouchableOpacity style={styles.menuRow}>
-                <Icon1
-                  name="star"
-                  size={24}
-                  color="#fff"
-                  style={styles.menuIcon}
-                />
+                <Icon1 name="star" size={24} color="#fff" style={styles.menuIcon} />
                 <Text style={styles.menuItem}>Rạp đặc biệt</Text>
               </TouchableOpacity>
               <TouchableOpacity style={styles.menuRow}>
-                <Icon1
-                  name="ticket-confirmation"
-                  size={24}
-                  color="#fff"
-                  style={styles.menuIcon}
-                />
+                <Icon1 name="ticket-confirmation" size={24} color="#fff" style={styles.menuIcon} />
                 <Text style={styles.menuItem}>Vé của tôi</Text>
               </TouchableOpacity>
               <TouchableOpacity style={styles.menuRow}>
-                <Icon1
-                  name="store"
-                  size={24}
-                  color="#fff"
-                  style={styles.menuIcon}
-                />
+                <Icon1 name="store" size={24} color="#fff" style={styles.menuIcon} />
                 <Text style={styles.menuItem}>Store</Text>
               </TouchableOpacity>
               <TouchableOpacity style={styles.menuRow}>
-                <Icon1
-                  name="gift"
-                  size={24}
-                  color="#fff"
-                  style={styles.menuIcon}
-                />
+                <Icon1 name="gift" size={24} color="#fff" style={styles.menuIcon} />
                 <Text style={styles.menuItem}>eGift</Text>
               </TouchableOpacity>
               <TouchableOpacity style={styles.menuRow}>
-                <Icon1
-                  name="sale"
-                  size={24}
-                  color="#fff"
-                  style={styles.menuIcon}
-                />
+                <Icon1 name="sale" size={24} color="#fff" style={styles.menuIcon} />
                 <Text style={styles.menuItem}>Đổi ưu đãi</Text>
               </TouchableOpacity>
             </View>
@@ -196,12 +170,7 @@ export default function Menu({ navigation }: { navigation: NavigationProp<any> }
             {/* Tin tức & Sự kiện */}
             <View style={styles.menuSection}>
               <TouchableOpacity style={styles.menuRow}>
-                <Icon1
-                  name="newspaper"
-                  size={24}
-                  color="#fff"
-                  style={styles.menuIcon}
-                />
+                <Icon1 name="newspaper" size={24} color="#fff" style={styles.menuIcon} />
                 <Text style={styles.menuItem}>Tin tức & Sự kiện</Text>
                 <View style={styles.badge}>
                   <Text style={styles.badgeText}>NEW</Text>
@@ -214,7 +183,6 @@ export default function Menu({ navigation }: { navigation: NavigationProp<any> }
     </>
   );
 }
-
 const styles = StyleSheet.create({
   menuButton: {
     padding: 5,
