@@ -1,51 +1,70 @@
-import React, { useState, useRef } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert } from "react-native";
 import Icon from "react-native-vector-icons/FontAwesome";
-
 import { NavigationProp } from '@react-navigation/native';
+import axios from 'axios';
 
 export default function ForgotPasswordScreen({ navigation }: { navigation: NavigationProp<any> }) {
   const [email, setEmail] = useState("");
-  const [otp, setOtp] = useState(["", "", "", "", "", ""]); // Mảng 6 ô cho OTP
-  const [generatedOtp, setGeneratedOtp] = useState(""); // Lưu mã OTP giả lập
-  const [isOtpSent, setIsOtpSent] = useState(false); // Trạng thái để hiển thị phần nhập OTP
-  const otpInputs = useRef([]); // Ref để điều khiển focus giữa các ô OTP
+  const [otp, setOtp] = useState(["", "", "", "", "", ""]);
+  const [isOtpSent, setIsOtpSent] = useState(false);
+  const [timer, setTimer] = useState(60);
+  const otpInputs = useRef([]);
+  const [generatedOtp, setGeneratedOtp] = useState("");
 
-  // Hàm tạo mã OTP 6 số ngẫu nhiên
   const generateOtp = () => {
-    const otp = Math.floor(100000 + Math.random() * 900000).toString(); // Tạo số ngẫu nhiên 6 chữ số
-    return otp;
+    return Math.floor(100000 + Math.random() * 900000).toString();
   };
 
-  const handleSendOtp = () => {
+  useEffect(() => {
+    let interval;
+    if (isOtpSent && timer > 0) {
+      interval = setInterval(() => {
+        setTimer((prev) => prev - 1);
+      }, 1000);
+    } else if (timer === 0) {
+      Alert.alert("Hết thời gian", "Mã OTP đã hết hạn. Vui lòng thử lại!", [
+        {
+          text: "OK",
+          onPress: () => {
+            setIsOtpSent(false);
+            setOtp(["", "", "", "", "", ""]);
+            setTimer(60);
+            setGeneratedOtp("");
+          },
+        },
+      ]);
+    }
+    return () => clearInterval(interval);
+  }, [isOtpSent, timer]);
+
+  const handleSendOtp = async () => {
     if (!email) {
-      Alert.alert("Lỗi", "Vui lòng nhập email hoặc số điện thoại!");
+      Alert.alert("Lỗi", "Vui lòng nhập email!");
       return;
     }
 
-    // Kiểm tra định dạng email (cơ bản)
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(email)) {
       Alert.alert("Lỗi", "Email không hợp lệ!");
       return;
     }
 
-    // Tạo mã OTP
-    const newOtp = generateOtp();
-    setGeneratedOtp(newOtp);
-    setIsOtpSent(true);
-
-    // In mã OTP ra terminal
-    console.log(`Mã OTP đã được gửi đến ${email}: ${newOtp}`);
-
-    // Giả lập gửi email
-    Alert.alert("Thành công", `Mã OTP đã được gửi đến ${email}. Vui lòng kiểm tra email!`, [
-      { text: "OK" },
-    ]);
+    try {
+      const response = await axios.post('http://10.10.2.135:3000/api/send-otp', { email });
+      const newOtp = generateOtp();
+      setGeneratedOtp(newOtp);
+      setIsOtpSent(true);
+      console.log(`Mã OTP được tạo: ${newOtp}`);
+      Alert.alert("Thành công", response.data.message);
+    } catch (error) {
+      Alert.alert("Lỗi", error.response?.data.message || "Không thể kết nối đến server!");
+      console.error(error);
+    }
   };
 
   const handleVerifyOtp = () => {
-    const enteredOtp = otp.join(""); // Ghép 6 ô OTP thành một chuỗi
+    const enteredOtp = otp.join("");
     if (!enteredOtp || enteredOtp.length !== 6) {
       Alert.alert("Lỗi", "Vui lòng nhập đầy đủ 6 chữ số OTP!");
       return;
@@ -56,33 +75,18 @@ export default function ForgotPasswordScreen({ navigation }: { navigation: Navig
       return;
     }
 
-    // Nếu mã OTP đúng, điều hướng đến màn hình đặt lại mật khẩu
-    try {
-      navigation.navigate("ResetPassword", { email });
-    } catch (error) {
-      Alert.alert("Lỗi", "Không thể điều hướng đến màn hình đặt lại mật khẩu!");
-      console.error("Navigation error:", error);
-    }
+    // Chuyển thẳng sang ResetPassword mà không hiển thị thông báo
+    navigation.navigate("ResetPassword", { email });
   };
 
-  // Xử lý khi người dùng nhập OTP
-  const handleOtpChange = (text: string, index: number) => {
-    // Chỉ cho phép nhập số
-    if (text && !/^[0-9]$/.test(text)) {
-      return;
-    }
-
+  const handleOtpChange = (text, index) => {
     const newOtp = [...otp];
     newOtp[index] = text;
     setOtp(newOtp);
 
-    // Chuyển focus sang ô tiếp theo nếu đã nhập 1 ký tự
     if (text && index < 5) {
       otpInputs.current[index + 1]?.focus();
-    }
-
-    // Chuyển focus về ô trước đó nếu xóa ký tự
-    if (!text && index > 0) {
+    } else if (!text && index > 0) {
       otpInputs.current[index - 1]?.focus();
     }
   };
@@ -109,12 +113,13 @@ export default function ForgotPasswordScreen({ navigation }: { navigation: Navig
           value={email}
           onChangeText={setEmail}
           keyboardType="email-address"
-          editable={!isOtpSent} // Không cho chỉnh sửa email sau khi gửi OTP
+          editable={!isOtpSent}
         />
 
         {isOtpSent && (
           <>
             <Text style={styles.label}>Nhập mã OTP đã gửi đến {email}</Text>
+            <Text style={styles.timer}>Thời gian còn lại: {timer}s</Text>
             <View style={styles.otpContainer}>
               {otp.map((digit, index) => (
                 <TextInput
@@ -205,8 +210,13 @@ const styles = StyleSheet.create({
     fontSize: 18,
     color: "#000",
   },
+  timer: {
+    color: "#FF4D6D",
+    fontSize: 14,
+    marginBottom: 10,
+  },
   continueButton: {
-    backgroundColor: "#ccc",
+    backgroundColor: "#FF4D6D", // Đổi màu nút để nổi bật hơn
     paddingVertical: 15,
     borderRadius: 10,
     alignItems: "center",

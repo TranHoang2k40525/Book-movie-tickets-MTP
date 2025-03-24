@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useContext } from "react";
 import {
   View,
   Text,
@@ -9,19 +9,21 @@ import {
   ImageBackground,
   Alert,
 } from "react-native";
+import { UserContext } from "./User/UserContext";
 import Icon from "react-native-vector-icons/FontAwesome";
 import axios from 'axios';
 import { NavigationProp, RouteProp } from '@react-navigation/native';
 
-type LoginScreenProps = {
+interface LoginScreenProps {
   navigation: NavigationProp<any>;
   route: RouteProp<any>;
-};
+}
 
-const LoginScreen = ({ navigation, route }: LoginScreenProps) => {
+function LoginScreen({ navigation, route }: LoginScreenProps) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [isPasswordVisible, setIsPasswordVisible] = useState(false);
+  const { setUser } = useContext(UserContext);
   // Nhận email và mật khẩu từ ResetPasswordScreen (nếu có)
   useEffect(() => {
     if (route.params?.email) {
@@ -37,22 +39,30 @@ const LoginScreen = ({ navigation, route }: LoginScreenProps) => {
       return;
     }
 
-    
-  
-    const trimmedEmail = email.trim(); // Loại bỏ khoảng trắng
+
+
+    const trimmedEmail = email.trim();
     console.log('Dữ liệu gửi đi:', { email: trimmedEmail, password });
     try {
-        const response = await axios.post('http://192.168.126.105:3000/api/login', { email: trimmedEmail, password });
-        Alert.alert("Thành công", response.data.message);
-        navigation.navigate("Home", { user: response.data.user });
+      const response = await axios.post('http://10.10.2.135:3000/api/login', { email: trimmedEmail, password });
+      Alert.alert("Thành công", response.data.message);
+      setUser(response.data.user);
+      navigation.navigate("Home", { user: response.data.user });
     } catch (error) {
-        console.error('Lỗi đăng nhập từ frontend:', error);
-        Alert.alert("Lỗi", error.response?.data?.message || "Đăng nhập thất bại!");
+      console.error('Lỗi đăng nhập từ frontend:', error);
+      if (error.response) {
+        
+        Alert.alert("Lỗi", error.response.data.message || "Đăng nhập thất bại!");
+      } else if (error.request) {
+        
+        Alert.alert("Lỗi", "Không thể kết nối đến server. Vui lòng kiểm tra mạng hoặc địa chỉ server!");
+      } else {
+        
+        Alert.alert("Lỗi", "Đã xảy ra lỗi: " + error.message);
+      }
     }
-
-    navigation.navigate("Home", { user: account });
   };
-  
+
   return (
     <View style={styles.container}>
       {/* Header */}
@@ -77,8 +87,7 @@ const LoginScreen = ({ navigation, route }: LoginScreenProps) => {
               </Text>
               <Image
                 source={require("./assets/images/logo.png")} // Logo bên cạnh chữ
-                style={styles.logo}
-              />
+                style={styles.logo} />
             </View>
           </View>
         </View>
@@ -93,8 +102,7 @@ const LoginScreen = ({ navigation, route }: LoginScreenProps) => {
             placeholderTextColor="#888"
             value={email}
             onChangeText={setEmail}
-            keyboardType="email-address"
-          />
+            keyboardType="email-address" />
         </View>
 
         <View style={styles.inputContainer}>
@@ -104,8 +112,7 @@ const LoginScreen = ({ navigation, route }: LoginScreenProps) => {
             placeholderTextColor="#888"
             value={password}
             onChangeText={setPassword}
-            secureTextEntry={!isPasswordVisible}
-          />
+            secureTextEntry={!isPasswordVisible} />
           <TouchableOpacity
             style={styles.eyeIcon}
             onPress={() => setIsPasswordVisible(!isPasswordVisible)}
@@ -113,8 +120,7 @@ const LoginScreen = ({ navigation, route }: LoginScreenProps) => {
             <Icon
               name={isPasswordVisible ? "eye" : "eye-slash"}
               size={20}
-              color="#888"
-            />
+              color="#888" />
           </TouchableOpacity>
         </View>
 
@@ -146,7 +152,7 @@ const LoginScreen = ({ navigation, route }: LoginScreenProps) => {
       </View>
     </View>
   );
-};
+}
 
 const styles = StyleSheet.create({
   container: {

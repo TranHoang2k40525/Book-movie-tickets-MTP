@@ -12,9 +12,14 @@ import {
 import { Picker } from "@react-native-picker/picker";
 import Icon from "react-native-vector-icons/Ionicons";
 import DateTimePicker from "@react-native-community/datetimepicker";
-import axios from 'axios';
-
-export default function RegisterScreen({ navigation }) {
+import axios from "axios";
+import { NavigationProp } from "@react-navigation/native";
+import { UserContext } from "./User/UserContext";
+export default function RegisterScreen({
+  navigation,
+}: {
+  navigation: NavigationProp<any>,
+}) {
   // Trạng thái cho các input
   const [customerName, setCustomerName] = useState("");
   const [customerEmail, setCustomerEmail] = useState("");
@@ -50,22 +55,7 @@ export default function RegisterScreen({ navigation }) {
       Alert.alert("Lỗi", "Vui lòng điền đầy đủ các thông tin bắt buộc!");
       return;
     }
-    try {
-      const response = await axios.post('http://192.168.126.105:3000/api/register', {
-        customerName,
-        customerEmail,
-        customerPhone,
-        password,
-        customerGender,
-        customerDate: customerDate.toISOString().split('T')[0],
-        customerAddress
-      });
-      Alert.alert("Thành công", response.data.message, [
-        { text: "OK", onPress: () => navigation.navigate("Login") }
-      ]);
-    } catch (error) {
-      Alert.alert("Lỗi", error.response?.data?.message || "Đăng ký thất bại!");
-    }
+
     // Kiểm tra định dạng email
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(customerEmail)) {
@@ -86,8 +76,25 @@ export default function RegisterScreen({ navigation }) {
       return;
     }
 
-    // Kiểm tra email đã tồn tại chưa
-    
+    try {
+      const response = await axios.post(
+        "http://10.10.2.135:3000/api/register",
+        {
+          customerName,
+          customerEmail,
+          customerPhone,
+          password,
+          customerGender,
+          customerDate: customerDate.toISOString().split("T")[0],
+          customerAddress,
+        }
+      );
+      Alert.alert("Thành công", response.data.message, [
+        { text: "OK", onPress: () => navigation.navigate("Login") },
+      ]);
+    } catch (error) {
+      Alert.alert("Lỗi", error.response?.data?.message || "Đăng ký thất bại!");
+    }
 
     Alert.alert("Thành công", "Đăng ký thành công!", [
       { text: "OK", onPress: () => navigation.navigate("Login") }, // Chuyển về màn hình đăng nhập

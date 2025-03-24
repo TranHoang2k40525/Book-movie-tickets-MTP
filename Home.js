@@ -11,10 +11,10 @@ import {
 } from "react-native";
 import { FlatList } from "react-native-gesture-handler";
 import Icon from "react-native-vector-icons/FontAwesome";
-import Icon1 from "react-native-vector-icons/MaterialCommunityIcons";
+
 import { NavigationProp } from "@react-navigation/native";
 import Menu from "./Menu";
-import { UserContext } from "./User/UserContext";
+import { UserContext } from "./User/UserContext.js";
 interface Movie {
   id: string;
   title: string;

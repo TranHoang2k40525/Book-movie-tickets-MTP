@@ -2,8 +2,9 @@ import React, { useState } from "react";
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert } from "react-native";
 import Icon from "react-native-vector-icons/FontAwesome";
 import axios from 'axios';
+
 export default function ResetPasswordScreen({ navigation, route }) {
-  const { email } = route.params; // Nhận email từ OTPScreen
+  const { email } = route.params|| {};
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [error, setError] = useState("");
@@ -24,13 +25,18 @@ export default function ResetPasswordScreen({ navigation, route }) {
       return;
     }
 
-    // Giả lập đổi mật khẩu thành công (thay bằng logic thực tế nếu có API)
+    const payload = { email, newPassword };
+    console.log("Dữ liệu gửi đi:", payload);
     try {
-      const response = await axios.post('http://192.168.1.103:3000/api/reset-password', { email, newPassword });
+      const response = await axios.post('http://10.10.2.135:3000/api/reset-password', payload, {
+        timeout: 5000,
+        headers: { 'Content-Type': 'application/json' },
+      });
       Alert.alert("Thành công", response.data.message, [
         { text: "OK", onPress: () => navigation.navigate("Login", { email, password: newPassword }) }
       ]);
     } catch (error) {
+      console.error("Lỗi đổi mật khẩu:", error);
       setError(error.response?.data?.message || "Đổi mật khẩu thất bại!");
     }
   };
