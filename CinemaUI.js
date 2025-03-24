@@ -46,7 +46,7 @@ export default function SpecialExperiencesUI() {
         </TouchableOpacity>
       </View>
 
-      {/* Phần tiêu đề màu vàng */}
+      {}
       <View style={styles.titleSection}>
         <Text style={styles.titleText}>Trải Nghiệm Sự Đặc Biệt</Text>
         <Text style={styles.subtitleText}>
@@ -54,7 +54,7 @@ export default function SpecialExperiencesUI() {
         </Text>
       </View>
 
-      {/* Danh sách trải nghiệm (biến thành các button) */}
+      {}
       <FlatList
         data={specialExperiences}
         keyExtractor={(item, index) => index.toString()}
@@ -62,7 +62,7 @@ export default function SpecialExperiencesUI() {
         renderItem={({ item }) => (
           <TouchableOpacity 
             style={styles.card} 
-            onPress={() => console.log(`Nhấn vào: ${item.name}`)} // Có thể thay bằng navigation.navigate(...)
+            onPress={() => console.log(`Nhấn vào: ${item.name}`)} 
           >
             <Image source={item.image} style={styles.image} />
             <View style={styles.overlay}>
@@ -81,7 +81,7 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: "#fff",
   },
-  /* HEADER */
+  
   header: {
     flexDirection: "row",
     alignItems: "center",
@@ -91,7 +91,7 @@ const styles = StyleSheet.create({
     backgroundColor: "white",
     borderBottomWidth: 1,
     borderBottomColor: "#ddd",
-    paddingTop: 50, // Đẩy xuống một chút để không bị sát mép trên
+    paddingTop: 50, 
   },
   iconButton: {
     padding: 5,
@@ -103,7 +103,7 @@ const styles = StyleSheet.create({
     marginLeft: -150, 
   },
 
-  /* Ô màu vàng */
+  
   titleSection: {
     backgroundColor: "#FFD700",
     paddingVertical: 15,
@@ -121,7 +121,7 @@ const styles = StyleSheet.create({
     marginTop: 5,
   },
 
-  /* Danh sách trải nghiệm */
+  
   card: {
     flex: 1,
     margin: 5,
