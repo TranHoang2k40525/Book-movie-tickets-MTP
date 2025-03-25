@@ -152,7 +152,7 @@ export default function AccountInfoScreen({ navigation }: { navigation: Navigati
         customerAddress: `${selectedProvince}, ${selectedDistrict}`,
       };
 
-      const response = await axios.put("http://192.168.1.102:3000/api/update-customer", updatedData);
+      const response = await axios.put("http://192.168.36.105:3000/api/update-customer", updatedData);
       Alert.alert("Thành công", response.data.message, [
         { text: "OK", onPress: () => setIsEditing(false) },
       ]);
@@ -176,7 +176,7 @@ export default function AccountInfoScreen({ navigation }: { navigation: Navigati
           style: "destructive",
           onPress: async () => {
             try {
-              const response = await axios.delete("http://192.168.1.102:3000/api/delete-account", {
+              const response = await axios.delete("http://192.168.36.105:3000/api/delete-account", {
                 data: { accountID: user.AccountID },
               });
               Alert.alert("Thành công", "Tài khoản đã được xóa!", [

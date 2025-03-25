@@ -30,7 +30,7 @@ export default function MemberScreen({ navigation }: { navigation: NavigationPro
 
   const updateAvatarInDatabase = async (imageUri: string | null) => {
     try {
-      const response = await axios.post('http://192.168.1.102:3000/api/update-avatar', {
+      const response = await axios.post('http://192.168.36.105:3000/api/update-avatar', {
         customerID: user.customerID,
         avatarUrl: imageUri || '/default/transformers.jpg'
       });

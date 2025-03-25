@@ -78,7 +78,7 @@ export default function RegisterScreen({
 
     try {
       const response = await axios.post(
-        "http://192.168.1.102:3000/api/register",
+        "http://192.168.36.105:3000/api/register",
         {
           customerName,
           customerEmail,

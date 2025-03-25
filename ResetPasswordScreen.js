@@ -36,7 +36,7 @@ export default function ResetPasswordScreen({ navigation, route }) {
     console.log("Dữ liệu gửi đi:", payload);
     try {
       const response = await axios.post(
-        "http://192.168.1.102:3000/api/reset-password",
+        "http://192.168.36.105:3000/api/reset-password",
         payload,
         {
           timeout: 5000,

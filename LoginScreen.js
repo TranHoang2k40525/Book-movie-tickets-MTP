@@ -45,14 +45,14 @@ function LoginScreen({ navigation, route }: LoginScreenProps) {
     console.log('Dữ liệu gửi đi:', { email: trimmedEmail, password });
     try {
       // Gọi API đăng nhập
-      const response = await axios.post("http://192.168.1.102:3000/api/login", {
+      const response = await axios.post("http://192.168.36.105:3000/api/login", {
         email: trimmedEmail,
         password,
       });
       const userData = response.data.user;
 
       // Gọi API để lấy thông tin khách hàng
-      const customerResponse = await axios.post("http://192.168.1.102:3000/api/get-customer", {
+      const customerResponse = await axios.post("http://192.168.36.105:3000/api/get-customer", {
         accountID: userData.AccountID,
       });
       const customerData = customerResponse.data.customer;

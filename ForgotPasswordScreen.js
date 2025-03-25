@@ -51,7 +51,7 @@ export default function ForgotPasswordScreen({ navigation, route }) {
     }
 
     try {
-      const response = await axios.post('http://192.168.1.102:3000/api/send-otp', { email });
+      const response = await axios.post('http://192.168.36.105:3000/api/send-otp', { email });
       const newOtp = generateOtp();
       setGeneratedOtp(newOtp);
       setIsOtpSent(true);

@@ -37,6 +37,19 @@ app.get('/', (req, res) => {
     res.json({ message: 'Welcome to the Movie Ticket Booking API!' });
 });
 
+// API lấy danh sách phim
+app.get('/api/movies', async (req, res) => {
+    try {
+        const pool = await sql.connect(dbConfig);
+        const result = await pool.request()
+            .query('SELECT * FROM Movie');
+        
+        res.json({ movies: result.recordset });
+    } catch (err) {
+        console.error('Lỗi khi lấy danh sách phim:', err);
+        res.status(500).json({ message: 'Lỗi server!', error: err.message });
+    }
+});
 // API đăng nhập
 app.post('/api/login', async (req, res) => {
     const { email, password } = req.body;
