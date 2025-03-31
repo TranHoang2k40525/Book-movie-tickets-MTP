@@ -3,10 +3,10 @@ import { View, Text, Image, TouchableOpacity, StyleSheet, ScrollView, Modal, Ale
 import Icon from "react-native-vector-icons/FontAwesome";
 import { UserContext } from "./User/UserContext";
 import { NavigationProp } from "@react-navigation/native";
-import axios from 'axios';
+import { updateAvatar } from "./api"; 
 import * as ImagePicker from 'expo-image-picker';
 
-export default function MemberScreen({ navigation }: { navigation: NavigationProp<any> }) {
+export default function MemberScreen({ navigation }) {
   const { user, setUser } = useContext(UserContext);
   const [modalVisible, setModalVisible] = useState(false);
   const [avatarSource, setAvatarSource] = useState(
@@ -17,7 +17,6 @@ export default function MemberScreen({ navigation }: { navigation: NavigationPro
     if (!user) {
       navigation.navigate("Login", { from: "Member" });
     } else {
-      // Đồng bộ avatarSource với user.AvatarUrl mỗi khi user thay đổi
       setAvatarSource(
         user.AvatarUrl ? { uri: user.AvatarUrl } : require("./assets/images/transformers.jpg")
       );
@@ -28,14 +27,13 @@ export default function MemberScreen({ navigation }: { navigation: NavigationPro
     return null;
   }
 
-  const updateAvatarInDatabase = async (imageUri: string | null) => {
+  const updateAvatarInDatabase = async (imageUri) => {
     try {
-      const response = await axios.post('http://192.168.36.105:3000/api/update-avatar', {
+      const response = await updateAvatar({
         customerID: user.customerID,
         avatarUrl: imageUri || '/default/transformers.jpg'
       });
       if (response.data.success) {
-        // Cập nhật user trong context với avatar mới
         setUser({ ...user, AvatarUrl: imageUri || '/default/transformers.jpg' });
         setAvatarSource(imageUri ? { uri: imageUri } : require("./assets/images/transformers.jpg"));
         Alert.alert("Thành công", "Ảnh đại diện đã được cập nhật");
@@ -93,13 +91,12 @@ export default function MemberScreen({ navigation }: { navigation: NavigationPro
   };
 
   const resetToDefault = () => {
-    updateAvatarInDatabase(null); // Gọi API để đặt lại về mặc định
+    updateAvatarInDatabase(null);
     setModalVisible(false);
   };
 
   return (
     <ScrollView style={styles.container}>
-      {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity onPress={() => navigation.goBack()}>
           <Icon name="arrow-left" size={20} color="#000" />
@@ -108,7 +105,6 @@ export default function MemberScreen({ navigation }: { navigation: NavigationPro
         <Icon name="edit" size={20} color="#000" />
       </View>
 
-      {/* User Info */}
       <View style={styles.userInfo}>
         <TouchableOpacity onPress={() => setModalVisible(true)}>
           <Image source={avatarSource} style={styles.avatar} />
@@ -147,7 +143,6 @@ export default function MemberScreen({ navigation }: { navigation: NavigationPro
         </View>
       </Modal>
 
-      {/* Menu Items */}
       <View style={styles.menuContainer}>
         <TouchableOpacity
           style={styles.menuItem}
@@ -186,7 +181,6 @@ export default function MemberScreen({ navigation }: { navigation: NavigationPro
         </TouchableOpacity>
       </View>
 
-      {/* Points Section */}
       <View style={styles.pointsSection}>
         <Text style={styles.sectionTitle}>Điểm MTB</Text>
         <View style={styles.pointsBar}>
@@ -195,7 +189,6 @@ export default function MemberScreen({ navigation }: { navigation: NavigationPro
         <Text style={styles.pointsDetails}>Voucher | Coupon | MTB eGift</Text>
       </View>
 
-      {/* Transaction History */}
       <TouchableOpacity style={styles.menuItem}>
         <Text style={styles.menuText}>Lịch sử giao dịch</Text>
         <Icon name="chevron-right" size={16} color="#000" />
