@@ -371,9 +371,9 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: 'white' },
   contentContainer: { flex: 1 },
   scrollContainer: { flex: 1 },
-  scrollContentContainer: { paddingBottom: 20 },
+  scrollContentContainer: { paddingBottom: 40 },
   header: { 
-    marginTop: 2, 
+    marginTop: 15, 
     flexDirection: 'row', 
     justifyContent: 'space-between',
     alignItems: 'center', 
