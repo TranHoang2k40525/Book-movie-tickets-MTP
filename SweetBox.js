@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   SafeAreaView,
   StyleSheet,
@@ -11,45 +11,93 @@ import {
   FlatList,
 } from 'react-native';
 import { Feather } from '@expo/vector-icons';
+import { getCinemas } from './api';
 
-// Main App Component
-export default function App() {
+export default function SweetBox({ navigation }) {
+  const [cinemas, setCinemas] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [expanded, setExpanded] = useState(false);
+
+  useEffect(() => {
+    const fetchCinemas = async () => {
+      try {
+        setLoading(true);
+        setError(null);
+        const response = await getCinemas();
+        const allCinemas = response.data.cinemas;
+        const sweetboxCinemas = allCinemas.map(cinema => ({
+          id: cinema.CinemaID.toString(),
+          name: cinema.CinemaName,
+          distance: `${(Math.random() * 10).toFixed(2)}Km`,
+        }));
+        setCinemas(sweetboxCinemas);
+      } catch (err) {
+        console.error('Lỗi khi lấy danh sách rạp:', err);
+        setError(err.message || 'Không thể lấy dữ liệu');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchCinemas();
+  }, []);
+
+  if (loading) {
+    return (
+      <View style={styles.loadingContainer}>
+        <Text>Đang tải dữ liệu...</Text>
+      </View>
+    );
+  }
+
+  if (error) {
+    return (
+      <View style={styles.errorContainer}>
+        <Text>Có lỗi xảy ra: {error}</Text>
+        <TouchableOpacity onPress={() => fetchCinemas()} style={styles.retryButton}>
+          <Text style={styles.retryButtonText}>Thử lại</Text>
+        </TouchableOpacity>
+      </View>
+    );
+  }
+
   return (
     <SafeAreaView style={styles.container}>
       <StatusBar barStyle="light-content" backgroundColor="#E74C3C" />
-      {/* Fixed Header */}
       <View style={styles.fixedHeader}>
-        <Header />
+        <Header navigation={navigation} />
       </View>
-      {/* Scrollable Content */}
       <ScrollView style={styles.scrollView}>
         <View style={styles.headerContent}>
           <Text style={styles.title}>SWEETBOX</Text>
           <Text style={styles.subtitle}>Sweet Time</Text>
-          <Image source={require('./assets/Anh1.png')} style={styles.promoImage} />
+          <Image style={styles.promoImage} />
         </View>
-        <PromoSection />
-        <LocationsList />
-        <Footer />
+        <PromoSection expanded={expanded} setExpanded={setExpanded} />
+        <LocationsList cinemas={cinemas} />
+        <Footer navigation={navigation} />
       </ScrollView>
     </SafeAreaView>
   );
 }
 
-// Header Component (chỉ chứa phần cố định)
-function Header() {
+function Header({ navigation }) {
+  const handleBackPress = () => {
+    navigation.goBack();
+  };
+
   return (
     <View style={styles.headerContainer}>
       <View style={styles.header}>
         <View style={styles.leftSection}>
-          <TouchableOpacity style={styles.backButton}>
+          <TouchableOpacity onPress={handleBackPress} style={styles.backButton}>
             <Feather name="arrow-left" size={24} color="#E74C3C" />
-            <Text style={styles.backText}>
-              Rạp phim <Text style={styles.mtbText}>MTB</Text>
-            </Text>
           </TouchableOpacity>
+          <Text style={styles.backText}>
+            Rạp phim <Text style={styles.mtbText}>MTB</Text>
+          </Text>
         </View>
-
         <View style={styles.iconSection}>
           <TouchableOpacity style={styles.headerIcon}>
             <Feather name="send" size={20} color="#999" />
@@ -63,34 +111,27 @@ function Header() {
   );
 }
 
-// PromoSection Component
-function PromoSection() {
+function PromoSection({ expanded, setExpanded }) {
+  const fullDescription = "Vui lòng lưu ý không mang đồ ăn hoặc thức uống từ bên ngoài vào rạp. MTB cho phép lựa chọn ghế đặc biệt dành riêng cho các cặp đôi yêu nhau, đánh dấu bằng biểu tượng ghế SWEETBOX ngọt ngào. Bạn sẽ tìm thấy ghế SWEETBOX trong hầu hết các phòng chiếu tại hệ thống rạp SWEETBOX. Đặc biệt hơn, bạn có thể nhận biết rạp SWEETBOX với logo đặc trưng màu đỏ và trắng.";
+  const shortDescription = "Vui lòng lưu ý không mang đồ ăn hoặc thức uống từ bên ngoài vào rạp. MTB cho phép lựa chọn ghế đặc biệt dành riêng cho các cặp đôi yêu nhau, đánh dấu bằng biểu tượng ghế SWEETBOX ngọt ngào.";
+
   return (
     <View style={styles.promoContainer}>
       <View style={styles.textContainer}>
         <Text style={styles.descriptionText}>
-          Vui lòng lưu ý không mang đồ ăn hoặc thức uống từ bên ngoài vào rạp. MTB cho phép lựa chọn ghế đặc biệt dành riêng cho các cặp đôi yêu nhau, đánh dấu bằng biểu tượng ghế SWEETBOX ngọt ngào.
+          {expanded ? fullDescription : shortDescription}
         </Text>
-        <Text style={styles.moreInfoText}>
-          Bạn sẽ tìm thấy ghế SWEETBOX trong hầu hết các phòng chiếu tại hệ thống rạp SWEETBOX. Đặc biệt hơn, bạn có thể nhận biết rạp SWEETBOX với.{' '}
-          <Text style={styles.seeMoreLink}>Xem thêm</Text>
-        </Text>
+        <TouchableOpacity onPress={() => setExpanded(!expanded)}>
+          <Text style={styles.seeMoreLink}>
+            {expanded ? 'Thu gọn' : 'Xem thêm'}
+          </Text>
+        </TouchableOpacity>
       </View>
     </View>
   );
 }
 
-// LocationsList Component (giữ nguyên)
-function LocationsList() {
-  const locations = [
-    { id: '1', name: 'Reson Canary', distance: '1,286m' },
-    { id: '2', name: 'Vincom Center Bà Triệu', distance: '1,286m' },
-    { id: '3', name: 'Trương Định Plaza', distance: '1,286m' },
-    { id: '4', name: 'Sun Grand Lương Yên', distance: '1,286m' },
-    { id: '5', name: 'Tràng Tiền Plaza', distance: '1,286m' },
-    { id: '6', name: 'Vincom Times City', distance: '1,296m' },
-  ];
-
+function LocationsList({ cinemas }) {
   const renderLocation = ({ item }) => (
     <TouchableOpacity style={styles.locationItem}>
       <View style={styles.locationInfo}>
@@ -104,7 +145,7 @@ function LocationsList() {
   return (
     <View style={styles.locationsContainer}>
       <FlatList
-        data={locations}
+        data={cinemas}
         renderItem={renderLocation}
         keyExtractor={(item) => item.id}
         scrollEnabled={false}
@@ -114,12 +155,13 @@ function LocationsList() {
   );
 }
 
-// Footer Component (giữ nguyên)
-function Footer() {
+function Footer({ navigation }) {
   return (
     <View style={styles.footerContainer}>
       <View style={styles.footerContent}>
-        <Text style={styles.footerTitle}>Tin mới & Ưu đãi</Text>
+        <TouchableOpacity onPress={() => navigation.navigate('TinMoiVaUuDai')}>
+          <Text style={styles.footerTitle}>Tin mới & Ưu đãi</Text>
+        </TouchableOpacity>
         <TouchableOpacity style={styles.allButton}>
           <Text style={styles.allButtonText}>Tất cả</Text>
         </TouchableOpacity>
@@ -131,7 +173,6 @@ function Footer() {
   );
 }
 
-// Styles
 const styles = StyleSheet.create({
   container: {
     flex: 1,
@@ -149,10 +190,10 @@ const styles = StyleSheet.create({
   },
   scrollView: {
     flex: 1,
-    marginTop: 60, // Khoảng cách để tránh đè lên fixed header
+    marginTop: 60,
   },
   headerContainer: {
-    marginTop:15,
+    marginTop: 15,
     paddingHorizontal: 15,
     paddingVertical: 15,
   },
@@ -166,11 +207,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   backButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    marginRight: 5,
   },
   backText: {
-    marginLeft: 5,
     fontSize: 16,
     color: '#000',
   },
@@ -205,7 +244,6 @@ const styles = StyleSheet.create({
     height: 180,
     resizeMode: 'cover',
   },
-  // Các style còn lại giữ nguyên
   promoContainer: {
     backgroundColor: '#FFF',
     borderBottomWidth: 1,
@@ -221,15 +259,12 @@ const styles = StyleSheet.create({
     marginBottom: 10,
     textAlign: 'justify',
   },
-  moreInfoText: {
-    fontSize: 14,
-    lineHeight: 20,
-    color: '#333',
-    textAlign: 'justify',
-  },
   seeMoreLink: {
     color: '#E74C3C',
     textDecorationLine: 'underline',
+    fontSize: 14,
+    fontWeight: 'bold',
+    textAlign: 'right',
   },
   locationsContainer: {
     borderTopWidth: 1,
@@ -265,7 +300,7 @@ const styles = StyleSheet.create({
     fontSize: 14,
   },
   distance: {
-    color: '#999',
+    color: '#E74C3C',
     fontSize: 12,
     fontWeight: '300',
   },
@@ -307,6 +342,27 @@ const styles = StyleSheet.create({
   bookButtonText: {
     color: '#FFF',
     fontSize: 16,
+    fontWeight: 'bold',
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  errorContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  retryButton: {
+    marginTop: 20,
+    backgroundColor: '#ff4d6d',
+    padding: 10,
+    borderRadius: 5,
+  },
+  retryButtonText: {
+    color: 'white',
     fontWeight: 'bold',
   },
 });

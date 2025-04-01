@@ -8,13 +8,14 @@ import {
   ScrollView,
   Alert,
 } from "react-native";
-import { Picker } from "@react-native-picker/picker"; // Import Picker từ gói mới
+import { Picker } from "@react-native-picker/picker";
 import Icon from "react-native-vector-icons/FontAwesome";
 import axios from "axios";
 import { UserContext } from "./User/UserContext";
-import { NavigationProp } from "@react-navigation/native";
 
-export default function AccountInfoScreen({ navigation }: { navigation: NavigationProp<any> }) {
+import { getAccount, getCustomer, updateCustomer, deleteAccount } from "./api";
+
+export default function AccountInfoScreen({ navigation }) {
   const { user, setUser } = useContext(UserContext);
   const [isEditing, setIsEditing] = useState(false);
   const [accountInfo, setAccountInfo] = useState({
@@ -50,12 +51,8 @@ export default function AccountInfoScreen({ navigation }: { navigation: Navigati
       }
 
       try {
-        const response = await axios.post("http://192.168.1.102:3000/api/get-account", {
-          accountID: user.AccountID,
-        });
-        const customerResponse = await axios.post("http://192.168.1.102:3000/api/get-customer", {
-          accountID: user.AccountID,
-        });
+        const response = await getAccount({ accountID: user.AccountID });
+        const customerResponse = await getCustomer({ accountID: user.AccountID });
 
         const accountData = response.data.account;
         const customerData = customerResponse.data.customer;
@@ -152,7 +149,7 @@ export default function AccountInfoScreen({ navigation }: { navigation: Navigati
         customerAddress: `${selectedProvince}, ${selectedDistrict}`,
       };
 
-      const response = await axios.put("http://192.168.36.105:3000/api/update-customer", updatedData);
+      const response = await updateCustomer(updatedData);
       Alert.alert("Thành công", response.data.message, [
         { text: "OK", onPress: () => setIsEditing(false) },
       ]);
@@ -162,7 +159,7 @@ export default function AccountInfoScreen({ navigation }: { navigation: Navigati
     }
   };
 
-  const handleDelete = () => {
+  const handleDelete = async () => {
     Alert.alert(
       "Xác nhận xóa tài khoản",
       "Bạn sẽ mất toàn bộ số điểm, Voucher, và các quyền lợi thành viên khác của tài khoản\n" +
@@ -176,9 +173,7 @@ export default function AccountInfoScreen({ navigation }: { navigation: Navigati
           style: "destructive",
           onPress: async () => {
             try {
-              const response = await axios.delete("http://192.168.36.105:3000/api/delete-account", {
-                data: { accountID: user.AccountID },
-              });
+              const response = await deleteAccount({ accountID: user.AccountID });
               Alert.alert("Thành công", "Tài khoản đã được xóa!", [
                 {
                   text: "OK",
@@ -201,7 +196,6 @@ export default function AccountInfoScreen({ navigation }: { navigation: Navigati
 
   return (
     <ScrollView style={styles.container}>
-      {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity onPress={() => navigation.goBack()}>
           <Icon name="arrow-left" size={20} color="#fff" />
@@ -209,7 +203,6 @@ export default function AccountInfoScreen({ navigation }: { navigation: Navigati
         <Text style={styles.headerText}>Thông tin tài khoản</Text>
       </View>
 
-      {/* Account Info */}
       <View style={styles.infoContainer}>
         <View style={styles.infoRow}>
           <Text style={styles.label}>Họ tên *</Text>
@@ -280,7 +273,6 @@ export default function AccountInfoScreen({ navigation }: { navigation: Navigati
               <Picker.Item label="Chọn giới tính" value="" />
               <Picker.Item label="Nam" value="male" />
               <Picker.Item label="Nữ" value="female" />
-              
             </Picker>
           ) : (
             <View style={styles.valueRow}>
@@ -336,7 +328,6 @@ export default function AccountInfoScreen({ navigation }: { navigation: Navigati
         <Text style={styles.note}>* Thông tin bắt buộc</Text>
       </View>
 
-      {/* Buttons */}
       {isEditing ? (
         <TouchableOpacity style={styles.saveButton} onPress={handleSave}>
           <Text style={styles.saveButtonText}>LƯU THÔNG TIN</Text>
@@ -425,7 +416,7 @@ const styles = StyleSheet.create({
   deleteButton: {
     paddingVertical: 15,
     marginHorizontal: 20,
-    alignItems: "center", 
+    alignItems: "center",
     marginTop: 10,
     marginBottom: 20,
   },

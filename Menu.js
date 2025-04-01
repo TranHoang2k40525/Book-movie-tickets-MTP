@@ -9,10 +9,9 @@ import {
   Alert,
 } from "react-native";
 import Icon1 from "react-native-vector-icons/MaterialCommunityIcons";
-import { NavigationProp } from "@react-navigation/native";
 import { UserContext } from "./User/UserContext";
 
-export default function Menu({ navigation }: { navigation: NavigationProp<any> }) {
+export default function Menu({ navigation }) {
   const [menuVisible, setMenuVisible] = useState(false);
   const { user, setUser } = useContext(UserContext);
 
@@ -52,11 +51,68 @@ export default function Menu({ navigation }: { navigation: NavigationProp<any> }
     }
   };
 
-  const closeMenuAndNavigate = (screen: string, params?: object) => {
+  const handleBookByMoviePress = () => {
+    setMenuVisible(false);
+    if (!user) {
+      Alert.alert(
+        "Yêu cầu đăng nhập",
+        "Bạn cần đăng nhập để đặt vé theo phim. Bạn có muốn đăng nhập ngay bây giờ không?",
+        [
+          {
+            text: "Hủy",
+            style: "cancel",
+          },
+          {
+            text: "Đăng nhập",
+            onPress: () => navigation.navigate("Login", { from: "Datvetheophim" }),
+            style: "default",
+          },
+        ],
+        { cancelable: false }
+      );
+    } else {
+      navigation.navigate("Datvetheophim");
+    }
+  };
+
+  const handleBookByCinemaPress = () => {
+    setMenuVisible(false);
+    if (!user) {
+      Alert.alert(
+        "Yêu cầu đăng nhập",
+        "Bạn cần đăng nhập để đặt vé theo rạp. Bạn có muốn đăng nhập ngay bây giờ không?",
+        [
+          {
+            text: "Hủy",
+            style: "cancel",
+          },
+          {
+            text: "Đăng nhập",
+            onPress: () => navigation.navigate("Login", { from: "ChonPhimTheoRap" }),
+            style: "default",
+          },
+        ],
+        { cancelable: false }
+      );
+    } else {
+      navigation.navigate("ChonPhimTheoRap");
+    }
+  };
+
+  // Thêm hàm xử lý khi nhấn "Rạp đặc biệt"
+  const handleSpecialExperiencesPress = () => {
+    setMenuVisible(false);
+    navigation.navigate("SpecialExperiencesUI");
+  };
+
+  const closeMenuAndNavigate = (screen, params) => {
     setMenuVisible(false);
     navigation.navigate(screen, params);
   };
-
+  const handleNewsAndEventsPress = () => {
+    setMenuVisible(false);
+    navigation.navigate("TinMoiVaUuDai");
+  };
   return (
     <>
       {/* Nút mở menu */}
@@ -81,8 +137,8 @@ export default function Menu({ navigation }: { navigation: NavigationProp<any> }
                 <>
                   <Image
                     source={
-                      user.AvatarUrl 
-                        ? { uri: user.AvatarUrl } 
+                      user.AvatarUrl
+                        ? { uri: user.AvatarUrl }
                         : require("./assets/images/transformers.jpg")
                     }
                     style={styles.avatar}
@@ -121,11 +177,17 @@ export default function Menu({ navigation }: { navigation: NavigationProp<any> }
 
             {/* Các mục đặt vé */}
             <View style={styles.menuSection}>
-              <TouchableOpacity style={styles.menuRow}>
+              <TouchableOpacity
+                style={styles.menuRow}
+                onPress={handleBookByMoviePress}
+              >
                 <Icon1 name="movie" size={24} color="#fff" style={styles.menuIcon} />
                 <Text style={styles.menuItem}>Đặt vé theo phim</Text>
               </TouchableOpacity>
-              <TouchableOpacity style={styles.menuRow}>
+              <TouchableOpacity
+                style={styles.menuRow}
+                onPress={handleBookByCinemaPress}
+              >
                 <Icon1 name="map-marker" size={24} color="#fff" style={styles.menuIcon} />
                 <Text style={styles.menuItem}>Đặt vé theo rạp</Text>
               </TouchableOpacity>
@@ -133,7 +195,10 @@ export default function Menu({ navigation }: { navigation: NavigationProp<any> }
 
             {/* Các mục menu chính */}
             <View style={styles.menuSection}>
-              <TouchableOpacity style={styles.menuRow} onPress={() => closeMenuAndNavigate("Home")}>
+              <TouchableOpacity
+                style={styles.menuRow}
+                onPress={() => closeMenuAndNavigate("Home")}
+              >
                 <Icon1 name="home" size={24} color="#fff" style={styles.menuIcon} />
                 <Text style={styles.menuItem}>Trang chủ</Text>
               </TouchableOpacity>
@@ -145,12 +210,20 @@ export default function Menu({ navigation }: { navigation: NavigationProp<any> }
                 <Icon1 name="map-marker" size={24} color="#fff" style={styles.menuIcon} />
                 <Text style={styles.menuItem}>Rạp</Text>
               </TouchableOpacity>
-              <TouchableOpacity style={styles.menuRow}>
+              <TouchableOpacity
+                style={styles.menuRow}
+                onPress={handleSpecialExperiencesPress} // Điều hướng đến SpecialExperiencesUI
+              >
                 <Icon1 name="star" size={24} color="#fff" style={styles.menuIcon} />
                 <Text style={styles.menuItem}>Rạp đặc biệt</Text>
               </TouchableOpacity>
               <TouchableOpacity style={styles.menuRow}>
-                <Icon1 name="ticket-confirmation" size={24} color="#fff" style={styles.menuIcon} />
+                <Icon1
+                  name="ticket-confirmation"
+                  size={24}
+                  color="#fff"
+                  style={styles.menuIcon}
+                />
                 <Text style={styles.menuItem}>Vé của tôi</Text>
               </TouchableOpacity>
               <TouchableOpacity style={styles.menuRow}>
@@ -169,7 +242,10 @@ export default function Menu({ navigation }: { navigation: NavigationProp<any> }
 
             {/* Tin tức & Sự kiện */}
             <View style={styles.menuSection}>
-              <TouchableOpacity style={styles.menuRow}>
+            <TouchableOpacity
+                style={styles.menuRow}
+                onPress={handleNewsAndEventsPress} // Điều hướng đến TinMoiVaUuDai
+              >
                 <Icon1 name="newspaper" size={24} color="#fff" style={styles.menuIcon} />
                 <Text style={styles.menuItem}>Tin tức & Sự kiện</Text>
                 <View style={styles.badge}>
@@ -183,6 +259,7 @@ export default function Menu({ navigation }: { navigation: NavigationProp<any> }
     </>
   );
 }
+
 const styles = StyleSheet.create({
   menuButton: {
     padding: 5,

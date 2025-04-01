@@ -2,16 +2,18 @@ const express = require('express');
 const sql = require('mssql');
 const cors = require('cors');
 const bodyParser = require('body-parser');
-
+const path = require('path');
+const WebSocket = require('ws');
 const app = express();
 const port = 3000;
 const host = '0.0.0.0'; // Chấp nhận kết nối từ mọi IP
-
+app.use('/assets', express.static(path.join(__dirname, 'assets')));
 app.use(cors());
 app.use(bodyParser.json());
 
 // Lưu trữ OTP tạm thời với thời gian hết hạn
 const otpStorage = new Map(); // Sử dụng Map để quản lý OTP
+
 
 // Cấu hình kết nối SQL Server
 const dbConfig = {
@@ -37,6 +39,31 @@ app.get('/', (req, res) => {
     res.json({ message: 'Welcome to the Movie Ticket Booking API!' });
 });
 
+// API lấy danh sách phim theo id (thông tin phim chi tiết)
+app.get('/api/movies/:id', async (req, res) => {
+    const { id } = req.params;
+    try {
+        const pool = await sql.connect(dbConfig);
+        const result = await pool.request()
+            .input('movieId', sql.Int, id)
+            .query('SELECT * FROM Movie WHERE MovieID = @movieId');
+        
+        if (result.recordset.length === 0) {
+            return res.status(404).json({ message: 'Không tìm thấy phim!' });
+        }
+
+        // Chuyển ImageUrl từ Buffer sang Base64
+        const movie = result.recordset[0];
+        if (movie.ImageUrl && Buffer.isBuffer(movie.ImageUrl)) {
+            movie.ImageUrl = movie.ImageUrl.toString('base64');
+        }
+
+        res.json({ movie });
+    } catch (err) {
+        console.error('Lỗi khi lấy thông tin phim:', err);
+        res.status(500).json({ message: 'Lỗi server!', error: err.message });
+    }
+});
 // API lấy danh sách phim
 app.get('/api/movies', async (req, res) => {
     try {
@@ -44,7 +71,16 @@ app.get('/api/movies', async (req, res) => {
         const result = await pool.request()
             .query('SELECT * FROM Movie');
         
-        res.json({ movies: result.recordset });
+        // Chuyển ImageUrl từ Buffer sang Base64
+        const movies = result.recordset.map(movie => {
+            if (movie.ImageUrl && Buffer.isBuffer(movie.ImageUrl)) {
+                movie.ImageUrl = movie.ImageUrl.toString('base64');
+            }
+            return movie;
+        });
+
+        console.log('Movies:', movies);
+        res.json({ movies });
     } catch (err) {
         console.error('Lỗi khi lấy danh sách phim:', err);
         res.status(500).json({ message: 'Lỗi server!', error: err.message });
@@ -64,20 +100,44 @@ app.post('/api/login', async (req, res) => {
 
     try {
         const pool = await sql.connect(dbConfig);
-        const result = await pool.request()
+        const accountResult = await pool.request()
             .input('email', sql.VarChar, email)
             .query('SELECT * FROM Account WHERE AccountName = @email');
 
-        if (result.recordset.length === 0) {
+        if (accountResult.recordset.length === 0) {
             return res.status(404).json({ message: 'Tài khoản không tồn tại!' });
         }
 
-        const account = result.recordset[0];
+        const account = accountResult.recordset[0];
         if (password !== account.AccountPassword) {
             return res.status(401).json({ message: 'Mật khẩu không đúng!' });
         }
 
-        res.json({ message: 'Đăng nhập thành công!', user: account });
+        // Lấy thông tin từ bảng Customer dựa trên AccountID
+        const customerResult = await pool.request()
+            .input('accountID', sql.Int, account.AccountID)
+            .query('SELECT * FROM Customer WHERE AccountID = @accountID');
+
+        if (customerResult.recordset.length === 0) {
+            return res.status(404).json({ message: 'Không tìm thấy thông tin khách hàng!' });
+        }
+
+        const customer = customerResult.recordset[0];
+        const userData = {
+            AccountID: account.AccountID,
+            AccountName: account.AccountName,
+            AccountType: account.AccountType,
+            customerID: customer.CustomerID,
+            customerName: customer.CustomerName,
+            customerEmail: customer.CustomerEmail,
+            customerPhone: customer.CustomerPhone,
+            CustomerGender: customer.CustomerGender,
+            CustomerDate: customer.CustomerDate,
+            CustomerAddress: customer.CustomerAddress,
+            AvatarUrl: customer.AvatarUrl, // Bao gồm AvatarUrl
+        };
+
+        res.json({ message: 'Đăng nhập thành công!', user: userData });
     } catch (err) {
         console.error('Lỗi đăng nhập:', err);
         res.status(500).json({ message: 'Lỗi server!', error: err.message });
@@ -341,6 +401,34 @@ app.delete('/api/delete-account', async (req, res) => {
         res.json({ message: 'Xóa tài khoản thành công!' });
     } catch (err) {
         console.error('Lỗi xóa tài khoản:', err);
+        res.status(500).json({ message: 'Lỗi server!', error: err.message });
+    }
+});
+
+// API lấy danh sách thành phố
+app.get('/api/cities', async (req, res) => {
+    try {
+        const pool = await sql.connect(dbConfig);
+        const result = await pool.request()
+            .query('SELECT * FROM City');
+        
+        res.json({ cities: result.recordset });
+    } catch (err) {
+        console.error('Lỗi khi lấy danh sách thành phố:', err);
+        res.status(500).json({ message: 'Lỗi server!', error: err.message });
+    }
+});
+
+// API lấy danh sách rạp chiếu phim
+app.get('/api/cinemas', async (req, res) => {
+    try {
+        const pool = await sql.connect(dbConfig);
+        const result = await pool.request()
+            .query('SELECT * FROM Cinema');
+        
+        res.json({ cinemas: result.recordset });
+    } catch (err) {
+        console.error('Lỗi khi lấy danh sách rạp chiếu phim:', err);
         res.status(500).json({ message: 'Lỗi server!', error: err.message });
     }
 });

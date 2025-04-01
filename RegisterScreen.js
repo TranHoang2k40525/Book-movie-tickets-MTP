@@ -12,26 +12,21 @@ import {
 import { Picker } from "@react-native-picker/picker";
 import Icon from "react-native-vector-icons/Ionicons";
 import DateTimePicker from "@react-native-community/datetimepicker";
-import axios from "axios";
+import { register } from "./api"; 
 import { NavigationProp } from "@react-navigation/native";
 import { UserContext } from "./User/UserContext";
-export default function RegisterScreen({
-  navigation,
-}: {
-  navigation: NavigationProp<any>,
-}) {
-  // Trạng thái cho các input
+
+export default function RegisterScreen({ navigation}) {
   const [customerName, setCustomerName] = useState("");
   const [customerEmail, setCustomerEmail] = useState("");
   const [customerPhone, setCustomerPhone] = useState("");
   const [customerAddress, setCustomerAddress] = useState("");
-  const [password, setPassword] = useState(""); // Thêm trạng thái cho mật khẩu
+  const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
-  const [customerDate, setCustomerDate] = useState(new Date()); // Đổi tên từ `date` thành `customerDate` cho rõ ràng
+  const [customerDate, setCustomerDate] = useState(new Date());
   const [showDatePicker, setShowDatePicker] = useState(false);
-  const [customerGender, setCustomerGender] = useState(""); // Thêm trạng thái cho giới tính
+  const [customerGender, setCustomerGender] = useState("");
 
-  // Danh sách khu vực
   const areas = [
     { label: "Chọn khu vực", value: "" },
     { label: "Hà Nội", value: "Hà Nội" },
@@ -40,9 +35,7 @@ export default function RegisterScreen({
     { label: "Cần Thơ", value: "Cần Thơ" },
   ];
 
-  // Hàm xử lý khi nhấn nút Đăng ký
   const handleRegister = async () => {
-    // Kiểm tra các trường bắt buộc
     if (
       !customerName ||
       !customerPhone ||
@@ -56,54 +49,43 @@ export default function RegisterScreen({
       return;
     }
 
-    // Kiểm tra định dạng email
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(customerEmail)) {
       Alert.alert("Lỗi", "Email không hợp lệ!");
       return;
     }
 
-    // Kiểm tra số điện thoại (10 chữ số)
     const phoneRegex = /^\d{10}$/;
     if (!phoneRegex.test(customerPhone)) {
       Alert.alert("Lỗi", "Số điện thoại phải có 10 chữ số!");
       return;
     }
 
-    // Kiểm tra độ dài mật khẩu
     if (password.length < 6) {
       Alert.alert("Lỗi", "Mật khẩu phải có ít nhất 6 ký tự!");
       return;
     }
 
     try {
-      const response = await axios.post(
-        "http://192.168.36.105:3000/api/register",
-        {
-          customerName,
-          customerEmail,
-          customerPhone,
-          password,
-          customerGender,
-          customerDate: customerDate.toISOString().split("T")[0],
-          customerAddress,
-        }
-      );
+      const response = await register({
+        customerName,
+        customerEmail,
+        customerPhone,
+        password,
+        customerGender,
+        customerDate: customerDate.toISOString().split("T")[0],
+        customerAddress,
+      });
       Alert.alert("Thành công", response.data.message, [
         { text: "OK", onPress: () => navigation.navigate("Login") },
       ]);
     } catch (error) {
-      Alert.alert("Lỗi", error.response?.data?.message || "Đăng ký thất bại!");
+      Alert.alert("Đăng ký thất bại!");
     }
-
-    Alert.alert("Thành công", "Đăng ký thành công!", [
-      { text: "OK", onPress: () => navigation.navigate("Login") }, // Chuyển về màn hình đăng nhập
-    ]);
   };
 
   return (
     <View style={styles.container}>
-      {/* Header */}
       <View style={styles.header}>
         <Image
           source={require("./assets/images/logo.png")}
@@ -117,7 +99,6 @@ export default function RegisterScreen({
         </TouchableOpacity>
       </View>
 
-      {/* Form */}
       <Text style={styles.label}>
         Họ và tên <Text style={styles.required}>*</Text>
       </Text>
@@ -159,7 +140,7 @@ export default function RegisterScreen({
           placeholder="Nhập mật khẩu"
           value={password}
           onChangeText={setPassword}
-          secureTextEntry={!showPassword} // Sửa để toggle hiển thị mật khẩu
+          secureTextEntry={!showPassword}
         />
         <TouchableOpacity onPress={() => setShowPassword(!showPassword)}>
           <Icon
@@ -170,7 +151,6 @@ export default function RegisterScreen({
         </TouchableOpacity>
       </View>
 
-      {/* Pickers */}
       <View style={styles.row}>
         <View style={styles.pickerContainer}>
           <Text style={styles.label}>
@@ -194,7 +174,7 @@ export default function RegisterScreen({
               mode="date"
               display={Platform.OS === "ios" ? "spinner" : "default"}
               onChange={(event, selectedDate) => {
-                setShowDatePicker(Platform.OS === "ios"); // Giữ picker mở trên iOS
+                setShowDatePicker(Platform.OS === "ios");
                 if (selectedDate) setCustomerDate(selectedDate);
               }}
             />
@@ -238,7 +218,6 @@ export default function RegisterScreen({
         </Picker>
       </View>
 
-      {/* Button */}
       <TouchableOpacity style={styles.registerButton} onPress={handleRegister}>
         <Text style={styles.registerButtonText}>Đăng ký</Text>
       </TouchableOpacity>
