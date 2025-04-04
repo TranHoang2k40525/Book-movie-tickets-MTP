@@ -2,7 +2,7 @@ import React, { useState, useRef, useEffect } from "react";
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert } from "react-native";
 import Icon from "react-native-vector-icons/FontAwesome";
 import { NavigationProp } from '@react-navigation/native';
-import axios from 'axios';
+import { sendOtp } from "./api"; 
 
 export default function ForgotPasswordScreen({ navigation, route }) {
   const [email, setEmail] = useState("");
@@ -51,14 +51,14 @@ export default function ForgotPasswordScreen({ navigation, route }) {
     }
 
     try {
-      const response = await axios.post('http://192.168.36.105:3000/api/send-otp', { email });
+      const response = await sendOtp({ email });
       const newOtp = generateOtp();
       setGeneratedOtp(newOtp);
       setIsOtpSent(true);
       console.log(`Mã OTP được tạo: ${newOtp}`);
       Alert.alert("Thành công", response.data.message);
     } catch (error) {
-      Alert.alert("Lỗi", error.response?.data.message || "Không thể kết nối đến server!");
+      Alert.alert("Không thể kết nối đến server!");
       console.error(error);
     }
   };
@@ -75,8 +75,7 @@ export default function ForgotPasswordScreen({ navigation, route }) {
       return;
     }
     console.log("Route params in ForgotPasswordScreen:", route.params);
-    // Chuyển thẳng sang ResetPassword mà không hiển thị thông báo
-    navigation.navigate("ResetPassword", { email ,from: route.params?.from });
+    navigation.navigate("ResetPassword", { email, from: route.params?.from });
   };
 
   const handleOtpChange = (text, index) => {
@@ -93,7 +92,6 @@ export default function ForgotPasswordScreen({ navigation, route }) {
 
   return (
     <View style={styles.container}>
-      {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity onPress={() => navigation.goBack()}>
           <Text style={styles.backButtonText}>
@@ -103,7 +101,6 @@ export default function ForgotPasswordScreen({ navigation, route }) {
         <Text style={styles.headerText}>Quên mật khẩu</Text>
       </View>
 
-      {/* Form */}
       <View style={styles.formContainer}>
         <Text style={styles.label}>Nhập email hoặc số điện thoại</Text>
         <TextInput
@@ -216,7 +213,7 @@ const styles = StyleSheet.create({
     marginBottom: 10,
   },
   continueButton: {
-    backgroundColor: "#FF4D6D", // Đổi màu nút để nổi bật hơn
+    backgroundColor: "#FF4D6D",
     paddingVertical: 15,
     borderRadius: 10,
     alignItems: "center",

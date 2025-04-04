@@ -11,20 +11,16 @@ import {
 } from "react-native";
 import { UserContext } from "./User/UserContext";
 import Icon from "react-native-vector-icons/FontAwesome";
-import axios from 'axios';
 import { NavigationProp, RouteProp } from '@react-navigation/native';
+import { login, getCustomer } from "./api"; // Import các hàm từ api.js
 
-interface LoginScreenProps {
-  navigation: NavigationProp<any>;
-  route: RouteProp<any>;
-}
 
-function LoginScreen({ navigation, route }: LoginScreenProps) {
+function LoginScreen({ navigation, route }) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [isPasswordVisible, setIsPasswordVisible] = useState(false);
   const { setUser } = useContext(UserContext);
-  // Nhận email và mật khẩu từ ResetPasswordScreen (nếu có)
+
   useEffect(() => {
     if (route.params?.email) {
       setEmail(route.params.email);
@@ -33,69 +29,54 @@ function LoginScreen({ navigation, route }: LoginScreenProps) {
       setPassword(route.params.password);
     }
   }, [route.params]);
+
   const handleLogin = async () => {
     if (!email || !password) {
       Alert.alert("Lỗi", "Vui lòng điền đầy đủ thông tin!");
       return;
     }
-    
-
 
     const trimmedEmail = email.trim();
     console.log('Dữ liệu gửi đi:', { email: trimmedEmail, password });
     try {
-      // Gọi API đăng nhập
-      const response = await axios.post("http://192.168.36.105:3000/api/login", {
-        email: trimmedEmail,
-        password,
-      });
+      // Gọi API đăng nhập từ api.js
+      const response = await login({ email: trimmedEmail, password });
       const userData = response.data.user;
 
-      // Gọi API để lấy thông tin khách hàng
-      const customerResponse = await axios.post("http://192.168.36.105:3000/api/get-customer", {
-        accountID: userData.AccountID,
-      });
+      // Gọi API để lấy thông tin khách hàng từ api.js
+      const customerResponse = await getCustomer({ accountID: userData.AccountID });
       const customerData = customerResponse.data.customer;
 
-      // Kết hợp thông tin user và customer
       const userWithCustomer = {
         ...userData,
         customerID: customerData.CustomerID,
         customerName: customerData.CustomerName,
       };
 
-      // Lưu vào UserContext
       setUser(userWithCustomer);
       Alert.alert("Thành công", response.data.message);
 
-      // Điều hướng về Home hoặc Member tùy theo nguồn gốc
       if (route.params?.from === "Member") {
         navigation.navigate("Member");
       } else {
         navigation.navigate("Home", { user: userWithCustomer });
       }
     } catch (error) {
-
-
       console.error('Lỗi đăng nhập từ frontend:', error);
-      if (error.response) {
-        
-        Alert.alert("Lỗi", error.response.data.message || "Đăng nhập thất bại!");
-      } else if (error.request) {
-        
+      if (error?.response) {
+        Alert.alert("Lỗi", error.response.data?.message || "Đăng nhập thất bại!");
+      } else if (error?.request) {
         Alert.alert("Lỗi", "Không thể kết nối đến server. Vui lòng kiểm tra mạng hoặc địa chỉ server!");
       } else {
-        
-        Alert.alert("Lỗi", "Đã xảy ra lỗi: " + error.message);
+        Alert.alert("Lỗi", "Đã xảy ra lỗi: " + error?.message);
       }
     }
   };
 
   return (
     <View style={styles.container}>
-      {/* Header */}
       <ImageBackground
-        source={require("./assets/images/anh_dangnhap.jpg")} // Ảnh nền header
+        source={require("./assets/images/anh_dangnhap.jpg")}
         style={styles.headerBackground}
       >
         <TouchableOpacity
@@ -114,14 +95,14 @@ function LoginScreen({ navigation, route }: LoginScreenProps) {
                 Rạp chiếu phim MTB 67CS1
               </Text>
               <Image
-                source={require("./assets/images/logo.png")} // Logo bên cạnh chữ
-                style={styles.logo} />
+                source={require("./assets/images/logo.png")}
+                style={styles.logo}
+              />
             </View>
           </View>
         </View>
       </ImageBackground>
 
-      {/* Form đăng nhập */}
       <View style={styles.formContainer}>
         <View style={styles.inputContainer}>
           <TextInput
@@ -130,7 +111,8 @@ function LoginScreen({ navigation, route }: LoginScreenProps) {
             placeholderTextColor="#888"
             value={email}
             onChangeText={setEmail}
-            keyboardType="email-address" />
+            keyboardType="email-address"
+          />
         </View>
 
         <View style={styles.inputContainer}>
@@ -140,7 +122,8 @@ function LoginScreen({ navigation, route }: LoginScreenProps) {
             placeholderTextColor="#888"
             value={password}
             onChangeText={setPassword}
-            secureTextEntry={!isPasswordVisible} />
+            secureTextEntry={!isPasswordVisible}
+          />
           <TouchableOpacity
             style={styles.eyeIcon}
             onPress={() => setIsPasswordVisible(!isPasswordVisible)}
@@ -148,7 +131,8 @@ function LoginScreen({ navigation, route }: LoginScreenProps) {
             <Icon
               name={isPasswordVisible ? "eye" : "eye-slash"}
               size={20}
-              color="#888" />
+              color="#888"
+            />
           </TouchableOpacity>
         </View>
 
@@ -171,7 +155,7 @@ function LoginScreen({ navigation, route }: LoginScreenProps) {
 
         <TouchableOpacity
           style={styles.registerButton}
-          onPress={() => navigation.navigate("Register")} // Điều hướng đến màn hình đăng ký
+          onPress={() => navigation.navigate("Register")}
         >
           <Text style={styles.registerButtonText}>
             Đăng ký tài khoản MTB 67CS1
@@ -185,10 +169,10 @@ function LoginScreen({ navigation, route }: LoginScreenProps) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#fff", // Nền trắng cho phần còn lại
+    backgroundColor: "#fff",
   },
   headerBackground: {
-    height: 200, // Chiều cao của header
+    height: 200,
     justifyContent: "center",
     alignItems: "center",
   },
@@ -203,32 +187,32 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   squareContainer: {
-    width: 170, // Kích thước ô vuông lớn
+    width: 170,
     height: 170,
     left: 90,
-    backgroundColor: "#FF4D6D", // Màu đỏ giống trong hình trước
+    backgroundColor: "#FF4D6D",
     borderWidth: 2,
     borderColor: "#black",
-    transform: [{ rotate: "-5deg" }], // Nghiêng 10 độ
+    transform: [{ rotate: "-5deg" }],
     justifyContent: "center",
     alignItems: "center",
   },
   innerSquare: {
-    width: 150, // Kích thước ô vuông nhỏ hơn
+    width: 150,
     height: 150,
     backgroundColor: "#FF4D6D",
     borderWidth: 2,
-    borderColor: "#fff", // Viền trắng
+    borderColor: "#fff",
     flexDirection: "column",
     justifyContent: "center",
     alignItems: "center",
   },
   headerText: {
-    fontSize: 20, // Tăng kích thước chữ để dễ đọc
+    fontSize: 20,
     fontWeight: "bold",
     color: "#fff",
-    width: 100, // Giới hạn chiều rộng để chữ xuống dòng
-    textAlign: "center", // Căn giữa chữ
+    width: 100,
+    textAlign: "center",
   },
   logo: {
     width: 40,
@@ -239,18 +223,18 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingHorizontal: 20,
     paddingTop: 20,
-    backgroundColor: "rgba(255, 255, 255, 0.9)", // Lớp phủ trắng mờ
+    backgroundColor: "rgba(255, 255, 255, 0.9)",
   },
   inputContainer: {
     position: "relative",
     marginBottom: 20,
   },
   input: {
-    borderBottomWidth: 1, // Chỉ có đường gạch dưới
+    borderBottomWidth: 1,
     borderBottomColor: "#ccc",
     paddingVertical: 10,
     fontSize: 16,
-    backgroundColor: "transparent", // Không có background
+    backgroundColor: "transparent",
   },
   eyeIcon: {
     position: "absolute",
@@ -274,7 +258,7 @@ const styles = StyleSheet.create({
     marginBottom: 20,
   },
   forgotPasswordText: {
-    color: "#1E90FF", // Màu xanh dương
+    color: "#1E90FF",
     fontSize: 16,
   },
   orContainer: {

@@ -1,36 +1,37 @@
-import React from "react";
+import React, { useState } from "react";
 import { View, Text, Image, StyleSheet, FlatList, TouchableOpacity } from "react-native";
-import { Ionicons } from "@expo/vector-icons"; 
+import { Ionicons } from "@expo/vector-icons";
 import { useNavigation } from "@react-navigation/native";
-
-// Import ảnh từ thư mục assets
-import dep1 from "./assets/dep1.png";
-import dep2 from "./assets/dep2.png";
-import dep3 from "./assets/dep3.png";
-import dep4 from "./assets/dep4.png";
-import dep5 from "./assets/dep5.png";
-import dep6 from "./assets/dep6.png";
-import dep7 from "./assets/dep7.png";
-import dep8 from "./assets/dep8.png";
-import dep9 from "./assets/dep9.png";
-import dep10 from "./assets/dep10.png";
+import Menu from "./Menu"; // Import component Menu
 
 const specialExperiences = [
-  { name: "SWEETBOX", description: "Chỗ ngồi Phù Hợp Cặp Đôi", image: dep1 },
-  { name: "4DX", description: "", image: dep2 },
-  { name: "IMAX", description: "Live It", image: dep3 },
-  { name: "GOLDCLASS", description: "Phòng Chiếu Hạng Thương Gia", image: dep4 },
-  { name: "L'AMOUR", description: "Rạp Chiếu Phim Giường Nằm", image: dep5 },
-  { name: "STARIUM", description: "Màn hình cong lớn, chuẩn quốc tế", image: dep6 },
-  { name: "SCREENX", description: "", image: dep7 },
-  { name: "CINE & FORÊT", description: "Rạp Phim Trong Rừng", image: dep8 },
-  { name: "CINE & SUITE", description: "", image: dep9 },
-  { name: "CINE VIP", description: "Trải nghiệm sang trọng bậc nhất", image: dep10 },
+  { name: "SWEETBOX", description: "Chỗ ngồi Phù Hợp Cặp Đôi", image: require("./assets/dep1.png") },
+  { name: "4DX", description: "", image: require("./assets/dep2.png") },
+  { name: "IMAX", description: "Live It", image: require("./assets/dep3.png") },
+  { name: "GOLDCLASS", description: "Phòng Chiếu Hạng Thương Gia", image: require("./assets/dep4.png") },
+  { name: "L'AMOUR", description: "Rạp Chiếu Phim Giường Nằm", image: require("./assets/dep5.png") },
+  { name: "STARIUM", description: "Màn hình cong lớn, chuẩn quốc tế", image: require("./assets/dep6.png") },
+  { name: "SCREENX", description: "", image: require("./assets/dep7.png") },
+  { name: "CINE & FORÊT", description: "Rạp Phim Trong Rừng", image: require("./assets/dep8.png") },
+  { name: "CINE & SUITE", description: "", image: require("./assets/dep9.png") },
+  { name: "CINE VIP", description: "Trải nghiệm sang trọng bậc nhất", image: require("./assets/dep10.png") },
 ];
 
 export default function SpecialExperiencesUI() {
-  const navigation = useNavigation(); 
+  const navigation = useNavigation();
+  const [menuVisible, setMenuVisible] = useState(false); // Trạng thái để mở/đóng menu
 
+  // Hàm mở/đóng menu
+  const toggleMenu = () => {
+    setMenuVisible(!menuVisible);
+  };
+  const handleExperiencePress = (experience) => {
+    if (experience.name === "SWEETBOX") {
+      navigation.navigate("SweetBox"); // Điều hướng đến màn hình SweetBox
+    } else {
+      console.log(`Nhấn vào: ${experience.name}`);
+    }
+  };
   return (
     <View style={styles.container}>
       {/* Header */}
@@ -41,12 +42,13 @@ export default function SpecialExperiencesUI() {
 
         <Text style={styles.headerTitle}>Rạp phim MTB</Text>
 
-        <TouchableOpacity onPress={() => navigation.openDrawer()} style={styles.iconButton}>
-          <Ionicons name="menu" size={24} color="black" />
+        {/* Nút menu để mở menu modal */}
+        <TouchableOpacity onPress={toggleMenu} style={styles.iconButton}>
+          <Menu navigation={navigation} />
         </TouchableOpacity>
       </View>
 
-      {}
+      {/* Title Section */}
       <View style={styles.titleSection}>
         <Text style={styles.titleText}>Trải Nghiệm Sự Đặc Biệt</Text>
         <Text style={styles.subtitleText}>
@@ -54,15 +56,15 @@ export default function SpecialExperiencesUI() {
         </Text>
       </View>
 
-      {}
+      {/* Special Experiences List */}
       <FlatList
         data={specialExperiences}
         keyExtractor={(item, index) => index.toString()}
         numColumns={2}
         renderItem={({ item }) => (
-          <TouchableOpacity 
-            style={styles.card} 
-            onPress={() => console.log(`Nhấn vào: ${item.name}`)} 
+          <TouchableOpacity
+            style={styles.card}
+            onPress={() => handleExperiencePress(item)}
           >
             <Image source={item.image} style={styles.image} />
             <View style={styles.overlay}>
@@ -72,6 +74,9 @@ export default function SpecialExperiencesUI() {
           </TouchableOpacity>
         )}
       />
+
+      {/* Tích hợp component Menu */}
+      
     </View>
   );
 }
@@ -81,17 +86,16 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: "#fff",
   },
-  
   header: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    paddingHorizontal: 15,
-    paddingVertical: 10,
+    paddingHorizontal: 10,
+    paddingVertical: 0,
     backgroundColor: "white",
     borderBottomWidth: 1,
     borderBottomColor: "#ddd",
-    paddingTop: 50, 
+    paddingTop: 10,
   },
   iconButton: {
     padding: 5,
@@ -99,11 +103,9 @@ const styles = StyleSheet.create({
   headerTitle: {
     fontSize: 16,
     fontWeight: "bold",
-    color: "red", 
-    marginLeft: -150, 
+    color: "red",
+    marginLeft: -170,
   },
-
-  
   titleSection: {
     backgroundColor: "#FFD700",
     paddingVertical: 15,
@@ -120,8 +122,6 @@ const styles = StyleSheet.create({
     textAlign: "center",
     marginTop: 5,
   },
-
-  
   card: {
     flex: 1,
     margin: 5,

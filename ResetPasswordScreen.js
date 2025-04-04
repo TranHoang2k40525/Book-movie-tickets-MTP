@@ -8,7 +8,7 @@ import {
   Alert,
 } from "react-native";
 import Icon from "react-native-vector-icons/FontAwesome";
-import axios from "axios";
+import { resetPassword } from "./api"; 
 
 export default function ResetPasswordScreen({ navigation, route }) {
   const { email = "", from = null } = route.params || {};
@@ -16,6 +16,7 @@ export default function ResetPasswordScreen({ navigation, route }) {
   const [confirmPassword, setConfirmPassword] = useState("");
   const [error, setError] = useState("");
   console.log("Route params in ResetPasswordScreen:", route.params);
+
   const handleResetPassword = async () => {
     if (!newPassword || !confirmPassword) {
       setError("Vui lòng nhập đầy đủ mật khẩu!");
@@ -35,25 +36,15 @@ export default function ResetPasswordScreen({ navigation, route }) {
     const payload = { email, newPassword };
     console.log("Dữ liệu gửi đi:", payload);
     try {
-      const response = await axios.post(
-        "http://192.168.36.105:3000/api/reset-password",
-        payload,
-        {
-          timeout: 5000,
-          headers: { "Content-Type": "application/json" },
-        }
-      );
-
+      const response = await resetPassword(payload);
       const targetScreen = from === "Member" ? "Member" : "Login";
       Alert.alert("Thành công", response.data.message, [
         {
           text: "OK",
           onPress: () => {
             if (from === "Member") {
-              // Quay lại Member mà không đăng xuất
               navigation.navigate("Member");
             } else {
-              // Điều hướng về Login cho các trường hợp khác
               navigation.navigate("Login", { email, password: newPassword });
             }
           },
@@ -64,21 +55,19 @@ export default function ResetPasswordScreen({ navigation, route }) {
       setError(error.response?.data?.message || "Đổi mật khẩu thất bại!");
     }
   };
+
   const headerTitle = from === "Member" ? "Đổi mật khẩu" : "Đặt lại mật khẩu";
   return (
     <View style={styles.container}>
-      {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity onPress={() => navigation.goBack()}>
           <Text style={styles.backButtonText}>
             <Icon name="arrow-left" size={20} color="#fff" /> Quay lại
           </Text>
         </TouchableOpacity>
-        <Text style={styles.headerText}>Đặt lại mật khẩu</Text>
         <Text style={styles.headerText}>{headerTitle}</Text>
       </View>
 
-      {/* Form */}
       <View style={styles.formContainer}>
         <Text style={styles.label}>Nhập mật khẩu mới</Text>
         <TextInput
@@ -88,7 +77,7 @@ export default function ResetPasswordScreen({ navigation, route }) {
           value={newPassword}
           onChangeText={(text) => {
             setNewPassword(text);
-            setError(""); // Xóa lỗi khi người dùng nhập
+            setError("");
           }}
           secureTextEntry
         />
@@ -101,7 +90,7 @@ export default function ResetPasswordScreen({ navigation, route }) {
           value={confirmPassword}
           onChangeText={(text) => {
             setConfirmPassword(text);
-            setError(""); // Xóa lỗi khi người dùng nhập
+            setError("");
           }}
           secureTextEntry
         />

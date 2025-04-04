@@ -7,13 +7,18 @@ import LoginScreen from "./LoginScreen";
 import RegisterScreen from "./RegisterScreen";
 import ForgotPasswordScreen from "./ForgotPasswordScreen";
 import ResetPasswordScreen from "./ResetPasswordScreen";
-import MovieDetail from "./MovieDetail";
 import MemberScreen from "./MemberScreen";
 import AccountInfoScreen from "./AccountInfoScreen";
+import MovieDetailsScreen from "./MovieDetailsScreen";
+import Datvetheophim from "./Datvetheophim";
+import ChonPhimTheoRap from "./ChonPhimTheoRap";
+import SpecialExperiencesUI from "./SpecialExperiencesUI";
+import SweetBox from "./SweetBox";
+import TinMoiVaUuDai from "./TinMoiVaUuDai"; // Import màn hình TinMoiVaUuDai
+
 const Stack = createStackNavigator();
 
 export default function App() {
- 
   return (
     <UserProvider>
       <NavigationContainer>
@@ -44,18 +49,43 @@ export default function App() {
             options={{ headerShown: false }}
           />
           <Stack.Screen
-            name="MovieDetail"
-            component={MovieDetail}
-            options={{ headerShown: false }}
-          />
-          <Stack.Screen
-            name="Member" 
+            name="Member"
             component={MemberScreen}
             options={{ headerShown: false }}
           />
           <Stack.Screen
             name="AccountInfo"
             component={AccountInfoScreen}
+            options={{ headerShown: false }}
+          />
+          <Stack.Screen
+            name="MovieDetailsScreen"
+            component={MovieDetailsScreen}
+            options={{ headerShown: false }}
+          />
+          <Stack.Screen
+            name="Datvetheophim"
+            component={Datvetheophim}
+            options={{ headerShown: false }}
+          />
+          <Stack.Screen
+            name="ChonPhimTheoRap"
+            component={ChonPhimTheoRap}
+            options={{ headerShown: false }}
+          />
+          <Stack.Screen
+            name="SpecialExperiencesUI"
+            component={SpecialExperiencesUI}
+            options={{ headerShown: false }}
+          />
+          <Stack.Screen
+            name="SweetBox"
+            component={SweetBox}
+            options={{ headerShown: false }}
+          />
+          <Stack.Screen
+            name="TinMoiVaUuDai"
+            component={TinMoiVaUuDai}
             options={{ headerShown: false }}
           />
         </Stack.Navigator>
