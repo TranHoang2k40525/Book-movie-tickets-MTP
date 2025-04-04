@@ -1,11 +1,11 @@
 import axios from "axios";
 
-const BASE_URL = "http://192.168.36.105:3000";
+const BASE_URL = "http://192.168.1.101:3000";
 
 // Cấu hình axios instance
 const api = axios.create({
   baseURL: BASE_URL,
-  timeout: 10000, // Thời gian chờ tối đa 10 giây
+  timeout: 10000, 
   headers: {
     "Content-Type": "application/json",
   },

@@ -260,16 +260,15 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "white" },
   fixedHeader: { backgroundColor: "white" },
   header: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    paddingVertical: 10,
-    paddingHorizontal: 10,
-    backgroundColor: "white",
-    height: 70,
+    marginTop: 20, 
+    flexDirection: 'row', 
+    justifyContent: 'space-between',
+    alignItems: 'center', 
+    padding: 1, 
+    backgroundColor: 'white'
   },
   scrollContent: { flex: 1 },
-  horizontalMovieContainer: { paddingVertical: 10 },
+  horizontalMovieContainer: { paddingVertical: 0 },
   logo: { width: 35, height: 35, resizeMode: "contain" },
   headerText: {
     fontSize: 16,

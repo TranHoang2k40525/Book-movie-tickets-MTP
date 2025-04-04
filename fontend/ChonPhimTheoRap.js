@@ -9,7 +9,9 @@ import {
   SafeAreaView,
   StatusBar,
 } from 'react-native';
+import { Ionicons } from "@expo/vector-icons";
 import { UserContext } from './User/UserContext';
+import Menu from "./Menu";
 import { getCities, getCinemas } from './api';
 
 export default function ChonPhimTheoRap({ navigation }) {
@@ -143,16 +145,14 @@ export default function ChonPhimTheoRap({ navigation }) {
       {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
-          <Text style={styles.backButtonText}>◄</Text>
+          <Ionicons name="arrow-back" size={24} color="red" />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Chọn rạp</Text>
         <View style={styles.headerRightButtons}>
           <TouchableOpacity style={styles.headerButton}>
-            <Text style={styles.headerButtonText}>✈</Text>
+            <Ionicons name="location-sharp" size={24} color="red" style={styles.locationIcon} />
           </TouchableOpacity>
-          <TouchableOpacity style={styles.headerButton}>
-            <Text style={styles.headerButtonText}>≡</Text>
-          </TouchableOpacity>
+          <Menu navigation={navigation} />
         </View>
       </View>
 
@@ -242,7 +242,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     height: 56,
-    paddingHorizontal: 16,
+    paddingHorizontal: 10,
     borderBottomWidth: 1,
     borderBottomColor: '#e0e0e0',
     backgroundColor: '#fff',

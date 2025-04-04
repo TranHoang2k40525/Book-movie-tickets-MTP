@@ -64,7 +64,8 @@ export default function Menu({ navigation }) {
           },
           {
             text: "Đăng nhập",
-            onPress: () => navigation.navigate("Login", { from: "Datvetheophim" }),
+            onPress: () =>
+              navigation.navigate("Login", { from: "Datvetheophim" }),
             style: "default",
           },
         ],
@@ -88,7 +89,8 @@ export default function Menu({ navigation }) {
           },
           {
             text: "Đăng nhập",
-            onPress: () => navigation.navigate("Login", { from: "ChonPhimTheoRap" }),
+            onPress: () =>
+              navigation.navigate("Login", { from: "ChonPhimTheoRap" }),
             style: "default",
           },
         ],
@@ -98,13 +100,14 @@ export default function Menu({ navigation }) {
       navigation.navigate("ChonPhimTheoRap");
     }
   };
-
-  // Thêm hàm xử lý khi nhấn "Rạp đặc biệt"
   const handleSpecialExperiencesPress = () => {
     setMenuVisible(false);
     navigation.navigate("SpecialExperiencesUI");
   };
-
+  const handleCinemaPress = () => {
+    setMenuVisible(false);
+    navigation.navigate("RapPhimMTB");
+  };
   const closeMenuAndNavigate = (screen, params) => {
     setMenuVisible(false);
     navigation.navigate(screen, params);
@@ -155,7 +158,10 @@ export default function Menu({ navigation }) {
 
             {/* Hiển thị nút đăng nhập/đăng ký hoặc đăng xuất */}
             {user ? (
-              <TouchableOpacity style={styles.authButton} onPress={handleLogout}>
+              <TouchableOpacity
+                style={styles.authButton}
+                onPress={handleLogout}
+              >
                 <Text style={styles.authButtonText}>Đăng xuất</Text>
               </TouchableOpacity>
             ) : (
@@ -181,14 +187,24 @@ export default function Menu({ navigation }) {
                 style={styles.menuRow}
                 onPress={handleBookByMoviePress}
               >
-                <Icon1 name="movie" size={24} color="#fff" style={styles.menuIcon} />
+                <Icon1
+                  name="movie"
+                  size={24}
+                  color="#fff"
+                  style={styles.menuIcon}
+                />
                 <Text style={styles.menuItem}>Đặt vé theo phim</Text>
               </TouchableOpacity>
               <TouchableOpacity
                 style={styles.menuRow}
                 onPress={handleBookByCinemaPress}
               >
-                <Icon1 name="map-marker" size={24} color="#fff" style={styles.menuIcon} />
+                <Icon1
+                  name="map-marker"
+                  size={24}
+                  color="#fff"
+                  style={styles.menuIcon}
+                />
                 <Text style={styles.menuItem}>Đặt vé theo rạp</Text>
               </TouchableOpacity>
             </View>
@@ -199,22 +215,40 @@ export default function Menu({ navigation }) {
                 style={styles.menuRow}
                 onPress={() => closeMenuAndNavigate("Home")}
               >
-                <Icon1 name="home" size={24} color="#fff" style={styles.menuIcon} />
+                <Icon1
+                  name="home"
+                  size={24}
+                  color="#fff"
+                  style={styles.menuIcon}
+                />
                 <Text style={styles.menuItem}>Trang chủ</Text>
               </TouchableOpacity>
-              <TouchableOpacity style={styles.menuRow} onPress={handleMemberPress}>
-                <Icon1 name="account" size={24} color="#fff" style={styles.menuIcon} />
+              <TouchableOpacity
+                style={styles.menuRow}
+                onPress={handleMemberPress}
+              >
+                <Icon1
+                  name="account"
+                  size={24}
+                  color="#fff"
+                  style={styles.menuIcon}
+                />
                 <Text style={styles.menuItem}>Thành viên</Text>
               </TouchableOpacity>
-              <TouchableOpacity style={styles.menuRow}>
+              <TouchableOpacity style={styles.menuRow} onPress={handleCinemaPress}>
                 <Icon1 name="map-marker" size={24} color="#fff" style={styles.menuIcon} />
                 <Text style={styles.menuItem}>Rạp</Text>
               </TouchableOpacity>
               <TouchableOpacity
                 style={styles.menuRow}
-                onPress={handleSpecialExperiencesPress} // Điều hướng đến SpecialExperiencesUI
+                onPress={handleSpecialExperiencesPress} 
               >
-                <Icon1 name="star" size={24} color="#fff" style={styles.menuIcon} />
+                <Icon1
+                  name="star"
+                  size={24}
+                  color="#fff"
+                  style={styles.menuIcon}
+                />
                 <Text style={styles.menuItem}>Rạp đặc biệt</Text>
               </TouchableOpacity>
               <TouchableOpacity style={styles.menuRow}>
@@ -227,26 +261,46 @@ export default function Menu({ navigation }) {
                 <Text style={styles.menuItem}>Vé của tôi</Text>
               </TouchableOpacity>
               <TouchableOpacity style={styles.menuRow}>
-                <Icon1 name="store" size={24} color="#fff" style={styles.menuIcon} />
+                <Icon1
+                  name="store"
+                  size={24}
+                  color="#fff"
+                  style={styles.menuIcon}
+                />
                 <Text style={styles.menuItem}>Store</Text>
               </TouchableOpacity>
               <TouchableOpacity style={styles.menuRow}>
-                <Icon1 name="gift" size={24} color="#fff" style={styles.menuIcon} />
+                <Icon1
+                  name="gift"
+                  size={24}
+                  color="#fff"
+                  style={styles.menuIcon}
+                />
                 <Text style={styles.menuItem}>eGift</Text>
               </TouchableOpacity>
               <TouchableOpacity style={styles.menuRow}>
-                <Icon1 name="sale" size={24} color="#fff" style={styles.menuIcon} />
+                <Icon1
+                  name="sale"
+                  size={24}
+                  color="#fff"
+                  style={styles.menuIcon}
+                />
                 <Text style={styles.menuItem}>Đổi ưu đãi</Text>
               </TouchableOpacity>
             </View>
 
             {/* Tin tức & Sự kiện */}
             <View style={styles.menuSection}>
-            <TouchableOpacity
+              <TouchableOpacity
                 style={styles.menuRow}
                 onPress={handleNewsAndEventsPress} // Điều hướng đến TinMoiVaUuDai
               >
-                <Icon1 name="newspaper" size={24} color="#fff" style={styles.menuIcon} />
+                <Icon1
+                  name="newspaper"
+                  size={24}
+                  color="#fff"
+                  style={styles.menuIcon}
+                />
                 <Text style={styles.menuItem}>Tin tức & Sự kiện</Text>
                 <View style={styles.badge}>
                   <Text style={styles.badgeText}>NEW</Text>
