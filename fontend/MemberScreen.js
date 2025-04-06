@@ -1,9 +1,19 @@
-import React, { useState, useContext, useEffect } from "react";
-import { View, Text, Image, TouchableOpacity, StyleSheet, ScrollView, Modal, Alert, Platform } from "react-native";
+import React, { useState, useEffect, useContext } from "react";
+import {
+  View,
+  Text,
+  Image,
+  TouchableOpacity,
+  StyleSheet,
+  ScrollView,
+  Modal,
+  Alert,
+  Platform,
+  ActivityIndicator, // Thêm ActivityIndicator
+} from "react-native";
 import Icon from "react-native-vector-icons/FontAwesome";
 import { UserContext } from "./User/UserContext";
-import { NavigationProp } from "@react-navigation/native";
-import { updateAvatar } from "./api"; 
+import { updateAvatar } from "./api";
 import * as ImagePicker from 'expo-image-picker';
 
 export default function MemberScreen({ navigation }) {
@@ -12,16 +22,28 @@ export default function MemberScreen({ navigation }) {
   const [avatarSource, setAvatarSource] = useState(
     user?.AvatarUrl ? { uri: user.AvatarUrl } : require("./assets/images/transformers.jpg")
   );
+  const [loading, setLoading] = useState(true); // Thêm trạng thái loading
 
   useEffect(() => {
     if (!user) {
       navigation.navigate("Login", { from: "Member" });
+      setLoading(false);
     } else {
       setAvatarSource(
         user.AvatarUrl ? { uri: user.AvatarUrl } : require("./assets/images/transformers.jpg")
       );
+      setLoading(false);
     }
   }, [user, navigation]);
+
+  if (loading) {
+    return (
+      <View style={styles.loadingContainer}>
+        <ActivityIndicator size="large" color="#ff4d6d" />
+        <Text style={styles.loadingText}>Đang tải thông tin...</Text>
+      </View>
+    );
+  }
 
   if (!user) {
     return null;
@@ -29,6 +51,7 @@ export default function MemberScreen({ navigation }) {
 
   const updateAvatarInDatabase = async (imageUri) => {
     try {
+      setLoading(true);
       const response = await updateAvatar({
         customerID: user.customerID,
         avatarUrl: imageUri || '/default/transformers.jpg'
@@ -43,6 +66,8 @@ export default function MemberScreen({ navigation }) {
     } catch (error) {
       console.error('Error updating avatar:', error);
       Alert.alert("Lỗi", "Đã có lỗi xảy ra khi cập nhật ảnh");
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -203,7 +228,7 @@ const styles = StyleSheet.create({
     backgroundColor: "#fff",
   },
   header: {
-    marginTop: 30, 
+    marginTop: 30,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
@@ -330,5 +355,15 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: "#000",
     textAlign: "center",
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  loadingText: {
+    marginTop: 10,
+    fontSize: 16,
+    color: "#333",
   },
 });

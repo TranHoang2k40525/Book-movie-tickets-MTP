@@ -2,10 +2,10 @@ const express = require('express');
 const router = express.Router();
 const movieController = require('../controllers/movieController');
 
-// Lấy danh sách phim
 router.get('/', movieController.getAllMovies);
-
-// Lấy thông tin chi tiết phim
 router.get('/:id', movieController.getMovieById);
-
+router.get('/:id/showtimes', movieController.getShowtimesByMovieId);
+router.get('/:id/cinemas', movieController.getCinemasByMovieAndDate);
+router.get('/:movieId/cinemas/:cinemaId/showtimes', movieController.getShowtimesByCinemaAndDate);
+router.get('/movies/showing-today', movieController.getMoviesShowingToday);
 module.exports = router;

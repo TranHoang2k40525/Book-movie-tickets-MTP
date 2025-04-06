@@ -8,6 +8,7 @@ import {
   Alert,
   SafeAreaView,
   StatusBar,
+  ActivityIndicator
 } from 'react-native';
 import { Ionicons } from "@expo/vector-icons";
 import { UserContext } from './User/UserContext';
@@ -122,6 +123,7 @@ export default function ChonPhimTheoRap({ navigation }) {
   if (loading) {
     return (
       <View style={styles.loadingContainer}>
+        <ActivityIndicator size="large" color="#ff4d6d" />
         <Text>Đang tải dữ liệu...</Text>
       </View>
     );

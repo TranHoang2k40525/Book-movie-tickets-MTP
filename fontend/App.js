@@ -14,8 +14,9 @@ import Datvetheophim from "./Datvetheophim";
 import ChonPhimTheoRap from "./ChonPhimTheoRap";
 import SpecialExperiencesUI from "./SpecialExperiencesUI";
 import SweetBox from "./SweetBox";
-import TinMoiVaUuDai from "./TinMoiVaUuDai"; 
+import TinMoiVaUuDai from "./TinMoiVaUuDai";
 import RapPhimMTB from "./RapPhimMTB";
+import MovieBookingScreen from "./MovieBookingScreen";
 const Stack = createStackNavigator();
 
 export default function App() {
@@ -91,6 +92,11 @@ export default function App() {
           <Stack.Screen
             name="RapPhimMTB"
             component={RapPhimMTB}
+            options={{ headerShown: false }}
+          />
+          <Stack.Screen
+            name="MovieBookingScreen"
+            component={MovieBookingScreen}
             options={{ headerShown: false }}
           />
         </Stack.Navigator>
