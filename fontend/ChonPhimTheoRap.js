@@ -107,16 +107,13 @@ export default function ChonPhimTheoRap({ navigation }) {
     scrollViewRef.current.scrollTo({ y: 0, animated: true });
   };
 
-  // Xử lý khi nhấn vào rạp
-  const handleCinemaPress = (cinema) => {
-    console.log(`Navigate to ${cinema.name}`);
-    // Có thể điều hướng đến màn hình khác ở đây
-  };
 
   // Xử lý khi nhấn vào rạp con
-  const handleSubRegionPress = (subRegion) => {
-    console.log(`Navigate to ${subRegion.name}`);
-    // Có thể điều hướng đến màn hình khác ở đây
+  const handleCinemaPress = (cinema) => {
+    navigation.navigate('ChonRap_TheoKhuVuc', {
+      cinemaId: cinema.id,
+      cinemaName: formatCinemaName(cinema.name),
+    });
   };
 
   // Xử lý khi đang loading hoặc có lỗi
@@ -188,7 +185,7 @@ export default function ChonPhimTheoRap({ navigation }) {
 
         {/* Regions Section */}
         <View style={styles.sectionHeader}>
-          <Text style={styles.sectionTitle}>KHU VỰC CGV</Text>
+          <Text style={styles.sectionTitle}>KHU VỰC MTP</Text>
         </View>
 
         {regions.map(region => (
@@ -200,7 +197,11 @@ export default function ChonPhimTheoRap({ navigation }) {
               <Text style={styles.regionName}>{region.name}</Text>
               <View style={styles.regionCountContainer}>
                 <Text style={styles.regionCount}>{region.count}</Text>
-                <Text style={styles.expandIcon}>{expandedRegions[region.id] ? '▼' : '▶'}</Text>
+                <Ionicons
+                  name={expandedRegions[region.id] ? 'chevron-down' : 'chevron-forward'}
+                  size={14}
+                  color="#666"
+                />
               </View>
             </TouchableOpacity>
 
@@ -210,7 +211,7 @@ export default function ChonPhimTheoRap({ navigation }) {
                 <TouchableOpacity
                   key={subRegion.id}
                   style={styles.subRegionItem}
-                  onPress={() => handleSubRegionPress(subRegion)}
+                  onPress={() => handleCinemaPress(subRegion)}
                 >
                   <Text style={styles.subRegionName}>{formatCinemaName(subRegion.name)}</Text>
                   {subRegion.distance && (
@@ -226,7 +227,7 @@ export default function ChonPhimTheoRap({ navigation }) {
             style={styles.scrollToTopButton}
             onPress={scrollToTop}
           >
-            <Text style={styles.scrollToTopButtonText}>▲</Text>
+            <Ionicons name="arrow-up" size={20} color="#666" />
           </TouchableOpacity>
         </View>
       </ScrollView>
@@ -259,6 +260,7 @@ const styles = StyleSheet.create({
   },
   headerTitle: {
     fontSize: 18,
+    left: -100,
     fontWeight: 'bold',
     color: '#000',
   },

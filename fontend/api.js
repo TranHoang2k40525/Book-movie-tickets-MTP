@@ -1,6 +1,6 @@
 import axios from "axios";
 
-const BASE_URL = "http://192.168.1.101:3000";
+const BASE_URL = "http://192.168.1.102:3000";
 
 const api = axios.create({
   baseURL: BASE_URL,
@@ -28,5 +28,7 @@ export const updateCustomer = (data) => api.put("/api/update-customer", data);
 export const deleteAccount = (data) => api.delete("/api/delete-account", { data });
 export const getCities = () => api.get("/api/cities");
 export const getCinemas = () => api.get("/api/cinemas");
-
+export const getCinemasByCity = (cityId) => api.get(`/api/cinemas-by-city/${cityId}`);
+export const getMoviesAndShowtimesByCinema = (cinemaId, date) =>
+  api.get(`/api/movies/cinemas/${cinemaId}/movies-and-showtimes`, { params: { date } });
 export default api;

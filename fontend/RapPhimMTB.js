@@ -161,7 +161,7 @@ export default function RapPhimMTB({ navigation }) {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "white" },
   header: {
-    marginTop: 20,
+    marginTop: 10,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
@@ -171,12 +171,12 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: "#ddd",
     position: "absolute",
-    top: 0,
+    top: -11,
     left: 0,
     right: 0,
     zIndex: 1,
   },
-  headerTitle: { fontSize: 18, fontWeight: "bold", marginLeft: -140 },
+  headerTitle: { fontSize: 18, fontWeight: "bold", marginLeft: -170 },
   rightIcons: {
     flexDirection: "row",
     alignItems: "center",

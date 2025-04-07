@@ -20,7 +20,74 @@ const getAllMovies = async (req, res) => {
     res.status(500).json({ message: 'Lỗi server!', error: err.message });
   }
 };
+const getMoviesAndShowtimesByCinema = async (req, res) => {
+  try {
+    const { cinemaId } = req.params;
+    const { date } = req.query; // Ngày được gửi từ frontend (định dạng YYYY-MM-DD)
 
+    const pool = await sql.connect(dbConfig);
+
+    // Truy vấn lấy danh sách phim và lịch chiếu tại rạp
+    const result = await pool.request()
+      .input('CinemaID', sql.Int, cinemaId)
+      .input('ShowDate', sql.Date, date)
+      .query(`
+        SELECT 
+          m.MovieID, 
+          m.MovieTitle, 
+          m.MovieAge, 
+          s.ShowID, 
+          s.ShowDate, 
+          s.ShowTime,
+          ch.HallID, 
+          ch.HallName
+        FROM Movie m
+        INNER JOIN Show s ON m.MovieID = s.MovieID
+        INNER JOIN CinemaHall ch ON s.HallID = ch.HallID
+        WHERE ch.CinemaID = @CinemaID
+        AND CAST(s.ShowDate AS DATE) = @ShowDate
+        ORDER BY m.MovieTitle, s.ShowTime
+      `);
+
+    // Nhóm dữ liệu theo phim
+    const movies = [];
+    const movieMap = new Map();
+
+    for (const row of result.recordset) {
+      const movieId = row.MovieID;
+
+      if (!movieMap.has(movieId)) {
+        movieMap.set(movieId, {
+          movieId: row.MovieID,
+          title: row.MovieTitle,
+          ageRating: row.MovieAge || 'T16', // Sử dụng MovieAge làm độ tuổi giới hạn
+          showtimes: [],
+        });
+      }
+
+      const movie = movieMap.get(movieId);
+      // Chuyển ShowTime thành định dạng HH:mm
+      const showTime = new Date(row.ShowTime);
+      const hours = showTime.getUTCHours().toString().padStart(2, '0');
+      const minutes = showTime.getUTCMinutes().toString().padStart(2, '0');
+      const formattedTime = `${hours}:${minutes}`;
+
+      movie.showtimes.push({
+        showId: row.ShowID,
+        startTime: formattedTime,
+        hallName: row.HallName,
+      });
+    }
+
+    for (const movie of movieMap.values()) {
+      movies.push(movie);
+    }
+    res.status(200).json(movies);
+    } catch (error) {
+      console.error(error);
+      res.status(500).json({ message: 'Server error' });
+    }
+};
 const getMovieById = async (req, res) => {
   const { id } = req.params;
   try {
@@ -45,6 +112,7 @@ const getMovieById = async (req, res) => {
     res.status(500).json({ message: 'Lỗi server!', error: err.message });
   }
 };
+
 const getMoviesShowingToday = async (req, res) => {
   try {
     const pool = await sql.connect(dbConfig);
@@ -240,5 +308,6 @@ module.exports = {
   getShowtimesByMovieId,
   getCinemasByMovieAndDate,
   getShowtimesByCinemaAndDate,
-  getMoviesShowingToday
+  getMoviesShowingToday,
+  getMoviesAndShowtimesByCinema,
 };

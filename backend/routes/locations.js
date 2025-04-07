@@ -8,4 +8,7 @@ router.get('/cities', locationController.getCities);
 // Lấy danh sách rạp chiếu phim
 router.get('/cinemas', locationController.getCinemas);
 
+// Lấy thông tin rạp theo khu vực (thành phố)
+router.get('/cinemas-by-city/:cityId', locationController.getCinemasByCity);
+
 module.exports = router;
