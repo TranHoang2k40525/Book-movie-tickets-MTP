@@ -36,7 +36,7 @@ export default function RapPhimMTB({ navigation }) {
           const cityId = cinema.CityID;
           if (!acc[cityId]) {
             acc[cityId] = {
-              name: cinema.CityAddress, 
+              name: cinema.CityAddress,
               count: 0,
               cinemas: [],
             };
@@ -53,7 +53,10 @@ export default function RapPhimMTB({ navigation }) {
         setAreas(Object.values(groupedByCity));
       } catch (error) {
         console.error("Lỗi khi lấy danh sách rạp:", error);
-        Alert.alert("Lỗi", "Không thể tải danh sách rạp phim. Vui lòng thử lại sau.");
+        Alert.alert(
+          "Lỗi",
+          "Không thể tải danh sách rạp phim. Vui lòng thử lại sau."
+        );
       }
     };
 
@@ -74,7 +77,10 @@ export default function RapPhimMTB({ navigation }) {
 
   const handleLocationPress = () => {
     // Hiển thị thông báo khi nhấn vào icon bản đồ
-    Alert.alert("Thông báo", "Chức năng bản đồ hiện đang cập nhật, vui lòng chờ đợi vài năm!.");
+    Alert.alert(
+      "Thông báo",
+      "Chức năng bản đồ hiện đang cập nhật, vui lòng chờ đợi vài năm!."
+    );
   };
 
   return (
@@ -87,7 +93,12 @@ export default function RapPhimMTB({ navigation }) {
         <Text style={styles.headerTitle}>Rạp phim MTB</Text>
         <View style={styles.rightIcons}>
           <TouchableOpacity onPress={handleLocationPress}>
-            <Ionicons name="location-sharp" size={24} color="red" style={styles.locationIcon} />
+            <Ionicons
+              name="location-sharp"
+              size={24}
+              color="red"
+              style={styles.locationIcon}
+            />
           </TouchableOpacity>
           <Menu navigation={navigation} /> {/* Sử dụng component Menu */}
         </View>
@@ -108,8 +119,12 @@ export default function RapPhimMTB({ navigation }) {
               <Text style={styles.cinemaName}>{item.name}</Text>
             </View>
             <View style={styles.cinemaInfo}>
-              {item.favorite && <Ionicons name="heart" size={20} color="black" />}
-              {item.distance && <Text style={styles.distance}>{item.distance}</Text>}
+              {item.favorite && (
+                <Ionicons name="heart" size={20} color="black" />
+              )}
+              {item.distance && (
+                <Text style={styles.distance}>{item.distance}</Text>
+              )}
             </View>
           </TouchableOpacity>
         ))}
@@ -118,7 +133,10 @@ export default function RapPhimMTB({ navigation }) {
         </View>
         {areas.map((area, index) => (
           <View key={index}>
-            <TouchableOpacity style={styles.areaItem} onPress={() => toggleExpand(index)}>
+            <TouchableOpacity
+              style={styles.areaItem}
+              onPress={() => toggleExpand(index)}
+            >
               <View style={styles.areaNameContainer}>
                 <Text style={styles.areaName}>{area.name}</Text>
               </View>
@@ -136,13 +154,18 @@ export default function RapPhimMTB({ navigation }) {
                 {area.cinemas.map((cinema, idx) => (
                   <TouchableOpacity
                     key={idx}
-                    style={[styles.subItemContainer, idx !== area.cinemas.length - 1 && styles.subItemBorder]}
+                    style={[
+                      styles.subItemContainer,
+                      idx !== area.cinemas.length - 1 && styles.subItemBorder,
+                    ]}
                   >
                     <View style={styles.subItemNameContainer}>
                       <Text style={styles.subItem}>{cinema.name}</Text>
                     </View>
                     {cinema.distance && (
-                      <Text style={styles.subItemDistance}>{cinema.distance}</Text>
+                      <Text style={styles.subItemDistance}>
+                        {cinema.distance}
+                      </Text>
                     )}
                   </TouchableOpacity>
                 ))}
@@ -150,7 +173,10 @@ export default function RapPhimMTB({ navigation }) {
             )}
           </View>
         ))}
-        <TouchableOpacity style={styles.scrollToTopButton} onPress={scrollToTop}>
+        <TouchableOpacity
+          style={styles.scrollToTopButton}
+          onPress={scrollToTop}
+        >
           <Ionicons name="arrow-up-circle" size={40} color="#ccc" />
         </TouchableOpacity>
       </ScrollView>
@@ -176,7 +202,12 @@ const styles = StyleSheet.create({
     right: 0,
     zIndex: 1,
   },
-  headerTitle: { fontSize: 18, fontWeight: "bold", marginLeft: -170 },
+  headerTitle: {
+    fontSize: 18,
+    fontWeight: "bold",
+    color: "black",
+    marginLeft: -150,
+  },
   rightIcons: {
     flexDirection: "row",
     alignItems: "center",
@@ -248,7 +279,7 @@ const styles = StyleSheet.create({
   subItemContainer: {
     flexDirection: "row",
     justifyContent: "space-between",
-    alignItems: "center", 
+    alignItems: "center",
     paddingVertical: 10,
   },
   subItemBorder: {
@@ -256,19 +287,19 @@ const styles = StyleSheet.create({
     borderBottomColor: "#ddd",
   },
   subItemNameContainer: {
-    flex: 1, 
-    flexShrink: 1, 
+    flex: 1,
+    flexShrink: 1,
   },
   subItem: {
     fontSize: 14,
     color: "gray",
-    flexWrap: "wrap", 
+    flexWrap: "wrap",
   },
   subItemDistance: {
     fontSize: 14,
     color: "gray",
-    marginLeft: 10, 
-    flexWrap: "wrap", 
+    marginLeft: 10,
+    flexWrap: "wrap",
   },
   scrollToTopButton: {
     alignItems: "center",

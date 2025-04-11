@@ -228,14 +228,14 @@ const styles = StyleSheet.create({
     backgroundColor: "#fff",
   },
   header: {
-    marginTop: 30,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    padding: 15,
-    backgroundColor: "#fff",
+    paddingHorizontal: 10,
+    backgroundColor: "white",
     borderBottomWidth: 1,
     borderBottomColor: "#ddd",
+    paddingTop: 20,
   },
   headerText: {
     fontSize: 18,

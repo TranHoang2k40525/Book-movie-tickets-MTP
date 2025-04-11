@@ -14,9 +14,9 @@ const locationRoutes = require('./routes/locations');
 const app = express();
 const port = 3000;
 const host = '0.0.0.0'; // Chấp nhận kết nối từ mọi IP
-
+app.use('/Video', express.static(path.join(__dirname, 'assets/Video')));
 // Middleware
-app.use('/assets', express.static(path.join(__dirname, 'assets')));
+
 app.use(cors());
 app.use(bodyParser.json());
 app.use('/Video', express.static('assets/Video'));

@@ -104,7 +104,9 @@ const getMovieById = async (req, res) => {
     if (movie.ImageUrl && Buffer.isBuffer(movie.ImageUrl)) {
       movie.ImageUrl = movie.ImageUrl.toString('base64');
     }
-    movie.MovieTrailer = `http://192.168.1.101:3000/Video/${movie.MovieTrailer}`;
+    // Tạo URL đầy đủ cho video trailer
+    const baseUrl = `${req.protocol}://${req.get('host')}`; // Lấy protocol và host động
+    movie.MovieTrailer = `${baseUrl}/Video/${movie.MovieTrailer}`; // Ghép URL với tên tệp từ SQL
 
     res.json({ movie });
   } catch (err) {
