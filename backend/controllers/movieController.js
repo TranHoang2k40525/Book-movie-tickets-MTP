@@ -108,7 +108,9 @@ const getMovieById = async (req, res) => {
     // Tạo URL trailer cục bộ
     if (movie.MovieTrailer) {
       const baseUrl = `${req.protocol}://${req.get('host')}`;
-      movie.MovieTrailer = `${baseUrl}/Video/${movie.MovieTrailer}`;
+      const cleanTrailer = movie.MovieTrailer.replace(/^.*[\\\/]/, '');
+      movie.MovieTrailer = `${baseUrl}/Video/${cleanTrailer}`;
+    
     }
 
     res.json({ movie });
