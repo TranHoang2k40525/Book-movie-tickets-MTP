@@ -14,6 +14,8 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { useRoute } from '@react-navigation/native';
 import Menu from './Menu';
+import axios from 'axios';
+import { useUser } from './User/UserContext';
 import { getMoviesAndShowtimesByCinema } from './api';
 
 const { width } = Dimensions.get('window');
@@ -107,7 +109,7 @@ const MovieSchedule = memo(({ selectedDate, cinemaId }) => {
   const [scheduleData, setScheduleData] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [expandedMovie, setExpandedMovie] = useState(null); // Trạng thái để theo dõi phim đang mở rộng
+  const [expandedMovie, setExpandedMovie] = useState(null);
 
   const fetchMoviesAndShowtimes = useCallback(
     async (retries = 3, delay = 1000) => {
@@ -126,7 +128,7 @@ const MovieSchedule = memo(({ selectedDate, cinemaId }) => {
           const dateString = selectedDate.toISOString().split('T')[0];
           const response = await getMoviesAndShowtimesByCinema(cinemaId, dateString);
           const movies = response.data.map((item) => ({
-            movieId: item.movieId, // Thêm movieId để xác định phim khi toggle
+            movieId: item.movieId,
             movie: item.title,
             ageRating: item.ageRating,
             times: item.showtimes.map((showtime) => ({
@@ -191,12 +193,12 @@ const MovieSchedule = memo(({ selectedDate, cinemaId }) => {
 
   const renderSchedule = useCallback(() => {
     return scheduleData.map((item, index) => {
-      const isExpanded = expandedMovie === item.movieId; // Kiểm tra phim có đang mở rộng không
+      const isExpanded = expandedMovie === item.movieId;
       return (
         <View key={`movie-${index}`} style={styles.movieContainer}>
           <TouchableOpacity
             style={styles.movieHeader}
-            onPress={() => toggleMovieExpansion(item.movieId)} // Toggle mở rộng khi click vào tiêu đề hoặc mũi tên
+            onPress={() => toggleMovieExpansion(item.movieId)}
           >
             <View style={styles.movieTitleContainer}>
               <Text style={styles.movieTitle} numberOfLines={2} ellipsizeMode="tail">
@@ -204,12 +206,12 @@ const MovieSchedule = memo(({ selectedDate, cinemaId }) => {
               </Text>
             </View>
             <Ionicons
-              name={isExpanded ? 'chevron-down' : 'chevron-forward'} // Thay đổi biểu tượng tùy theo trạng thái
+              name={isExpanded ? 'chevron-down' : 'chevron-forward'}
               size={20}
               color="gray"
             />
           </TouchableOpacity>
-          {isExpanded && ( // Chỉ hiển thị giờ chiếu nếu phim đang mở rộng
+          {isExpanded && (
             <ScrollView horizontal showsHorizontalScrollIndicator={false}>
               {renderShowtimes(item)}
             </ScrollView>
@@ -243,11 +245,76 @@ const MovieSchedule = memo(({ selectedDate, cinemaId }) => {
   return <ScrollView style={styles.scheduleScrollView}>{renderSchedule()}</ScrollView>;
 });
 
+// SuggestedCinemas Component
+const SuggestedCinemas = memo(({ navigation, customerId }) => {
+  const [cinemas, setCinemas] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+
+  useEffect(() => {
+    const fetchCinemas = async () => {
+      try {
+        setLoading(true);
+        const response = await axios.get(`http://192.168.1.102:3000/api/cinemas/${customerId}`);
+        setCinemas(response.data.slice(0, 5)); // Lấy 5 rạp gợi ý
+      } catch (err) {
+        setError('Không thể tải danh sách rạp phim.');
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchCinemas();
+  }, [customerId]);
+
+  const handleCinemaPress = (cinema) => {
+    navigation.navigate('ChonRap_TheoKhuVuc', {
+      cinemaId: cinema.cinemaId,
+      cinemaName: ` ${cinema.cinemaName}`, // Format tương tự ChonPhimTheoRap
+    });
+  };
+
+  if (loading) {
+    return (
+      <View style={styles.loadingContainer}>
+        <ActivityIndicator size="small" color="#ff4d6d" />
+      </View>
+    );
+  }
+
+  if (error) {
+    return (
+      <View style={styles.errorContainer}>
+        <Text style={styles.errorText}>{error}</Text>
+      </View>
+    );
+  }
+
+  return (
+    <View>
+      <View style={styles.sectionHeader}>
+        <Text style={styles.sectionTitle}>GỢI Ý RẠP KHÁC</Text>
+      </View>
+      {cinemas.map((cinema, index) => (
+        <TouchableOpacity
+          key={index}
+          style={styles.cinemaItem}
+          onPress={() => handleCinemaPress(cinema)}
+        >
+          <Text style={styles.cinemaName}>{` ${cinema.cinemaName}`}</Text>
+          <Text style={styles.distanceText}>{`${cinema.distance}Km`}</Text>
+        </TouchableOpacity>
+      ))}
+    </View>
+  );
+});
+
 // Main Screen Component
 const ChonRap_TheoKhuVuc = ({ navigation }) => {
   const route = useRoute();
   const { cinemaId, cinemaName } = route.params;
+  const { user } = useUser();
   const [selectedDate, setSelectedDate] = useState(new Date());
+  const customerId = user?.customerId || 1;
 
   return (
     <SafeAreaView style={styles.container}>
@@ -272,11 +339,12 @@ const ChonRap_TheoKhuVuc = ({ navigation }) => {
 
       <ScrollView style={styles.scrollContainer} stickyHeaderIndices={[0]}>
         <DateSelector selectedDate={selectedDate} onDateChange={setSelectedDate} />
+        <SuggestedCinemas navigation={navigation} customerId={customerId} />
         <MovieSchedule selectedDate={selectedDate} cinemaId={cinemaId} />
       </ScrollView>
     </SafeAreaView>
   );
-};
+});
 
 // Styles
 const styles = StyleSheet.create({
@@ -392,15 +460,15 @@ const styles = StyleSheet.create({
     paddingVertical: 15,
   },
   movieTitleContainer: {
-    flex: 1, // Chiếm toàn bộ không gian còn lại
-    marginRight: 10, // Khoảng cách với icon
+    flex: 1,
+    marginRight: 10,
   },
   movieTitle: {
     fontSize: 16,
     fontWeight: 'bold',
     color: 'red',
     flexShrink: 1,
-    flexWrap: 'wrap', // Cho phép xuống dòng
+    flexWrap: 'wrap',
   },
   theaterText: {
     fontSize: 16,
@@ -462,6 +530,22 @@ const styles = StyleSheet.create({
   retryButtonText: {
     color: 'white',
     fontWeight: 'bold',
+  },
+  cinemaItem: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 16itting: true,
+    borderBottomWidth: 1,
+    borderBottomColor: '#e0e0e0',
+  },
+  cinemaName: {
+    fontSize: 16,
+    color: '#8B0000',
+  },
+  distanceText: {
+    fontSize: 16,
+    color: '#8B0000',
   },
 });
 

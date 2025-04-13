@@ -13,7 +13,7 @@ import {
 import { Ionicons } from "@expo/vector-icons";
 import { UserContext } from './User/UserContext';
 import Menu from "./Menu";
-import { getCities, getCinemas } from './api';
+import axios from 'axios';
 
 export default function ChonPhimTheoRap({ navigation }) {
   const scrollViewRef = useRef();
@@ -23,6 +23,7 @@ export default function ChonPhimTheoRap({ navigation }) {
   const [cinemas, setCinemas] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const customerId = user?.customerId || 1; // Fallback nếu chưa đăng nhập
 
   // Kiểm tra người dùng ngay khi vào màn hình
   useEffect(() => {
@@ -55,25 +56,39 @@ export default function ChonPhimTheoRap({ navigation }) {
       setLoading(true);
       setError(null);
 
-      // Lấy danh sách thành phố
-      const citiesResponse = await getCities();
-      setCities(citiesResponse.data.cities);
+      // Lấy danh sách rạp chiếu phim từ API mới
+      const cinemasResponse = await axios.get(`http://192.168.1.102:3000/api/cinemas/${customerId}`);
+      const cinemaData = cinemasResponse.data;
 
-      // Lấy danh sách rạp chiếu phim
-      const cinemasResponse = await getCinemas();
-      setCinemas(cinemasResponse.data.cinemas);
+      // Giả lập danh sách thành phố nếu API không trả về cities
+      const citiesData = [
+        { CityID: 1, CityName: 'Hồ Chí Minh' },
+        { CityID: 2, CityName: 'Hà Nội' },
+        { CityID: 3, CityName: 'Đà Nẵng' },
+        // Thêm các thành phố khác nếu cần
+      ];
+
+      setCities(citiesData);
+      setCinemas(cinemaData.map(cinema => ({
+        CinemaID: cinema.cinemaId,
+        CinemaName: cinema.cinemaName,
+        CityID: cinema.CityID || 1, // Fallback
+        CityAddress: cinema.CityAddress || 'Unknown', // Fallback
+        Distance: cinema.distance
+      })));
     } catch (err) {
       console.error('Lỗi khi lấy dữ liệu:', err);
+      setError('Không thể tải dữ liệu. Vui lòng thử lại sau.');
     } finally {
       setLoading(false);
     }
   };
 
-
+  // Tạo danh sách rạp gợi ý
   const suggestedCinemas = cinemas.slice(0, 5).map(cinema => ({
     id: cinema.CinemaID,
     name: cinema.CinemaName,
-    distance: cinema.CityAddress ? `${(Math.random() * 10).toFixed(2)}Km` : null,
+    distance: `${cinema.Distance}Km`,
     isFavorite: cinema.CinemaID === 1, // Ví dụ: rạp đầu tiên là yêu thích
   }));
 
@@ -87,11 +102,11 @@ export default function ChonPhimTheoRap({ navigation }) {
       .map(cinema => ({
         id: cinema.CinemaID,
         name: cinema.CinemaName,
-        distance: cinema.CityAddress ? `${(Math.random() * 10).toFixed(2)}Km` : null,
+        distance: `${cinema.Distance}Km`,
       })),
   }));
 
-  // Chuyển đổi tên rạp để giống với ảnh (thêm "CGV" vào trước tên rạp)
+  // Chuyển đổi tên rạp
   const formatCinemaName = (name) => ` ${name}`;
 
   // Mở rộng/thu gọn khu vực
@@ -107,8 +122,7 @@ export default function ChonPhimTheoRap({ navigation }) {
     scrollViewRef.current.scrollTo({ y: 0, animated: true });
   };
 
-
-  // Xử lý khi nhấn vào rạp con
+  // Xử lý khi nhấn vào rạp
   const handleCinemaPress = (cinema) => {
     navigation.navigate('ChonRap_TheoKhuVuc', {
       cinemaId: cinema.id,
@@ -254,10 +268,6 @@ const styles = StyleSheet.create({
   backButton: {
     padding: 8,
   },
-  backButtonText: {
-    fontSize: 28,
-    color: '#8B0000',
-  },
   headerTitle: {
     fontSize: 18,
     left: -100,
@@ -270,10 +280,6 @@ const styles = StyleSheet.create({
   headerButton: {
     padding: 8,
     marginLeft: 16,
-  },
-  headerButtonText: {
-    fontSize: 20,
-    color: '#8B0000',
   },
   scrollView: {
     flex: 1,
@@ -330,10 +336,6 @@ const styles = StyleSheet.create({
     marginRight: 8,
     color: '#666',
   },
-  expandIcon: {
-    fontSize: 14,
-    color: '#666',
-  },
   subRegionItem: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -361,10 +363,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     marginTop: 16,
-  },
-  scrollToTopButtonText: {
-    fontSize: 20,
-    color: '#666',
   },
   loadingContainer: {
     flex: 1,
