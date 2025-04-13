@@ -4,22 +4,38 @@ import {
   Text,
   TextInput,
   TouchableOpacity,
-  Image,
   StyleSheet,
-  ImageBackground,
   Alert,
+  Image,
+  ImageBackground,
 } from "react-native";
+import { useNavigation, useRoute } from "@react-navigation/native";
 import { UserContext } from "./User/UserContext";
+import { login } from "./api";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import Icon from "react-native-vector-icons/FontAwesome";
-import { NavigationProp, RouteProp } from '@react-navigation/native';
-import { login, getCustomer } from "./api"; // Import các hàm từ api.js
 
-
-function LoginScreen({ navigation, route }) {
+const LoginScreen = () => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [isPasswordVisible, setIsPasswordVisible] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+  const navigation = useNavigation();
+  const route = useRoute();
   const { setUser } = useContext(UserContext);
+
+  useEffect(() => {
+    const checkLoginStatus = async () => {
+      try {
+        const accessToken = await AsyncStorage.getItem("accessToken");
+        if (accessToken) {
+          navigation.navigate("Home");
+        }
+      } catch (error) {
+        console.error("Lỗi kiểm tra trạng thái đăng nhập:", error);
+      }
+    };
+    checkLoginStatus();
+  }, [navigation]);
 
   useEffect(() => {
     if (route.params?.email) {
@@ -28,48 +44,49 @@ function LoginScreen({ navigation, route }) {
     if (route.params?.password) {
       setPassword(route.params.password);
     }
-  }, [route.params]);
+  }, [route.params?.email, route.params?.password]);
+
+  const validateInput = () => {
+    if (!email || !password) {
+      Alert.alert("Lỗi", "Vui lòng nhập email và mật khẩu!");
+      return false;
+    }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      Alert.alert("Lỗi", "Email không hợp lệ!");
+      return false;
+    }
+    if (password.length < 6) {
+      Alert.alert("Lỗi", "Mật khẩu phải có ít nhất 6 ký tự!");
+      return false;
+    }
+    return true;
+  };
 
   const handleLogin = async () => {
-    if (!email || !password) {
-      Alert.alert("Lỗi", "Vui lòng điền đầy đủ thông tin!");
-      return;
-    }
+    if (!validateInput()) return;
 
-    const trimmedEmail = email.trim();
-    console.log('Dữ liệu gửi đi:', { email: trimmedEmail, password });
     try {
-      // Gọi API đăng nhập từ api.js - mật khẩu sẽ được mã hóa ở backend
-      const response = await login({ email: trimmedEmail, password });
-      const userData = response.data.user;
-
-      // Gọi API để lấy thông tin khách hàng từ api.js
-      const customerResponse = await getCustomer({ accountID: userData.AccountID });
-      const customerData = customerResponse.data.customer;
-
-      const userWithCustomer = {
-        ...userData,
-        customerID: customerData.CustomerID,
-        customerName: customerData.CustomerName,
-      };
-
-      setUser(userWithCustomer);
-      Alert.alert("Thành công", response.data.message);
-
-      if (route.params?.from === "Member") {
-        navigation.navigate("Member");
+      const trimmedEmail = email.trim().toLowerCase();
+      const trimmedPassword = password.trim();
+      const loginResponse = await login(trimmedEmail, trimmedPassword);
+      if (loginResponse.user && loginResponse.accessToken) {
+        await AsyncStorage.setItem("accessToken", loginResponse.accessToken);
+        await AsyncStorage.setItem("refreshToken", loginResponse.refreshToken);
+        setUser(loginResponse.user);
+        const fromScreen = route.params?.from || "Home";
+        navigation.navigate(fromScreen);
       } else {
-        navigation.navigate("Home", { user: userWithCustomer });
+        Alert.alert("Lỗi", loginResponse.message || "Đăng nhập thất bại!");
       }
     } catch (error) {
-      console.error('Lỗi đăng nhập từ frontend:', error);
-      if (error?.response) {
-        Alert.alert("Lỗi", error.response.data?.message || "Đăng nhập thất bại!");
-      } else if (error?.request) {
-        Alert.alert("Lỗi", "Không thể kết nối đến server. Vui lòng kiểm tra mạng hoặc địa chỉ server!");
-      } else {
-        Alert.alert("Lỗi", "Đã xảy ra lỗi: " + error?.message);
-      }
+      const message =
+        error.response?.status === 401
+          ? "Email hoặc mật khẩu không đúng!"
+          : error.response?.status === 404
+          ? "Tài khoản không tồn tại!"
+          : "Đã xảy ra lỗi khi đăng nhập. Vui lòng thử lại!";
+      Alert.alert("Lỗi", message);
+      console.error("Lỗi đăng nhập:", error);
     }
   };
 
@@ -83,7 +100,7 @@ function LoginScreen({ navigation, route }) {
           style={styles.backButton}
           onPress={() => navigation.goBack()}
         >
-          <Text style={{ color: "#fff" }}>
+          <Text style={styles.backButtonText}>
             <Icon name="arrow-left" size={24} color="#fff" /> Quay lại
           </Text>
         </TouchableOpacity>
@@ -107,11 +124,12 @@ function LoginScreen({ navigation, route }) {
         <View style={styles.inputContainer}>
           <TextInput
             style={styles.input}
-            placeholder="Email hoặc số điện thoại"
+            placeholder="Email"
             placeholderTextColor="#888"
             value={email}
             onChangeText={setEmail}
             keyboardType="email-address"
+            autoCapitalize="none"
           />
         </View>
 
@@ -122,14 +140,14 @@ function LoginScreen({ navigation, route }) {
             placeholderTextColor="#888"
             value={password}
             onChangeText={setPassword}
-            secureTextEntry={!isPasswordVisible}
+            secureTextEntry={!showPassword}
           />
           <TouchableOpacity
             style={styles.eyeIcon}
-            onPress={() => setIsPasswordVisible(!isPasswordVisible)}
+            onPress={() => setShowPassword(!showPassword)}
           >
             <Icon
-              name={isPasswordVisible ? "eye" : "eye-slash"}
+              name={showPassword ? "eye" : "eye-slash"}
               size={20}
               color="#888"
             />
@@ -164,7 +182,7 @@ function LoginScreen({ navigation, route }) {
       </View>
     </View>
   );
-}
+};
 
 const styles = StyleSheet.create({
   container: {
@@ -182,6 +200,10 @@ const styles = StyleSheet.create({
     left: 20,
     zIndex: 1,
   },
+  backButtonText: {
+    color: "#fff",
+    fontSize: 16,
+  },
   header: {
     justifyContent: "center",
     alignItems: "center",
@@ -189,10 +211,9 @@ const styles = StyleSheet.create({
   squareContainer: {
     width: 170,
     height: 170,
-    left: 90,
     backgroundColor: "#FF4D6D",
     borderWidth: 2,
-    borderColor: "#black",
+    borderColor: "black",
     transform: [{ rotate: "-5deg" }],
     justifyContent: "center",
     alignItems: "center",
@@ -203,7 +224,6 @@ const styles = StyleSheet.create({
     backgroundColor: "#FF4D6D",
     borderWidth: 2,
     borderColor: "#fff",
-    flexDirection: "column",
     justifyContent: "center",
     alignItems: "center",
   },
@@ -211,8 +231,8 @@ const styles = StyleSheet.create({
     fontSize: 20,
     fontWeight: "bold",
     color: "#fff",
-    width: 100,
     textAlign: "center",
+    width: 100,
   },
   logo: {
     width: 40,
@@ -249,7 +269,7 @@ const styles = StyleSheet.create({
     marginBottom: 20,
   },
   loginButtonText: {
-    color: "white",
+    color: "#fff",
     fontWeight: "bold",
     fontSize: 18,
   },
@@ -279,7 +299,7 @@ const styles = StyleSheet.create({
   registerButton: {
     borderWidth: 1,
     borderColor: "#ccc",
-    paddingVertical: 10,
+    paddingVertical: 15,
     borderRadius: 10,
     alignItems: "center",
   },
