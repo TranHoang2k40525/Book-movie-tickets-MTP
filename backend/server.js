@@ -31,7 +31,7 @@ app.use('/api', authRoutes);
 app.use('/api', userRoutes);
 app.use('/api/movies', movieRoutes);
 app.use('/api', locationRoutes);
-app.use('/api', cinemaRoutes); // Thêm route cinemas
+app.use('/api', cinemaRoutes); // Thêm route file mới cinema
 
 // Kết nối database và khởi động server
 async function startServer() {
