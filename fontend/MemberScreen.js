@@ -1,3 +1,4 @@
+// frontend/MemberScreen.js
 import React, { useState, useEffect, useContext } from "react";
 import {
   View,
@@ -9,7 +10,7 @@ import {
   Modal,
   Alert,
   Platform,
-  ActivityIndicator, // Thêm ActivityIndicator
+  ActivityIndicator,
 } from "react-native";
 import Icon from "react-native-vector-icons/FontAwesome";
 import { UserContext } from "./User/UserContext";
@@ -22,7 +23,7 @@ export default function MemberScreen({ navigation }) {
   const [avatarSource, setAvatarSource] = useState(
     user?.AvatarUrl ? { uri: user.AvatarUrl } : require("./assets/images/transformers.jpg")
   );
-  const [loading, setLoading] = useState(true); // Thêm trạng thái loading
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     if (!user) {
@@ -52,17 +53,10 @@ export default function MemberScreen({ navigation }) {
   const updateAvatarInDatabase = async (imageUri) => {
     try {
       setLoading(true);
-      const response = await updateAvatar({
-        customerID: user.customerID,
-        avatarUrl: imageUri || '/default/transformers.jpg'
-      });
-      if (response.data.success) {
-        setUser({ ...user, AvatarUrl: imageUri || '/default/transformers.jpg' });
-        setAvatarSource(imageUri ? { uri: imageUri } : require("./assets/images/transformers.jpg"));
-        Alert.alert("Thành công", "Ảnh đại diện đã được cập nhật");
-      } else {
-        Alert.alert("Lỗi", "Không thể cập nhật ảnh đại diện");
-      }
+      const response = await updateAvatar(imageUri || '/default/transformers.jpg');
+      setUser({ ...user, AvatarUrl: imageUri || '/default/transformers.jpg' });
+      setAvatarSource(imageUri ? { uri: imageUri } : require("./assets/images/transformers.jpg"));
+      Alert.alert("Thành công", "Ảnh đại diện đã được cập nhật");
     } catch (error) {
       console.error('Error updating avatar:', error);
       Alert.alert("Lỗi", "Đã có lỗi xảy ra khi cập nhật ảnh");
@@ -228,14 +222,14 @@ const styles = StyleSheet.create({
     backgroundColor: "#fff",
   },
   header: {
-    marginTop: 30,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    padding: 15,
-    backgroundColor: "#fff",
+    paddingHorizontal: 10,
+    backgroundColor: "white",
     borderBottomWidth: 1,
     borderBottomColor: "#ddd",
+    paddingTop: 20,
   },
   headerText: {
     fontSize: 18,
