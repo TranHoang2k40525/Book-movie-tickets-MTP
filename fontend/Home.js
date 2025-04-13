@@ -7,24 +7,23 @@ import {
   Image,
   StyleSheet,
   TextInput,
-  RefreshControl
+  Alert,
+  ActivityIndicator,
 } from "react-native";
 import { FlatList } from "react-native-gesture-handler";
 import Icon from "react-native-vector-icons/FontAwesome";
 import Menu from "./Menu";
 import { getMovies } from "./api";
+import { UserContext } from "./User/UserContext";
 
-// Không cần khai báo interface trong .js
 export default function Home({ navigation }) {
   const [selectedTab, setSelectedTab] = useState("Đang chiếu");
   const [searchText, setSearchText] = useState("");
   const [movies, setMovies] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [refreshing, setRefreshing] = useState(false);
+  const { user } = useContext(UserContext);
 
-
-  // Fetch movies từ API khi component mount
   useEffect(() => {
     fetchMovies();
   }, []);
@@ -33,7 +32,7 @@ export default function Home({ navigation }) {
     try {
       setLoading(true);
       setError(null);
-      const response = await getMovies(); // Sử dụng axios từ api.js
+      const response = await getMovies();
       setMovies(response.data.movies);
     } catch (error) {
       console.error("Lỗi khi lấy danh sách phim:", error);
@@ -43,66 +42,83 @@ export default function Home({ navigation }) {
     }
   };
 
-  // Lọc phim theo tab
-  // Lọc phim theo tab
-const filterMovies = () => {
-  const currentDate = new Date("2025-03-31"); // Ngày hiện tại theo yêu cầu
-  const march2025Start = new Date("2025-03-01");
-  const march2025End = new Date("2025-03-31");
-  const april2025Start = new Date("2025-04-01");
-  const april2025End = new Date("2025-04-30");
-  const specialMovieIds = [1, 4, 10, 20, 25, 15]; // Danh sách ID phim đặc biệt
+  const filterMovies = () => {
+    const currentDate = new Date("2025-03-31");
+    const march2025Start = new Date("2025-03-01");
+    const march2025End = new Date("2025-03-31");
+    const april2025Start = new Date("2025-04-01");
+    const april2025End = new Date("2025-04-30");
+    const specialMovieIds = [1, 4, 10, 20, 25, 15];
 
-  return movies.filter((movie) => {
-    const releaseDate = new Date(movie.MovieReleaseDate);
-
-    if (selectedTab === "Đang chiếu") {
-      // Phim đang chiếu: trong tháng 3/2025 và trước hoặc bằng ngày hiện tại
-      return (
-        releaseDate >= march2025Start &&
-        releaseDate <= march2025End &&
-        releaseDate <= currentDate
-      );
-    } else if (selectedTab === "Sắp chiếu") {
-      // Phim sắp chiếu: trong tháng 4/2025
-      return releaseDate >= april2025Start && releaseDate <= april2025End;
-    } else if (selectedTab === "Đặc biệt") {
-      // Phim đặc biệt: có ID trong danh sách
-      return specialMovieIds.includes(movie.MovieID);
-    }
-    return true; // Trường hợp mặc định (nếu có tab khác)
-  });
-};
-
-const renderMovieCard = ({ item }) => {
-  // Định dạng ImageUrl thành URI Base64
-  const imageSource = item.ImageUrl
-    ? { uri: `data:image/png;base64,${item.ImageUrl}` }
-    : { uri: "https://via.placeholder.com/200" };
-
-  return (
-    <TouchableOpacity
-      onPress={() =>
-        navigation.navigate("MovieDetailsScreen", { movieId: item.MovieID })
+    return movies.filter((movie) => {
+      const releaseDate = new Date(movie.MovieReleaseDate);
+      if (selectedTab === "Đang chiếu") {
+        return (
+          releaseDate >= march2025Start &&
+          releaseDate <= march2025End &&
+          releaseDate <= currentDate
+        );
+      } else if (selectedTab === "Sắp chiếu") {
+        return releaseDate >= april2025Start && releaseDate <= april2025End;
+      } else if (selectedTab === "Đặc biệt") {
+        return specialMovieIds.includes(movie.MovieID);
       }
-    >
-      <View style={styles.movieCard}>
-        <Image source={imageSource} style={styles.movieImage} />
-        <Text style={styles.movieTitle}>{item.MovieTitle}</Text>
-        <Text style={styles.movieDate}>
-          Khởi chiếu{" "}
-          {new Date(item.MovieReleaseDate).toLocaleDateString("vi-VN")}
-        </Text>
-      </View>
-    </TouchableOpacity>
-  );
-};
+      return true;
+    });
+  };
 
-  // Xử lý khi đang loading hoặc có lỗi
+  const handleBookPress = (movieId) => {
+    if (!user) {
+      Alert.alert(
+        "Yêu cầu đăng nhập",
+        "Bạn cần đăng nhập để đặt vé. Bạn có muốn đăng nhập ngay bây giờ không?",
+        [
+          { text: "Hủy", style: "cancel" },
+          {
+            text: "Đăng nhập",
+            onPress: () =>
+              navigation.navigate("Login", { from: "Home", movieId }), // Truyền movieId để quay lại nếu cần
+          },
+        ]
+      );
+    } else {
+      navigation.navigate("MovieBookingScreen", { movieId }); // Chuyển sang MovieBookingScreen với movieId
+    }
+  };
+
+  const renderMovieCard = ({ item }) => {
+    const imageSource = item.ImageUrl
+      ? { uri: `data:image/png;base64,${item.ImageUrl}` }
+      : { uri: "https://via.placeholder.com/200" };
+
+    return (
+      <TouchableOpacity
+        onPress={() => {
+          console.log(
+            "Navigating to MovieDetailsScreen with movieId:",
+            item.MovieID
+          ); // Debug log
+          navigation.navigate("MovieDetailsScreen", { movieId: item.MovieID });
+        }}
+      >
+        <View style={styles.movieCard}>
+          <Image source={imageSource} style={styles.movieImage} />
+          <Text style={styles.movieTitle}>{item.MovieTitle}</Text>
+          <Text style={styles.movieDate}>
+            Khởi chiếu{" "}
+            {new Date(item.MovieReleaseDate).toLocaleDateString("vi-VN")}
+          </Text>
+        </View>
+      </TouchableOpacity>
+    );
+  };
+
   if (loading) {
     return (
       <View style={styles.loadingContainer}>
-        <Text>Đang tải danh sách phim...</Text>
+        <ActivityIndicator size="large" color="#ff4d6d" />
+        <Text>
+          Đang tải danh sách phim...</Text>
       </View>
     );
   }
@@ -120,7 +136,6 @@ const renderMovieCard = ({ item }) => {
 
   return (
     <View style={styles.container}>
-      {/* Tabs */}
       <View style={styles.fixedHeader}>
         <View style={styles.header}>
           <Image
@@ -172,7 +187,6 @@ const renderMovieCard = ({ item }) => {
         </View>
       </View>
 
-      {/* Movie List */}
       <ScrollView style={styles.scrollContent}>
         <View style={styles.horizontalMovieContainer}>
           <FlatList
@@ -186,7 +200,6 @@ const renderMovieCard = ({ item }) => {
 
         <View style={styles.fullMovieList}>
           {movies.map((movie) => {
-            // Định dạng ImageUrl thành URI Base64
             const imageSource = movie.ImageUrl
               ? { uri: `data:image/png;base64,${movie.ImageUrl}` }
               : { uri: "https://via.placeholder.com/100" };
@@ -194,16 +207,22 @@ const renderMovieCard = ({ item }) => {
             return (
               <TouchableOpacity
                 key={movie.MovieID}
-                onPress={() =>
+                onPress={() => {
+                  console.log(
+                    "Navigating to MovieDetailsScreen with movieId:",
+                    movie.MovieID
+                  ); // Debug log
                   navigation.navigate("MovieDetailsScreen", {
                     movieId: movie.MovieID,
-                  })
-                }
+                  });
+                }}
               >
                 <View style={styles.fullMovieCard}>
                   <Image source={imageSource} style={styles.fullMovieImage} />
                   <View style={styles.movieInfo}>
-                    <Text style={styles.fullMovieTitle}>{movie.MovieTitle}</Text>
+                    <Text style={styles.fullMovieTitle}>
+                      {movie.MovieTitle}
+                    </Text>
                     {movie.MovieDirector && (
                       <Text>Đạo diễn: {movie.MovieDirector}</Text>
                     )}
@@ -218,7 +237,10 @@ const renderMovieCard = ({ item }) => {
                     </Text>
                     <Text>Thời lượng: {movie.MovieRuntime} phút</Text>
                     <Text>Ngôn ngữ: {movie.MovieLanguage}</Text>
-                    <TouchableOpacity style={styles.bookButton}>
+                    <TouchableOpacity
+                      style={styles.bookButton}
+                      onPress={() => handleBookPress(movie.MovieID)}
+                    >
                       <Text style={styles.bookButtonText}>Đặt vé</Text>
                     </TouchableOpacity>
                   </View>
@@ -232,9 +254,7 @@ const renderMovieCard = ({ item }) => {
   );
 }
 
-// Thêm styles mới cho loading và error
 const styles = StyleSheet.create({
-  
   loadingContainer: {
     flex: 1,
     justifyContent: "center",
@@ -256,16 +276,15 @@ const styles = StyleSheet.create({
     color: "white",
     fontWeight: "bold",
   },
-  // Các style khác...
   container: { flex: 1, backgroundColor: "white" },
   fixedHeader: { backgroundColor: "white" },
   header: {
-    marginTop: 20, 
-    flexDirection: 'row', 
-    justifyContent: 'space-between',
-    alignItems: 'center', 
-    padding: 1, 
-    backgroundColor: 'white'
+    marginTop: 20,
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    padding: 1,
+    backgroundColor: "white",
   },
   scrollContent: { flex: 1 },
   horizontalMovieContainer: { paddingVertical: 0 },

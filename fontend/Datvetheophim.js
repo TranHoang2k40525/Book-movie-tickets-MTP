@@ -8,10 +8,11 @@ import {
   Text,
   Dimensions,
   Alert,
+  ActivityIndicator,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { UserContext } from "./User/UserContext";
-import { getMovies } from "./api"; 
+import { getMovies, getMoviesShowingToday } from "./api"; 
 
 const { width } = Dimensions.get("window");
 
@@ -23,7 +24,7 @@ const Datvetheophim = ({ navigation }) => {
   const [movies, setMovies] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-
+ 
   // Kiểm tra đăng nhập ngay khi vào màn hình
   useEffect(() => {
     if (!user) {
@@ -31,34 +32,41 @@ const Datvetheophim = ({ navigation }) => {
         "Yêu cầu đăng nhập",
         "Bạn cần đăng nhập để đặt vé theo phim. Bạn có muốn đăng nhập ngay bây giờ không?",
         [
-          {
-            text: "Hủy",
-            style: "cancel",
-            onPress: () => navigation.goBack(), // Quay lại nếu hủy
-          },
-          {
-            text: "Đăng nhập",
-            onPress: () => navigation.navigate("Login", { from: "Datvetheophim" }),
-            style: "default",
-          },
+          { text: "Hủy", style: "cancel", onPress: () => navigation.goBack() },
+          { text: "Đăng nhập", onPress: () => navigation.navigate("Login", { from: "Datvetheophim" }) },
         ],
         { cancelable: false }
       );
     } else {
-      fetchMovies(); // Nếu đã đăng nhập, lấy danh sách phim
+      fetchMovies(); // Lấy tất cả phim khi vào màn hình
     }
   }, [user, navigation]);
 
-  // Hàm lấy danh sách phim từ API
+  // Hàm lấy danh sách tất cả phim
   const fetchMovies = async () => {
     try {
       setLoading(true);
       setError(null);
-      const response = await getMovies(); // Gọi API lấy danh sách phim
+      const response = await getMovies();
       setMovies(response.data.movies);
     } catch (err) {
       console.error("Lỗi khi lấy danh sách phim:", err);
       setError(err.message || "Không thể lấy danh sách phim");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Hàm lấy danh sách phim đang chiếu hôm nay
+  const fetchMoviesShowingToday = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      const response = await getMoviesShowingToday();
+      setMovies(response.data.movies);
+    } catch (err) {
+      console.error("Lỗi khi lấy danh sách phim đang chiếu hôm nay:", err);
+      setError(err.message || "Không thể lấy danh sách phim đang chiếu hôm nay");
     } finally {
       setLoading(false);
     }
@@ -77,30 +85,26 @@ const Datvetheophim = ({ navigation }) => {
     scrollViewRef.current?.scrollTo({ y: 0, animated: true });
   };
 
-  // Xử lý khi nhấn vào phim (có thể điều hướng đến chi tiết phim)
+  // Xử lý khi nhấn vào phim
   const handleMoviePress = (movieId) => {
-    navigation.navigate("MovieDetailsScreen", { movieId });
+    navigation.navigate("MovieBookingScreen", { movieId });
   };
 
   // Xử lý nút "Đang chiếu"
   const toggleNowShowing = () => {
     setIsNowShowingActive(!isNowShowingActive);
-  };
-
-  // Lọc phim theo trạng thái "Đang chiếu"
-  const filteredMovies = movies.filter((movie) => {
-    const releaseDate = new Date(movie.MovieReleaseDate);
-    const currentDate = new Date("2025-03-31"); // Ngày hiện tại theo yêu cầu
-    if (isNowShowingActive) {
-      return releaseDate <= currentDate; // Chỉ hiển thị phim đã phát hành
+    if (!isNowShowingActive) {
+      fetchMoviesShowingToday(); // Khi bật "Đang chiếu", lấy phim hôm nay
+    } else {
+      fetchMovies(); // Khi tắt "Đang chiếu", lấy tất cả phim
     }
-    return true; // Hiển thị tất cả nếu không bật "Đang chiếu"
-  });
+  };
 
   // Xử lý khi đang loading hoặc có lỗi
   if (loading) {
     return (
       <View style={styles.loadingContainer}>
+        <ActivityIndicator size="large" color="#ff4d6d" />
         <Text>Đang tải danh sách phim...</Text>
       </View>
     );
@@ -110,7 +114,7 @@ const Datvetheophim = ({ navigation }) => {
     return (
       <View style={styles.errorContainer}>
         <Text>Có lỗi xảy ra: {error}</Text>
-        <TouchableOpacity onPress={fetchMovies} style={styles.retryButton}>
+        <TouchableOpacity onPress={isNowShowingActive ? fetchMoviesShowingToday : fetchMovies} style={styles.retryButton}>
           <Text style={styles.retryButtonText}>Thử lại</Text>
         </TouchableOpacity>
       </View>
@@ -122,10 +126,7 @@ const Datvetheophim = ({ navigation }) => {
       {/* Header */}
       <View style={styles.header}>
         <View style={styles.headerLeft}>
-          <TouchableOpacity
-            onPress={() => navigation.goBack()}
-            style={styles.iconButton}
-          >
+          <TouchableOpacity onPress={() => navigation.goBack()} style={styles.iconButton}>
             <Ionicons name="arrow-back" size={24} color="#e31937" />
           </TouchableOpacity>
           <Text style={styles.headerTitle}>Chọn phim của bạn</Text>
@@ -134,10 +135,7 @@ const Datvetheophim = ({ navigation }) => {
 
       {/* Now Showing Filter Bar */}
       <View style={styles.nowShowingContainer}>
-        <TouchableOpacity
-          onPress={toggleNowShowing}
-          style={styles.nowShowingButton}
-        >
+        <TouchableOpacity onPress={toggleNowShowing} style={styles.nowShowingButton}>
           <Ionicons
             name="checkmark"
             size={18}
@@ -164,7 +162,7 @@ const Datvetheophim = ({ navigation }) => {
         onScroll={handleScroll}
         scrollEventThrottle={16}
       >
-        {filteredMovies.map((movie) => (
+        {movies.map((movie) => (
           <TouchableOpacity
             key={movie.MovieID}
             style={styles.movieCard}
@@ -185,7 +183,7 @@ const Datvetheophim = ({ navigation }) => {
                 <Ionicons name="calendar" size={16} color="#666" />
                 <Text style={styles.movieText}>
                   {new Date(movie.MovieReleaseDate).toLocaleDateString("vi-VN")}{" "}
-                  ({movie.MovieRating})
+                  ({movie.MovieRating || "N/A"})
                 </Text>
               </View>
               <View style={styles.movieDetail}>
@@ -193,7 +191,7 @@ const Datvetheophim = ({ navigation }) => {
                 <Text style={styles.movieText}>{movie.MovieRuntime} phút</Text>
               </View>
               <View style={styles.movieFormat}>
-                <Text style={styles.formatText}>{movie.MovieFormat}</Text>
+                <Text style={styles.formatText}>{movie.MovieFormat || "2D"}</Text>
               </View>
             </View>
           </TouchableOpacity>
@@ -216,6 +214,7 @@ const Datvetheophim = ({ navigation }) => {
   );
 };
 
+// Styles giữ nguyên
 const styles = StyleSheet.create({
   container: {
     flex: 1,

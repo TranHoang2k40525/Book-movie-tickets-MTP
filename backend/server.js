@@ -4,6 +4,7 @@ const bodyParser = require('body-parser');
 const path = require('path');
 const { connectDB } = require('./config/db');
 
+
 // Import routes
 const authRoutes = require('./routes/auth');
 const userRoutes = require('./routes/users');
@@ -18,7 +19,7 @@ const host = '0.0.0.0'; // Chấp nhận kết nối từ mọi IP
 app.use('/assets', express.static(path.join(__dirname, 'assets')));
 app.use(cors());
 app.use(bodyParser.json());
-
+app.use('/Video', express.static('assets/Video'));
 // Route mặc định
 app.get('/', (req, res) => {
     res.json({ message: 'Welcome to the Movie Ticket Booking API!' });

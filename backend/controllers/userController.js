@@ -152,4 +152,3 @@ updateAvatar,
 updateCustomer,
 deleteAccount
 };
-
