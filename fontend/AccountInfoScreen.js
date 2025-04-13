@@ -1,3 +1,4 @@
+// frontend/AccountInfoScreen.js
 import React, { useState, useEffect, useContext } from "react";
 import {
   View,
@@ -12,7 +13,6 @@ import { Picker } from "@react-native-picker/picker";
 import Icon from "react-native-vector-icons/FontAwesome";
 import axios from "axios";
 import { UserContext } from "./User/UserContext";
-
 import { getAccount, getCustomer, updateCustomer, deleteAccount } from "./api";
 
 export default function AccountInfoScreen({ navigation }) {
@@ -49,17 +49,28 @@ export default function AccountInfoScreen({ navigation }) {
         navigation.navigate("Login", { from: "AccountInfo" });
         return;
       }
-
+    
       try {
-        const response = await getAccount({ accountID: user.AccountID });
-        const customerResponse = await getCustomer({ accountID: user.AccountID });
-
+        const response = await getAccount();
+        console.log("Account response:", response.data);
+        let customerData = {};
+    
+        try {
+          const customerResponse = await getCustomer();
+          console.log("Customer response:", customerResponse.data);
+          customerData = customerResponse.data.customer || {};
+        } catch (customerError) {
+          console.error("Failed to fetch customer:", customerError.response?.data || customerError.message);
+          Alert.alert(
+            "Lỗi",
+            customerError.response?.data?.message || "Không thể tải thông tin khách hàng."
+          );
+        }
+    
         const accountData = response.data.account;
-        const customerData = customerResponse.data.customer;
-
         const province = customerData.CustomerAddress ? customerData.CustomerAddress.split(", ")[0] : "";
         const district = customerData.CustomerAddress ? customerData.CustomerAddress.split(", ")[1] : "";
-
+    
         setAccountInfo({
           AccountName: customerData.CustomerName || "Không có thông tin",
           AccountPhone: customerData.CustomerPhone || "Không có thông tin",
@@ -72,7 +83,7 @@ export default function AccountInfoScreen({ navigation }) {
         });
         setSelectedProvince(province);
         setSelectedDistrict(district);
-
+    
         if (province) {
           const selectedProvinceData = provinces.find((p) => p.name === province);
           if (selectedProvinceData) {
@@ -83,7 +94,8 @@ export default function AccountInfoScreen({ navigation }) {
           }
         }
       } catch (error) {
-        console.error("Lỗi khi lấy thông tin tài khoản:", error);
+        console.error("Lỗi khi lấy thông tin tài khoản:", error.response?.data || error.message);
+        Alert.alert("Lỗi", "Không thể tải thông tin tài khoản.");
         setAccountInfo({
           AccountName: "Không có thông tin",
           AccountPhone: "Không có thông tin",
@@ -140,7 +152,6 @@ export default function AccountInfoScreen({ navigation }) {
 
     try {
       const updatedData = {
-        accountID: user.AccountID,
         customerName: accountInfo.AccountName,
         customerPhone: accountInfo.AccountPhone,
         customerEmail: accountInfo.AccountEmail,
@@ -173,7 +184,7 @@ export default function AccountInfoScreen({ navigation }) {
           style: "destructive",
           onPress: async () => {
             try {
-              const response = await deleteAccount({ accountID: user.AccountID });
+              const response = await deleteAccount();
               Alert.alert("Thành công", "Tài khoản đã được xóa!", [
                 {
                   text: "OK",
