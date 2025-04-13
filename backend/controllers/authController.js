@@ -3,6 +3,7 @@ const { dbConfig } = require('../config/db');
 const { isValidEmail } = require('../utils/validators');
 const bcrypt = require('bcrypt'); 
 const SALT_ROUNDS = 10;
+const { verifyRefreshToken, generateToken, generateRefreshToken } = require("../utils/JsonWebToken");
 // Đăng nhập
 const login = async (req, res) => {
     const { email, password } = req.body;
@@ -54,8 +55,12 @@ const login = async (req, res) => {
             CustomerAddress: customer.CustomerAddress,
             AvatarUrl: customer.AvatarUrl,
         };
+        
+        const accessToken = generateToken(userData);
+        const refreshToken = generateRefreshToken(userData);
 
-        res.json({ message: 'Đăng nhập thành công!', user: userData });
+        res.json({ message: 'Đăng nhập thành công!', user: userData ,accessToken,
+      refreshToken,});
     } catch (err) {
         console.error('Lỗi đăng nhập:', err);
         res.status(500).json({ message: 'Lỗi server!', error: err.message });
