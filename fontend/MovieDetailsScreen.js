@@ -10,12 +10,17 @@ import {
   Alert,
   Linking,
   ActivityIndicator,
+  Share,
+   // Thêm Share
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import YoutubePlayer from "react-native-youtube-iframe";
+import { WebView } from "react-native-webview";
 import { getMovieById } from "./api";
 import Menu from "./Menu";
 import { UserContext } from "./User/UserContext";
+
+// Thêm cấu hình Deep Linking
+const APP_SCHEME = "book_movie-tickets-mtp"; 
 
 export default function MovieDetailsScreen({ route, navigation }) {
   const { movieId } = route.params;
@@ -28,14 +33,12 @@ export default function MovieDetailsScreen({ route, navigation }) {
   const [showCalendar, setShowCalendar] = useState(false);
   const [showShare, setShowShare] = useState(false);
   const [isExpanded, setIsExpanded] = useState(false);
-  const [playing, setPlaying] = useState(false);
+  
   const [showPlayButton, setShowPlayButton] = useState(true);
 
   const currentDate = new Date();
   const [selectedDay, setSelectedDay] = useState(currentDate.getDate());
-  const [selectedMonth, setSelectedMonth] = useState(
-    currentDate.getMonth() + 1
-  );
+  const [selectedMonth, setSelectedMonth] = useState(currentDate.getMonth() + 1);
   const [selectedYear, setSelectedYear] = useState(currentDate.getFullYear());
   const [currentCalendarMonth, setCurrentCalendarMonth] = useState(
     currentDate.getMonth() + 1
@@ -47,13 +50,36 @@ export default function MovieDetailsScreen({ route, navigation }) {
     selectedMonth < 10 ? "0" + selectedMonth : selectedMonth
   }/${selectedYear}`;
 
+  // Xử lý Deep Link khi ứng dụng được mở
+  useEffect(() => {
+    const handleDeepLink = ({ url }) => {
+      if (url.startsWith(`${APP_SCHEME}movie/`)) {
+        const id = url.split("movie/")[1];
+        if (id) {
+          navigation.navigate("MovieDetailsScreen", { movieId: id });
+        }
+      }
+    };
+
+    // Lắng nghe sự kiện deep link
+    Linking.addEventListener("url", handleDeepLink);
+
+    // Kiểm tra liên kết khi ứng dụng mở
+    Linking.getInitialURL().then((url) => {
+      if (url) handleDeepLink({ url });
+    });
+
+    return () => {
+      Linking.removeAllListeners("url");
+    };
+  }, [navigation]);
+
   useEffect(() => {
     const fetchMovieDetails = async () => {
       try {
         setLoading(true);
         setError(null);
         const response = await getMovieById(movieId);
-        console.log("Movie data:", response.data);
         const movieData = response.data.movie;
         setMovie(movieData);
 
@@ -64,6 +90,7 @@ export default function MovieDetailsScreen({ route, navigation }) {
         setCurrentCalendarMonth(releaseDate.getMonth() + 1);
       } catch (error) {
         console.error("Lỗi khi lấy thông tin phim:", error);
+        setError("Không thể tải thông tin phim");
       } finally {
         setLoading(false);
       }
@@ -71,13 +98,6 @@ export default function MovieDetailsScreen({ route, navigation }) {
 
     fetchMovieDetails();
   }, [movieId]);
-
-  const getVideoId = (url) => {
-    const regex =
-      /(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=)|youtu\.be\/)([^"&?\/\s]{11})/;
-    const match = url?.match(regex);
-    return match ? match[1] : null;
-  };
 
   const getDaysInMonth = (month, year) => {
     return new Date(year, month, 0).getDate();
@@ -132,6 +152,7 @@ export default function MovieDetailsScreen({ route, navigation }) {
   const handleVideoPress = () => {
     setShowPlayButton(true);
   };
+
   const handleBookTicket = () => {
     if (!user) {
       Alert.alert(
@@ -141,7 +162,11 @@ export default function MovieDetailsScreen({ route, navigation }) {
           { text: "Hủy", style: "cancel" },
           {
             text: "Đăng nhập",
-            onPress: () => navigation.navigate("Login", { from: "MovieDetailsScreen", movieId }),
+            onPress: () =>
+              navigation.navigate("Login", {
+                from: "MovieDetailsScreen",
+                movieId,
+              }),
           },
         ]
       );
@@ -149,11 +174,31 @@ export default function MovieDetailsScreen({ route, navigation }) {
       navigation.navigate("MovieBookingScreen", { movieId });
     }
   };
-  const handlePlayPause = () => {
-    setPlaying(!playing);
-    if (!playing) {
-      setShowPlayButton(false);
+
+  
+
+  // Hàm chia sẻ liên kết đến phim
+  const handleShare = async () => {
+    if (!movie || !movieId) {
+      Alert.alert("Lỗi", "Không thể chia sẻ vì thiếu thông tin phim.");
+      return;
     }
+  
+    const shareLink = `${APP_SCHEME}movie/${movieId}`;
+    const shareMessage = `Xem phim "${movie.MovieTitle}" trên ứng dụng của chúng tôi! ${shareLink}`;
+  
+    try {
+      await Share.share({
+        message: shareMessage,
+        url: shareLink, // Chỉ dùng trên iOS
+        title: `Chia sẻ phim: ${movie.MovieTitle}`,
+      });
+    } catch (error) {
+      console.error("Lỗi khi chia sẻ:", error);
+      Alert.alert("Lỗi", "Không thể chia sẻ lúc này. Vui lòng thử lại.");
+    }
+  
+    setShowShare(false);
   };
 
   const renderCalendarModal = () => {
@@ -212,86 +257,36 @@ export default function MovieDetailsScreen({ route, navigation }) {
     );
   };
 
-  const renderShareModal = () => {
-    const shareLink = `https://www.cgv.vn/${movie?.MovieTitle?.toLowerCase().replace(
-      /\s+/g,
-      "-"
-    )}`;
-    const shareText = `Xem phim ${movie?.MovieTitle} tại đây!`;
-
-    const sharePlatforms = [
-      {
-        name: "Messenger",
-        image: "https://i.imgur.com/5z5z5z5.png",
-        shareUrl: `fb-messenger://share?link=${encodeURIComponent(shareLink)}`,
-        fallbackUrl: `https://www.messenger.com/t/?link=${encodeURIComponent(
-          shareLink
-        )}`,
-      },
-      {
-        name: "Facebook",
-        image: "https://i.imgur.com/6y6y6y6.png",
-        shareUrl: `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(
-          shareLink
-        )}`,
-        fallbackUrl: `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(
-          shareLink
-        )}`,
-      },
-    ];
-
-    const handleSharePress = (platform) => {
-      Linking.openURL(platform.shareUrl).catch((err) => {
-        console.error("Không thể mở URL:", err);
-        if (platform.fallbackUrl)
-          Linking.openURL(platform.fallbackUrl).catch((err) =>
-            console.error("Không thể mở URL dự phòng:", err)
-          );
-      });
-    };
-
-    return (
-      <Modal
-        animationType="slide"
-        transparent={true}
-        visible={showShare}
-        onRequestClose={() => setShowShare(false)}
-      >
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContainer}>
-            <Text style={styles.modalTitle}>Chia sẻ</Text>
-            <ScrollView
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              style={styles.shareScrollContainer}
-            >
-              <View style={styles.shareGrid}>
-                {sharePlatforms.map((platform) => (
-                  <TouchableOpacity
-                    key={platform.name}
-                    style={styles.sharePlatform}
-                    onPress={() => handleSharePress(platform)}
-                  >
-                    <Image
-                      source={{ uri: platform.image }}
-                      style={styles.platformIcon}
-                    />
-                    <Text>{platform.name}</Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
-            </ScrollView>
-            <TouchableOpacity
-              style={styles.closeButton}
-              onPress={() => setShowShare(false)}
-            >
-              <Text style={styles.closeButtonText}>Đóng</Text>
-            </TouchableOpacity>
-          </View>
+  // Sửa renderShareModal để sử dụng Share API
+ const renderShareModal = () => {
+  return (
+    <Modal
+      animationType="slide"
+      transparent={true}
+      visible={showShare}
+      onRequestClose={() => setShowShare(false)}
+    >
+      <View style={styles.modalOverlay}>
+        <View style={styles.modalContainer}>
+          <Text style={styles.modalTitle}>Chia sẻ</Text>
+          <TouchableOpacity
+            style={styles.shareButton}
+            onPress={handleShare}
+          >
+            <Ionicons name="share-social" size={24} color="black" />
+            <Text style={styles.shareButtonText}>Chia sẻ phim</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.closeButton}
+            onPress={() => setShowShare(false)}
+          >
+            <Text style={styles.closeButtonText}>Đóng</Text>
+          </TouchableOpacity>
         </View>
-      </Modal>
-    );
-  };
+      </View>
+    </Modal>
+  );
+};
 
   if (loading) {
     return (
@@ -319,7 +314,6 @@ export default function MovieDetailsScreen({ route, navigation }) {
     fullDescription.length > 100
       ? fullDescription.substring(0, 100) + "..."
       : fullDescription;
-  const videoId = getVideoId(movie.MovieTrailer);
 
   return (
     <View style={styles.container}>
@@ -338,38 +332,24 @@ export default function MovieDetailsScreen({ route, navigation }) {
           style={styles.scrollContainer}
           contentContainerStyle={styles.scrollContentContainer}
         >
-          {videoId && (
+          {!!movie?.MovieTrailer && (
             <View style={styles.trailerContainer}>
               <TouchableOpacity
                 activeOpacity={1}
                 onPress={handleVideoPress}
                 style={styles.trailerWrapper}
               >
-                <YoutubePlayer
-                  height={210}
-                  play={playing}
-                  videoId={videoId}
-                  onChangeState={(event) => {
-                    if (event === "paused" || event === "ended") {
-                      setPlaying(false);
-                      setShowPlayButton(true);
-                    } else if (event === "playing") {
-                      setShowPlayButton(false);
-                    }
+                <WebView
+                  source={{
+                    uri: movie.MovieTrailer,
                   }}
+                  style={{ height: 210 }}
+                  mediaPlaybackRequiresUserAction={false}
+                  allowsInlineMediaPlayback={true}
+                  onError={(e) =>
+                    console.log("Lỗi tải video:", e.nativeEvent.description)
+                  }
                 />
-                {showPlayButton && (
-                  <TouchableOpacity
-                    style={styles.playButtonOverlay}
-                    onPress={handlePlayPause}
-                  >
-                    <Ionicons
-                      name={playing ? "pause-circle" : "play-circle"}
-                      size={60}
-                      color="white"
-                    />
-                  </TouchableOpacity>
-                )}
               </TouchableOpacity>
             </View>
           )}
@@ -381,7 +361,6 @@ export default function MovieDetailsScreen({ route, navigation }) {
                   ? `data:image/png;base64,${movie.ImageUrl}`
                   : "https://picsum.photos/800/500",
               }}
-              style={styles.mainPoster}
               onError={(e) => console.log("Lỗi tải ảnh:", e.nativeEvent.error)}
             />
             <Image
@@ -439,7 +418,7 @@ export default function MovieDetailsScreen({ route, navigation }) {
             </TouchableOpacity>
             <View style={styles.movieInfoDetail}>
               <Text style={styles.infoLabel}>Kiểm duyệt:</Text>
-              <Text style={styles.infoValue}>{movie.Rating || "T18"}</Text>
+              <Text style={styles.infoValue}>{movie.MovieAge}</Text>
             </View>
             <View style={styles.movieInfoDetail}>
               <Text style={styles.infoLabel}>Thể loại:</Text>
@@ -496,7 +475,10 @@ export default function MovieDetailsScreen({ route, navigation }) {
         </ScrollView>
       </View>
 
-      <TouchableOpacity style={styles.bookTicketButton} onPress={handleBookTicket}>
+      <TouchableOpacity
+        style={styles.bookTicketButton}
+        onPress={handleBookTicket}
+      >
         <Text style={styles.bookTicketButtonText}>Đặt Vé</Text>
       </TouchableOpacity>
 
@@ -512,12 +494,15 @@ const styles = StyleSheet.create({
   scrollContainer: { flex: 1 },
   scrollContentContainer: { paddingBottom: 40 },
   header: {
-    marginTop: 30,
     flexDirection: "row",
-    justifyContent: "space-between",
     alignItems: "center",
-    padding: 1,
+    justifyContent: "space-between",
+    paddingHorizontal: 10,
+    paddingVertical: 0,
     backgroundColor: "white",
+    borderBottomWidth: 1,
+    borderBottomColor: "#ddd",
+    paddingTop: 10,
   },
   backButton: { flexDirection: "row", alignItems: "center", gap: 10 },
   backButtonText: { fontSize: 16, fontWeight: "bold" },
@@ -627,7 +612,7 @@ const styles = StyleSheet.create({
   modalTitle: {
     fontSize: 18,
     fontWeight: "bold",
-    marginBottom: 5,
+    marginBottom: 15,
     textAlign: "center",
   },
   modalDate: { fontSize: 16, color: "#666", textAlign: "center" },
@@ -650,17 +635,21 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: "#eee",
   },
-  shareScrollContainer: { maxHeight: 100 },
-  shareGrid: { flexDirection: "row", paddingHorizontal: 10 },
-  sharePlatform: { alignItems: "center", marginHorizontal: 15 },
-  platformIcon: {
-    width: 60,
-    height: 60,
-    borderRadius: 30,
-    backgroundColor: "#eee",
+  shareButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    padding: 10,
+    backgroundColor: "#f0f0f0",
+    borderRadius: 5,
+    marginBottom: 15,
+  },
+  shareButtonText: {
+    marginLeft: 10,
+    fontSize: 16,
+    fontWeight: "bold",
   },
   closeButton: {
-    marginTop: 15,
     backgroundColor: "red",
     padding: 10,
     borderRadius: 5,
