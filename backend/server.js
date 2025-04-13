@@ -4,12 +4,12 @@ const bodyParser = require('body-parser');
 const path = require('path');
 const { connectDB } = require('./config/db');
 
-
 // Import routes
 const authRoutes = require('./routes/auth');
 const userRoutes = require('./routes/users');
 const movieRoutes = require('./routes/movies');
 const locationRoutes = require('./routes/locations');
+const cinemaRoutes = require('./routes/cinemas'); // Thêm route mới
 
 const app = express();
 const port = 3000;
@@ -20,6 +20,7 @@ app.use('/assets', express.static(path.join(__dirname, 'assets')));
 app.use(cors());
 app.use(bodyParser.json());
 app.use('/Video', express.static('assets/Video'));
+
 // Route mặc định
 app.get('/', (req, res) => {
     res.json({ message: 'Welcome to the Movie Ticket Booking API!' });
@@ -30,6 +31,7 @@ app.use('/api', authRoutes);
 app.use('/api', userRoutes);
 app.use('/api/movies', movieRoutes);
 app.use('/api', locationRoutes);
+app.use('/api', cinemaRoutes); // Thêm route cinemas
 
 // Kết nối database và khởi động server
 async function startServer() {
