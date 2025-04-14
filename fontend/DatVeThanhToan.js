@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { StyleSheet, Text, View, Image, ScrollView, TouchableOpacity, SafeAreaView, StatusBar } from 'react-native';
 import { Ionicons, FontAwesome } from '@expo/vector-icons';
-
-export default function App() {
+import Icon from "react-native-vector-icons/FontAwesome";
+export default function App({ navigation }) {
   const [quantities, setQuantities] = useState({
     premium: 0,
     jujutsuSingle: 0,
@@ -17,7 +17,7 @@ export default function App() {
     popcornLover: 0,
     birthdaySpecial: 0,
   });
-
+  const [showScrollToTop, setShowScrollToTop] = useState(false);
   // Add prices for each combo
   const prices = {
     premium: 135000,
@@ -71,7 +71,14 @@ export default function App() {
       <View style={styles.header}>
         <View style={styles.headerContent}>
           <TouchableOpacity style={styles.backButton}>
-            <Ionicons name="chevron-back" size={28} color="#888" />
+            <TouchableOpacity
+                      style={styles.backButton}
+                      onPress={() => navigation.goBack()}
+                    >
+                      <Text style={{ color: "#fff" }}>
+                        <Icon name="arrow-left" size={24} color="#fff" /> Quay lại
+                      </Text>
+                    </TouchableOpacity>
           </TouchableOpacity>
           <View style={styles.headerTextContainer}>
             <Text style={styles.headerTitle}>MTB Kim Cúc Plaza</Text>
@@ -86,7 +93,7 @@ export default function App() {
       {/* Banner */}
       <View style={styles.banner}>
         <Image 
-          source={require('./assets/Anh2.jpeg')} 
+          source={require('./assets/douong/Anh2.jpeg')} 
           style={styles.popcornIcon} 
           resizeMode="contain"
         />
@@ -100,7 +107,7 @@ export default function App() {
         <View style={styles.comboItem}>
           <View style={styles.comboImageContainer}>
             <Image 
-              source={require('./assets/Anh3.jpeg')} 
+              source={require('./assets/douong/Anh3.jpeg')} 
               style={styles.comboImage} 
               resizeMode="contain"
             />
@@ -134,7 +141,7 @@ export default function App() {
         <View style={styles.comboItem}>
           <View style={styles.comboImageContainer}>
             <Image 
-              source={require('./assets/Anh3.jpeg')} 
+              source={require('./assets/douong/Anh3.jpeg')} 
               style={styles.comboImage} 
               resizeMode="contain"
             />
@@ -168,7 +175,7 @@ export default function App() {
         <View style={styles.comboItem}>
           <View style={styles.comboImageContainer}>
             <Image 
-              source={require('./assets/Anh3.jpeg')} 
+              source={require('./assets/douong/Anh3.jpeg')} 
               style={styles.comboImage} 
               resizeMode="contain"
             />
@@ -202,7 +209,7 @@ export default function App() {
         <View style={styles.comboItem}>
           <View style={styles.comboImageContainer}>
             <Image 
-              source={require('./assets/Anh4.jpeg')} 
+              source={require('./assets/douong/Anh11.jpeg')} 
               style={styles.comboImage} 
               resizeMode="contain"
             />
@@ -235,7 +242,7 @@ export default function App() {
         <View style={styles.comboItem}>
           <View style={styles.comboImageContainer}>
             <Image 
-              source={require('./assets/Anh4.jpeg')} 
+              source={require('./assets/douong/Anh1.jpeg')} 
               style={styles.comboImage} 
               resizeMode="contain"
             />
@@ -268,7 +275,7 @@ export default function App() {
         <View style={styles.comboItem}>
           <View style={styles.comboImageContainer}>
             <Image 
-              source={require('./assets/Anh5.jpeg')} 
+              source={require('./assets/douong/Anh5.jpeg')} 
               style={styles.comboImage} 
               resizeMode="contain"
             />
@@ -301,7 +308,7 @@ export default function App() {
         <View style={styles.comboItem}>
           <View style={styles.comboImageContainer}>
             <Image 
-              source={require('./assets/Anh6.jpeg')} 
+              source={require('./assets/douong/Anh7.jpeg')} 
               style={styles.comboImage} 
               resizeMode="contain"
             />
@@ -335,7 +342,7 @@ export default function App() {
         <View style={styles.comboItem}>
           <View style={styles.comboImageContainer}>
             <Image 
-              source={require('./assets/Anh6.jpeg')} 
+              source={require('./assets/douong/Anh6.jpeg')} 
               style={styles.comboImage} 
               resizeMode="contain"
             />
@@ -369,7 +376,7 @@ export default function App() {
         <View style={styles.comboItem}>
           <View style={styles.comboImageContainer}>
             <Image 
-              source={require('./assets/Anh6.jpeg')} 
+              source={require('./assets/douong/Anh6.jpeg')} 
               style={styles.comboImage} 
               resizeMode="contain"
             />
@@ -403,7 +410,7 @@ export default function App() {
         <View style={styles.comboItem}>
           <View style={styles.comboImageContainer}>
             <Image 
-              source={require('./assets/Anh7.jpeg')} 
+              source={require('./assets/douong/Anh7.jpeg')} 
               style={styles.comboImage} 
               resizeMode="contain"
             />
@@ -436,7 +443,7 @@ export default function App() {
         <View style={styles.comboItem}>
           <View style={styles.comboImageContainer}>
             <Image 
-              source={require('./assets/Anh7.jpeg')} 
+              source={require('./assets/douong/Anh6.jpeg')} 
               style={styles.comboImage} 
               resizeMode="contain"
             />
@@ -470,7 +477,7 @@ export default function App() {
         <View style={styles.comboItem}>
           <View style={styles.comboImageContainer}>
             <Image 
-              source={require('./assets/Anh7.jpeg')} 
+              source={require('./assets/douong/Anh7.jpeg')} 
               style={styles.comboImage} 
               resizeMode="contain"
             />
