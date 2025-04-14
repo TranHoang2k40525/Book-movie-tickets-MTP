@@ -309,6 +309,93 @@ const getShowtimesByCinemaAndDate = async (req, res) => {
     res.status(500).json({ message: 'Lỗi server!', error: err.message });
   }
 };
+
+// Lấy sơ đồ ghế ngồi cho một suất chiếu
+const getSeatMapByShow = async (req, res) => {
+  try {
+    const { showId } = req.params;
+    let pool = await sql.connect(dbConfig);
+
+    // Truy vấn thông tin rạp và phòng chiếu
+    const hallQuery = `
+      SELECT ch.HallID, ch.HallName, ch.TotalSeats, c.CinemaName
+      FROM CinemaHall ch
+      JOIN Cinema c ON ch.CinemaID = c.CinemaID
+      JOIN Show s ON s.HallID = ch.HallID
+      WHERE s.ShowID = @showId
+    `;
+    const hallResult = await pool.request()
+      .input('showId', sql.Int, showId)
+      .query(hallQuery);
+
+    if (!hallResult.recordset[0]) {
+      return res.status(404).json({ error: 'Không tìm thấy phòng chiếu cho suất chiếu này' });
+    }
+
+    const hall = hallResult.recordset[0];
+
+    // Truy vấn danh sách ghế và trạng thái
+    const seatsQuery = `
+      SELECT 
+        chs.SeatID,
+        chs.SeatNumber,
+        chs.SeatType,
+        chs.SeatPrice,
+        CASE 
+          WHEN bs.BookingSeatID IS NOT NULL AND bs.Status = 'Booked' THEN 'booked'
+          ELSE 'available'
+        END AS SeatStatus
+      FROM CinemaHallSeat chs
+      LEFT JOIN BookingSeat bs ON chs.SeatID = bs.SeatID AND bs.ShowID = @showId
+      WHERE chs.HallID = @hallId
+      ORDER BY chs.SeatNumber
+    `;
+    const seatsResult = await pool.request()
+      .input('showId', sql.Int, showId)
+      .input('hallId', sql.Int, hall.HallID)
+      .query(seatsQuery);
+
+    // Xử lý dữ liệu ghế thành định dạng sơ đồ
+    const seatMap = {};
+    seatsResult.recordset.forEach(seat => {
+      const rowMatch = seat.SeatNumber.match(/([A-H])(\d+)/);
+      if (rowMatch) {
+        const row = rowMatch[1];
+        const number = parseInt(rowMatch[2]);
+        if (!seatMap[row]) {
+          seatMap[row] = [];
+        }
+        seatMap[row][number - 1] = {
+          seatId: seat.SeatID,
+          seatNumber: seat.SeatNumber,
+          type: seat.SeatType.toLowerCase(),
+          price: seat.SeatPrice,
+          status: seat.SeatStatus,
+        };
+      }
+    });
+
+    // Tạo danh sách hàng ghế
+    const rows = Object.keys(seatMap).sort();
+    const seatLayout = rows.map(row => ({
+      row,
+      seats: seatMap[row],
+    }));
+
+    res.status(200).json({
+      hall: {
+        hallId: hall.HallID,
+        hallName: hall.HallName,
+        cinemaName: hall.CinemaName,
+        totalSeats: hall.TotalSeats,
+      },
+      seatLayout,
+    });
+  } catch (error) {
+    console.error('Error fetching seat map:', error);
+    res.status(500).json({ error: 'Lỗi server khi lấy sơ đồ ghế ngồi' });
+  }
+};
 module.exports = {
   getAllMovies,
   getMovieById,
@@ -317,4 +404,5 @@ module.exports = {
   getShowtimesByCinemaAndDate,
   getMoviesShowingToday,
   getMoviesAndShowtimesByCinema,
+  getSeatMapByShow,
 };
