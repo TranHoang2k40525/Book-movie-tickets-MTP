@@ -448,7 +448,7 @@ export default function MovieDetailsScreen({ route, navigation }) {
 
           <View style={styles.newsHeader}>
             <TouchableOpacity
-              onPress={() => navigation.navigate("TinMoiVaUuDai")}
+              onPress={() => navigation.navigate("TinMoiUuDaiTatCa")}
             >
               <Text style={styles.infoLabel1}>Tin mới & Ưu đãi</Text>
             </TouchableOpacity>
