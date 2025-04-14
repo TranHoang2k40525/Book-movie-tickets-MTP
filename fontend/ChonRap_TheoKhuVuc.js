@@ -7,23 +7,17 @@ import {
   StyleSheet,
   SafeAreaView,
   Dimensions,
-  Alert,
   ActivityIndicator,
-  Linking,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { useRoute } from '@react-navigation/native';
+import { useRoute, useNavigation } from '@react-navigation/native';
 import Menu from './Menu';
-import axios from 'axios';
-import { useUser } from './User/UserContext';
 import { getMoviesAndShowtimesByCinema } from './api';
 
 const { width } = Dimensions.get('window');
 
-// Thêm bộ nhớ đệm để lưu trữ dữ liệu đã tải
 const cache = new Map();
 
-// DateSelector Component
 const DateSelector = memo(({ selectedDate, onDateChange }) => {
   const [today, setToday] = useState(new Date());
   const scrollViewRef = useRef(null);
@@ -104,8 +98,8 @@ const DateSelector = memo(({ selectedDate, onDateChange }) => {
   );
 });
 
-// MovieSchedule Component
-const MovieSchedule = memo(({ selectedDate, cinemaId }) => {
+const MovieSchedule = memo(({ selectedDate, cinemaId, cinemaName }) => {
+  const navigation = useNavigation();
   const [scheduleData, setScheduleData] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -136,7 +130,6 @@ const MovieSchedule = memo(({ selectedDate, cinemaId }) => {
               showId: showtime.showId,
               isPassed: showtime.isPassed,
             })),
-            link: `https://www.cgv.vn/book-ticket/${item.title.toLowerCase().replace(/\s/g, '-')}`,
           }));
 
           cache.set(cacheKey, movies);
@@ -160,14 +153,19 @@ const MovieSchedule = memo(({ selectedDate, cinemaId }) => {
     fetchMoviesAndShowtimes();
   }, [cinemaId, selectedDate, fetchMoviesAndShowtimes]);
 
-  const handleShowtimeClick = useCallback(async (link) => {
-    const supported = await Linking.canOpenURL(link);
-    if (supported) {
-      await Linking.openURL(link);
-    } else {
-      Alert.alert('Lỗi', 'Đường link không hợp lệ. Vui lòng thử lại sau.');
-    }
-  }, []);
+  const handleShowtimeClick = useCallback(
+    (showId, movieTitle, movieId) => {
+      navigation.navigate('SoDoGheNgoi1', {
+        showId,
+        cinemaId,
+        cinemaName,
+        showDate: selectedDate.toISOString().split('T')[0],
+        movieTitle,
+        movieId,
+      });
+    },
+    [navigation, cinemaId, cinemaName, selectedDate]
+  );
 
   const toggleMovieExpansion = useCallback((movieId) => {
     setExpandedMovie((prev) => (prev === movieId ? null : movieId));
@@ -175,11 +173,11 @@ const MovieSchedule = memo(({ selectedDate, cinemaId }) => {
 
   const renderShowtimes = useCallback(
     (item) => {
-      return item.times.map((time, index) => (
+      return item.times.map((time) => (
         <TouchableOpacity
           key={`showtime-${time.showId}`}
           style={[styles.timeButton, time.isPassed && styles.passedTimeButton]}
-          onPress={() => !time.isPassed && handleShowtimeClick(item.link)}
+          onPress={() => !time.isPassed && handleShowtimeClick(time.showId, item.movie, item.movieId)}
           disabled={time.isPassed}
         >
           <Text style={[styles.timeText, time.isPassed && styles.passedTimeText]}>
@@ -245,76 +243,10 @@ const MovieSchedule = memo(({ selectedDate, cinemaId }) => {
   return <ScrollView style={styles.scheduleScrollView}>{renderSchedule()}</ScrollView>;
 });
 
-// SuggestedCinemas Component
-const SuggestedCinemas = memo(({ navigation, customerId }) => {
-  const [cinemas, setCinemas] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
-
-  useEffect(() => {
-    const fetchCinemas = async () => {
-      try {
-        setLoading(true);
-        const response = await axios.get(`http://192.168.1.102:3000/api/cinemas/${customerId}`);
-        setCinemas(response.data.slice(0, 5)); // Lấy 5 rạp gợi ý
-      } catch (err) {
-        setError('Không thể tải danh sách rạp phim.');
-      } finally {
-        setLoading(false);
-      }
-    };
-    fetchCinemas();
-  }, [customerId]);
-
-  const handleCinemaPress = (cinema) => {
-    navigation.navigate('ChonRap_TheoKhuVuc', {
-      cinemaId: cinema.cinemaId,
-      cinemaName: ` ${cinema.cinemaName}`, // Format tương tự ChonPhimTheoRap
-    });
-  };
-
-  if (loading) {
-    return (
-      <View style={styles.loadingContainer}>
-        <ActivityIndicator size="small" color="#ff4d6d" />
-      </View>
-    );
-  }
-
-  if (error) {
-    return (
-      <View style={styles.errorContainer}>
-        <Text style={styles.errorText}>{error}</Text>
-      </View>
-    );
-  }
-
-  return (
-    <View>
-      <View style={styles.sectionHeader}>
-        <Text style={styles.sectionTitle}>GỢI Ý RẠP KHÁC</Text>
-      </View>
-      {cinemas.map((cinema, index) => (
-        <TouchableOpacity
-          key={index}
-          style={styles.cinemaItem}
-          onPress={() => handleCinemaPress(cinema)}
-        >
-          <Text style={styles.cinemaName}>{` ${cinema.cinemaName}`}</Text>
-          <Text style={styles.distanceText}>{`${cinema.distance}Km`}</Text>
-        </TouchableOpacity>
-      ))}
-    </View>
-  );
-});
-
-// Main Screen Component
-const ChonRap_TheoKhuVuc = ({ navigation }) => {
+const ChonRap_TheoKhuVuc = ({navigation}) => {
   const route = useRoute();
   const { cinemaId, cinemaName } = route.params;
-  const { user } = useUser();
   const [selectedDate, setSelectedDate] = useState(new Date());
-  const customerId = user?.customerId || 1;
 
   return (
     <SafeAreaView style={styles.container}>
@@ -339,14 +271,13 @@ const ChonRap_TheoKhuVuc = ({ navigation }) => {
 
       <ScrollView style={styles.scrollContainer} stickyHeaderIndices={[0]}>
         <DateSelector selectedDate={selectedDate} onDateChange={setSelectedDate} />
-        <SuggestedCinemas navigation={navigation} customerId={customerId} />
-        <MovieSchedule selectedDate={selectedDate} cinemaId={cinemaId} />
+        <MovieSchedule selectedDate={selectedDate} cinemaId={cinemaId} cinemaName={cinemaName} />
       </ScrollView>
     </SafeAreaView>
   );
-});
+};
 
-// Styles
+// Styles không thay đổi
 const styles = StyleSheet.create({
   container: {
     flex: 1,
@@ -530,22 +461,6 @@ const styles = StyleSheet.create({
   retryButtonText: {
     color: 'white',
     fontWeight: 'bold',
-  },
-  cinemaItem: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    padding: 16itting: true,
-    borderBottomWidth: 1,
-    borderBottomColor: '#e0e0e0',
-  },
-  cinemaName: {
-    fontSize: 16,
-    color: '#8B0000',
-  },
-  distanceText: {
-    fontSize: 16,
-    color: '#8B0000',
   },
 });
 
