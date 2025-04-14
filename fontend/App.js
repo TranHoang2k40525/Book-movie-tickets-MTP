@@ -18,7 +18,11 @@ import TinMoiVaUuDai from './TinMoiVaUuDai';
 import RapPhimMTB from './RapPhimMTB';
 import MovieBookingScreen from './MovieBookingScreen';
 import ChonRap_TheoKhuVuc from './ChonRap_TheoKhuVuc';
-
+import MTBStoreChonDoUong from "./MTBStore(ChonDoUong)";
+import SoDoGheNgoi1 from "./SoDoGheNgoi1";
+import TinMoiUuDaiTatCa from "./TinMoi&UuDai(TatCa)";
+import tintucvauudai from "./Tintucvauudai";
+import DatVeThanhToan from "./DatVeThanhToan";
 const Stack = createStackNavigator();
 
 export default function App() {
@@ -106,6 +110,31 @@ export default function App() {
                         component={ChonRap_TheoKhuVuc}
                         options={{ headerShown: false }}
                     />
+                        <Stack.Screen
+                            name="MTBStoreChonDoUong"
+                            component={MTBStoreChonDoUong}
+                            options={{ headerShown: false }}
+                          />
+                          <Stack.Screen
+                            name="DatVeThanhToan"
+                            component={DatVeThanhToan}
+                            options={{ headerShown: false }}
+                          />
+                          <Stack.Screen
+                            name="SoDoGheNgoi1"
+                            component={SoDoGheNgoi1}
+                            options={{ headerShown: false }}
+                          />
+                           <Stack.Screen
+                            name="TinMoiUuDaiTatCa"
+                            component={TinMoiUuDaiTatCa}
+                            options={{ headerShown: false }}
+                          />
+                          <Stack.Screen
+                            name="Tintucvauudai"
+                            component={tintucvauudai}
+                            options={{ headerShown: false }}
+                          /> 
                 </Stack.Navigator>
             </NavigationContainer>
         </UserProvider>
