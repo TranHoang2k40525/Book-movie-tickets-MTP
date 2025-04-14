@@ -11,13 +11,14 @@ const authRoutes = require('./routes/auth');
 const userRoutes = require('./routes/users');
 const movieRoutes = require('./routes/movies');
 const locationRoutes = require('./routes/locations');
-const likeRoutes = require("./routes/likes");
+const cinemaRoutes = require('./routes/cinemas'); // Đã chuẩn hóa controller/service
+
 const app = express();
 
 // Chỉ gọi cors và bodyParser một lần
 app.use(cors());
 app.use(bodyParser.json());
-app.use("/api", likeRoutes);
+
 // Middleware kiểm tra Content-Type chỉ khi có body
 app.use((req, res, next) => {
   if (
@@ -45,6 +46,7 @@ app.use('/api', authRoutes);
 app.use('/api', userRoutes);
 app.use('/api/movies', movieRoutes);
 app.use('/api', locationRoutes);
+app.use('/api', cinemaRoutes); // ✅ Route mới đã thêm
 
 // Kết nối database và khởi động server
 async function startServer() {
@@ -69,3 +71,4 @@ process.on('uncaughtException', (err) => {
 process.on('unhandledRejection', (reason, promise) => {
   console.error('Unhandled Rejection at:', promise, 'reason:', reason);
 });
+
