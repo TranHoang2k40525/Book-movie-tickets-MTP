@@ -1,3 +1,4 @@
+import { useNavigation } from '@react-navigation/native';  // Add this import at the top
 import React, { useRef, useState } from 'react';
 import { View, ScrollView, StyleSheet, TouchableOpacity, Image, Dimensions, Text, Linking } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
@@ -6,6 +7,7 @@ const { width } = Dimensions.get('window');
 const CONTAINER_HEIGHT = width * 0.6;
 
 const CGVApp = () => {
+  const navigation = useNavigation();
   const scrollViewRef = useRef(null);
   const [showScrollToTop, setShowScrollToTop] = useState(false);
 
@@ -23,63 +25,65 @@ const CGVApp = () => {
   const cardData = [
     { 
       id: 1, 
-      image: require('./assets/Anh1.jpeg'),
-      destinationUrl: 'https://snack.expo.dev/@lenhathoang/tinmoivauudai1' 
+      image: require('./assets/tintucvauudai/Anh1.jpeg'),
+      
     },
     { 
       id: 2, 
-      image: require('./assets/Anh4.jpeg'),
-      destinationUrl: 'https://www.cgv.vn/vvip' 
+      image: require('./assets/tintucvauudai/anh4.jpg'),
+      
     },
     { 
       id: 3, 
-      image: require('./assets/Anh8.jpeg'),
-      destinationUrl: 'https://www.cgv.vn/minecraft' 
+      image: require('./assets/tintucvauudai/anh8.jpg'),
+       
     },
     { 
       id: 4, 
-      image: require('./assets/Anh2.jpeg'),
-      destinationUrl: 'https://www.cgv.vn/discount' 
+      image: require('./assets/tintucvauudai/anh2.jpg'),
+       
     },
     { 
       id: 5, 
-      image: require('./assets/Anh3.jpeg'),
-      destinationUrl: 'https://www.cgv.vn/pandora' 
+      image: require('./assets/tintucvauudai/anh3.jpg'),
+       
     },
     { 
       id: 6, 
-      image: require('./assets/Anh5.jpeg'),
-      destinationUrl: 'https://www.cgv.vn/culture-day' 
+      image: require('./assets/tintucvauudai/anh5.jpg'),
+      
     },
     { 
       id: 7, 
-      image: require('./assets/Anh6.jpeg'),
-      destinationUrl: 'https://www.cgv.vn/pandora' 
+      image: require('./assets/tintucvauudai/anh6.jpg'),
+      
     },
     { 
       id: 8, 
-      image: require('./assets/Anh7.jpeg'),
-      destinationUrl: 'https://www.cgv.vn/pandora' 
+      image: require('./assets/tintucvauudai/anh7.jpg'),
+       
     },
     { 
       id: 9, 
-      image: require('./assets/Anh9.jpeg'),
-      destinationUrl: 'https://www.cgv.vn/pandora' 
+      image: require('./assets/tintucvauudai/anh9.jpg'),
+      
     },
     { 
       id: 10, 
-      image: require('./assets/Anh4.jpeg'),
-      destinationUrl: 'https://www.cgv.vn/pandora' 
+      image: require('./assets/tintucvauudai/anh10.jpg'),
+       
     },
    
   ];
 
-  const handlePress = (url) => {
-    Linking.openURL(url).catch(err => console.error("Failed to open URL:", err));
+  
+
+  const handleImagePress = () => {
+    navigation.navigate('TinMoiVaUuDai'); // Điều hướng đến TinMoiVaUuDai
   };
 
   const handleBackPress = () => {
-    console.log("Back button pressed");
+    navigation.goBack(); // Thêm chức năng goBack
   };
 
   const handleMenuPress = () => {
@@ -88,7 +92,6 @@ const CGVApp = () => {
 
   return (
     <View style={styles.container}>
-      {/* Header - unchanged */}
       <View style={styles.header}>
         <View style={styles.headerLeft}>
           <TouchableOpacity onPress={handleBackPress} style={styles.iconButton}>
@@ -96,7 +99,6 @@ const CGVApp = () => {
           </TouchableOpacity>
           <Text style={styles.headerTitle}>Tin mới & Ưu đãi</Text>
         </View>
-        
         <TouchableOpacity onPress={handleMenuPress} style={styles.iconButton}>
           <Ionicons name="menu" size={24} color="red" />
         </TouchableOpacity>
@@ -114,7 +116,7 @@ const CGVApp = () => {
           <TouchableOpacity 
             key={item.id} 
             style={styles.imageContainer}
-            onPress={() => handlePress(item.destinationUrl)}
+            onPress={handleImagePress} // Sửa onPress để điều hướng
           >
             <Image
               source={item.image}
