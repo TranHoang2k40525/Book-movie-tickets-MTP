@@ -7,20 +7,17 @@ import {
   StyleSheet,
   SafeAreaView,
   Dimensions,
-  Alert,
-  ActivityIndicator
+  ActivityIndicator,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { UserContext } from './User/UserContext';
 import Menu from './Menu';
 import { getMovieById, getCinemasByMovieAndDate, getShowtimesByCinemaAndDate } from './api';
 
-// Thêm một bộ nhớ đệm đơn giản để lưu trữ dữ liệu đã tải
 const cache = new Map();
 
 const { width } = Dimensions.get('window');
 
-// DateSelector Component
 const DateSelector = memo(({ selectedDate, onDateChange }) => {
   const [today, setToday] = useState(new Date());
   const scrollViewRef = useRef(null);
@@ -50,31 +47,44 @@ const DateSelector = memo(({ selectedDate, onDateChange }) => {
     return dates;
   }, [today]);
 
-  const renderDateItem = useCallback((date, index) => {
-    const isToday = areSameDay(date, today);
-    const isSelected = areSameDay(date, selectedDate);
-    return (
-      <TouchableOpacity
-        key={`date-${index}`}
-        style={[styles.dateBox, isToday && styles.todayDateBox, isSelected && !isToday && styles.selectedDateBox]}
-        onPress={() => onDateChange(date)}
-      >
-        <Text style={[styles.weekdayText, (isToday || isSelected) && styles.selectedDateText]}>
-          {['CN', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7'][date.getDay()]}
-        </Text>
-        <Text style={[styles.dateText, (isToday || isSelected) && styles.selectedDateText]}>
-          {date.getDate()}
-        </Text>
-      </TouchableOpacity>
-    );
-  }, [areSameDay, selectedDate, today, onDateChange]);
+  const renderDateItem = useCallback(
+    (date, index) => {
+      const isToday = areSameDay(date, today);
+      const isSelected = areSameDay(date, selectedDate);
+      return (
+        <TouchableOpacity
+          key={`date-${index}`}
+          style={[styles.dateBox, isToday && styles.todayDateBox, isSelected && !isToday && styles.selectedDateBox]}
+          onPress={() => onDateChange(date)}
+        >
+          <Text style={[styles.weekdayText, (isToday || isSelected) && styles.selectedDateText]}>
+            {['CN', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7'][date.getDay()]}
+          </Text>
+          <Text style={[styles.dateText, (isToday || isSelected) && styles.selectedDateText]}>
+            {date.getDate()}
+          </Text>
+        </TouchableOpacity>
+      );
+    },
+    [areSameDay, selectedDate, today, onDateChange]
+  );
 
   return (
     <View style={styles.dateContainer}>
       <Text style={styles.currentDateText}>
         {areSameDay(selectedDate, today)
-          ? `Hôm nay, ${selectedDate.toLocaleDateString('vi-VN', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })}`
-          : selectedDate.toLocaleDateString('vi-VN', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })}
+          ? `Hôm nay, ${selectedDate.toLocaleDateString('vi-VN', {
+              weekday: 'long',
+              month: 'long',
+              day: 'numeric',
+              year: 'numeric',
+            })}`
+          : selectedDate.toLocaleDateString('vi-VN', {
+              weekday: 'long',
+              month: 'long',
+              day: 'numeric',
+              year: 'numeric',
+            })}
       </Text>
       <ScrollView
         ref={scrollViewRef}
@@ -88,34 +98,35 @@ const DateSelector = memo(({ selectedDate, onDateChange }) => {
   );
 });
 
-// TheaterLocations Component
-const TheaterLocations = memo(({ navigation, movieId, selectedDate, isFilteredView = false, setCinemas, cinemas }) => {
+const TheaterLocations = memo(({ navigation, movieId, selectedDate, cinemas, movieTitle }) => {
   const { user } = useContext(UserContext);
   const [expandedTheater, setExpandedTheater] = useState(null);
   const [localCinemas, setLocalCinemas] = useState([]);
   const [showtimes, setShowtimes] = useState({});
-  const [selectedShowtime, setSelectedShowtime] = useState(null);
 
   useEffect(() => {
     setLocalCinemas(cinemas);
   }, [cinemas]);
 
-  const fetchShowtimes = useCallback(async (cinemaId) => {
-    const cacheKey = `showtimes-${movieId}-${cinemaId}-${selectedDate.toISOString().split('T')[0]}`;
-    if (cache.has(cacheKey)) {
-      setShowtimes((prev) => ({ ...prev, [cinemaId]: cache.get(cacheKey) }));
-      return;
-    }
+  const fetchShowtimes = useCallback(
+    async (cinemaId) => {
+      const cacheKey = `showtimes-${movieId}-${cinemaId}-${selectedDate.toISOString().split('T')[0]}`;
+      if (cache.has(cacheKey)) {
+        setShowtimes((prev) => ({ ...prev, [cinemaId]: cache.get(cacheKey) }));
+        return;
+      }
 
-    try {
-      const response = await getShowtimesByCinemaAndDate(movieId, cinemaId, selectedDate.toISOString().split('T')[0]);
-      const data = response.data.showtimes || [];
-      cache.set(cacheKey, data);
-      setShowtimes((prev) => ({ ...prev, [cinemaId]: data }));
-    } catch (error) {
-      Alert.alert('Lỗi', 'Không thể tải lịch chiếu. Vui lòng thử lại sau.');
-    }
-  }, [movieId, selectedDate]);
+      try {
+        const response = await getShowtimesByCinemaAndDate(movieId, cinemaId, selectedDate.toISOString().split('T')[0]);
+        const data = response.data.showtimes || [];
+        cache.set(cacheKey, data);
+        setShowtimes((prev) => ({ ...prev, [cinemaId]: data }));
+      } catch (error) {
+        console.error('Error fetching showtimes:', error);
+      }
+    },
+    [movieId, selectedDate]
+  );
 
   const calculateDistance = useCallback((lat, lon) => {
     const userLat = 21.0285;
@@ -130,72 +141,73 @@ const TheaterLocations = memo(({ navigation, movieId, selectedDate, isFilteredVi
     return `${(R * c).toFixed(2)}Km`;
   }, []);
 
-  const handleShowtimePress = useCallback((show, theater) => {
-    setSelectedShowtime(show.ShowID);
-    if (!user) {
-      Alert.alert(
-        'Yêu cầu đăng nhập',
-        'Bạn cần đăng nhập để chọn giờ chiếu. Bạn có muốn đăng nhập ngay bây giờ không?',
-        [
-          { text: 'Hủy', style: 'cancel' },
-          { text: 'Đăng nhập', onPress: () => navigation.navigate('Login', { from: 'MovieBookingScreen', movieId }) },
-        ]
-      );
-    } else {
-      navigation.navigate('SeatSelection', {
-        movieId,
-        showtimeId: show.ShowID,
+  const handleShowtimePress = useCallback(
+    (show, theater) => {
+      if (!user) {
+        navigation.navigate('Login', { from: 'MovieBookingScreen', movieId });
+        return;
+      }
+
+      navigation.navigate('SoDoGheNgoi1', {
+        showId: show.ShowID,
         cinemaId: theater.id,
+        cinemaName: theater.name,
+        showDate: selectedDate.toISOString().split('T')[0],
+        showTime: show.ShowTime,
+        movieTitle,
+        movieId,
       });
-    }
-  }, [user, navigation, movieId]);
+    },
+    [user, navigation, movieId, selectedDate, movieTitle]
+  );
 
-  const renderShowtime = useCallback((show, theater) => {
-    const isSelected = selectedShowtime === show.ShowID;
-    const timeStr = show.ShowTime ? show.ShowTime.slice(0, 5) : 'N/A';
+  const renderShowtime = useCallback(
+    (show, theater) => {
+      const timeStr = show.ShowTime ? show.ShowTime.slice(0, 5) : 'N/A';
+      return (
+        <TouchableOpacity
+          key={`showtime-${show.ShowID}`}
+          style={[styles.timeButton, show.isPassed && styles.passedTimeButton]}
+          disabled={show.isPassed}
+          onPress={() => handleShowtimePress(show, theater)}
+        >
+          <Text style={[styles.timeText, show.isPassed && styles.passedTimeText]}>{timeStr}</Text>
+        </TouchableOpacity>
+      );
+    },
+    [handleShowtimePress]
+  );
 
-    return (
-      <TouchableOpacity
-        key={`showtime-${show.ShowID}`}
-        style={[styles.timeButton, show.isPassed && styles.passedTimeButton, isSelected && styles.selectedTimeButton]}
-        disabled={show.isPassed}
-        onPress={() => handleShowtimePress(show, theater)}
-      >
-        <Text style={[styles.timeText, show.isPassed && styles.passedTimeText, isSelected && styles.selectedTimeText]}>
-          {timeStr}
-        </Text>
-      </TouchableOpacity>
-    );
-  }, [selectedShowtime, handleShowtimePress]);
-
-  const renderTheater = useCallback((theater) => (
-    <View key={`theater-${theater.id}`} style={styles.theaterContainer}>
-      <TouchableOpacity
-        style={styles.theaterHeader}
-        onPress={() => {
-          setExpandedTheater(expandedTheater === theater.id ? null : theater.id);
-          if (expandedTheater !== theater.id) fetchShowtimes(theater.id);
-        }}
-      >
-        <View style={styles.theaterNameContainer}>
-          <Text style={styles.theaterName}>{theater.name || 'Không có tên'}</Text>
-          {theater.id === 1 && <Ionicons name="heart-outline" size={20} color="red" style={styles.favoriteIcon} />}
-        </View>
-        <Text style={styles.distanceText}>{theater.distance || 'N/A'}</Text>
-      </TouchableOpacity>
-      {expandedTheater === theater.id && (
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.timesScrollView}>
-          {(showtimes[theater.id] || []).map((show) => renderShowtime(show, theater))}
-        </ScrollView>
-      )}
-      <View style={styles.divider} />
-    </View>
-  ), [expandedTheater, fetchShowtimes, showtimes, renderShowtime]);
+  const renderTheater = useCallback(
+    (theater) => (
+      <View key={`theater-${theater.id}`} style={styles.theaterContainer}>
+        <TouchableOpacity
+          style={styles.theaterHeader}
+          onPress={() => {
+            setExpandedTheater(expandedTheater === theater.id ? null : theater.id);
+            if (expandedTheater !== theater.id) fetchShowtimes(theater.id);
+          }}
+        >
+          <View style={styles.theaterNameContainer}>
+            <Text style={styles.theaterName}>{theater.name || 'Không có tên'}</Text>
+            {theater.id === 1 && <Ionicons name="heart-outline" size={20} color="red" style={styles.favoriteIcon} />}
+          </View>
+          <Text style={styles.distanceText}>{theater.distance || 'N/A'}</Text>
+        </TouchableOpacity>
+        {expandedTheater === theater.id && (
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.timesScrollView}>
+            {(showtimes[theater.id] || []).map((show) => renderShowtime(show, theater))}
+          </ScrollView>
+        )}
+        <View style={styles.divider} />
+      </View>
+    ),
+    [expandedTheater, fetchShowtimes, showtimes, renderShowtime]
+  );
 
   return <ScrollView style={styles.theatersScrollView}>{localCinemas.map(renderTheater)}</ScrollView>;
 });
 
-// Main Component
 const MovieBookingScreen = ({ navigation, route }) => {
   const { movieId } = route.params || {};
   const { user } = useContext(UserContext);
@@ -220,106 +232,98 @@ const MovieBookingScreen = ({ navigation, route }) => {
     return `${(R * c).toFixed(2)}Km`;
   }, []);
 
-  // Tải thông tin phim (chỉ gọi một lần khi movieId hoặc user thay đổi)
-  const fetchMovieData = useCallback(async (retries = 3, delay = 1000) => {
-    const movieCacheKey = `movie-${movieId}`;
-    if (cache.has(movieCacheKey)) {
-      setMovieTitle(cache.get(movieCacheKey));
-      setLoadingMovie(false);
-      return;
-    }
+  const fetchMovieData = useCallback(
+    async (retries = 3, delay = 1000) => {
+      const movieCacheKey = `movie-${movieId}`;
+      if (cache.has(movieCacheKey)) {
+        setMovieTitle(cache.get(movieCacheKey));
+        setLoadingMovie(false);
+        return;
+      }
 
-    for (let attempt = 1; attempt <= retries; attempt++) {
-      try {
-        setLoadingMovie(true);
-        setErrorMovie(null);
+      for (let attempt = 1; attempt <= retries; attempt++) {
+        try {
+          setLoadingMovie(true);
+          setErrorMovie(null);
 
-        const movieResponse = await getMovieById(movieId);
-        if (movieResponse?.data?.movie?.MovieTitle) {
-          const title = movieResponse.data.movie.MovieTitle.toUpperCase();
-          setMovieTitle(title);
-          cache.set(movieCacheKey, title);
-          setLoadingMovie(false);
-          return;
-        } else {
-          throw new Error('Không thể lấy thông tin phim');
-        }
-      } catch (err) {
-        if (attempt === retries) {
-          setErrorMovie(err.message || 'Đã có lỗi xảy ra khi tải thông tin phim');
-          setLoadingMovie(false);
-        } else {
-          await new Promise((resolve) => setTimeout(resolve, delay));
+          const movieResponse = await getMovieById(movieId);
+          if (movieResponse?.data?.movie?.MovieTitle) {
+            const title = movieResponse.data.movie.MovieTitle.toUpperCase();
+            setMovieTitle(title);
+            cache.set(movieCacheKey, title);
+            setLoadingMovie(false);
+            return;
+          } else {
+            throw new Error('Không thể lấy thông tin phim');
+          }
+        } catch (err) {
+          if (attempt === retries) {
+            setErrorMovie(err.message || 'Đã có lỗi xảy ra khi tải thông tin phim');
+            setLoadingMovie(false);
+          } else {
+            await new Promise((resolve) => setTimeout(resolve, delay));
+          }
         }
       }
-    }
-  }, [movieId]);
+    },
+    [movieId]
+  );
 
-  // Tải danh sách rạp (gọi lại mỗi khi selectedDate thay đổi)
-  const fetchCinemasData = useCallback(async (retries = 3, delay = 1000) => {
-    const cinemasCacheKey = `cinemas-${movieId}-${selectedDate.toISOString().split('T')[0]}`;
-    if (cache.has(cinemasCacheKey)) {
-      setCinemas(cache.get(cinemasCacheKey));
-      setLoadingCinemas(false);
-      return;
-    }
-
-    for (let attempt = 1; attempt <= retries; attempt++) {
-      try {
-        setLoadingCinemas(true);
-        setErrorCinemas(null);
-
-        const cinemasResponse = await getCinemasByMovieAndDate(movieId, selectedDate.toISOString().split('T')[0]);
-        const fetchedCinemas = cinemasResponse.data.cinemas.map((cinema) => ({
-          id: cinema.CinemaID,
-          name: cinema.CinemaName,
-          distance: calculateDistance(cinema.latitude, cinema.longitude),
-          suggested: true,
-        }));
-        const filteredCinemas = fetchedCinemas.filter((c) => c.suggested);
-        setCinemas(filteredCinemas);
-        cache.set(cinemasCacheKey, filteredCinemas);
+  const fetchCinemasData = useCallback(
+    async (retries = 3, delay = 1000) => {
+      const cinemasCacheKey = `cinemas-${movieId}-${selectedDate.toISOString().split('T')[0]}`;
+      if (cache.has(cinemasCacheKey)) {
+        setCinemas(cache.get(cinemasCacheKey));
         setLoadingCinemas(false);
         return;
-      } catch (err) {
-        if (attempt === retries) {
-          setErrorCinemas(err.message || 'Đã có lỗi xảy ra khi tải danh sách rạp');
+      }
+
+      for (let attempt = 1; attempt <= retries; attempt++) {
+        try {
+          setLoadingCinemas(true);
+          setErrorCinemas(null);
+
+          const cinemasResponse = await getCinemasByMovieAndDate(movieId, selectedDate.toISOString().split('T')[0]);
+          const fetchedCinemas = cinemasResponse.data.cinemas.map((cinema) => ({
+            id: cinema.CinemaID,
+            name: cinema.CinemaName,
+            distance: calculateDistance(cinema.latitude, cinema.longitude),
+            suggested: true,
+          }));
+          const filteredCinemas = fetchedCinemas.filter((c) => c.suggested);
+          setCinemas(filteredCinemas);
+          cache.set(cinemasCacheKey, filteredCinemas);
           setLoadingCinemas(false);
-        } else {
-          await new Promise((resolve) => setTimeout(resolve, delay));
+          return;
+        } catch (err) {
+          if (attempt === retries) {
+            setErrorCinemas(err.message || 'Đã có lỗi xảy ra khi tải danh sách rạp');
+            setLoadingCinemas(false);
+          } else {
+            await new Promise((resolve) => setTimeout(resolve, delay));
+          }
         }
       }
-    }
-  }, [movieId, selectedDate, calculateDistance]);
+    },
+    [movieId, selectedDate, calculateDistance]
+  );
 
-  // Gọi API cho thông tin phim
   useEffect(() => {
     if (movieId && user) {
       fetchMovieData();
     }
   }, [movieId, user, fetchMovieData]);
 
-  // Gọi API cho danh sách rạp (gọi lại khi selectedDate thay đổi)
   useEffect(() => {
     if (movieId && user) {
       fetchCinemasData();
     }
   }, [movieId, user, selectedDate, fetchCinemasData]);
 
-  useEffect(() => {
-    if (!user) {
-      Alert.alert(
-        'Yêu cầu đăng nhập',
-        'Bạn cần đăng nhập để đặt vé. Bạn có muốn đăng nhập ngay bây giờ không?',
-        [
-          { text: 'Hủy', onPress: () => navigation.goBack(), style: 'cancel' },
-          { text: 'Đăng nhập', onPress: () => navigation.navigate('Login', { from: 'MovieBookingScreen', movieId }) },
-        ]
-      );
-    }
-  }, [user, navigation, movieId]);
-
-  if (!user) return null;
+  if (!user) {
+    navigation.navigate('Login', { from: 'MovieBookingScreen', movieId });
+    return null;
+  }
 
   if (loadingMovie) {
     return (
@@ -367,17 +371,15 @@ const MovieBookingScreen = ({ navigation, route }) => {
           </View>
         ) : errorCinemas ? (
           <View style={styles.errorContainer}>
-            <Text style={styles.errorText}>Không có rap nào chiếu phim này ngày hôm nay </Text>
-      
+            <Text style={styles.errorText}>Không có rạp nào chiếu phim này ngày hôm nay</Text>
           </View>
         ) : (
           <TheaterLocations
             navigation={navigation}
             movieId={movieId}
             selectedDate={selectedDate}
-            isFilteredView={true}
-            setCinemas={setCinemas}
             cinemas={cinemas}
+            movieTitle={movieTitle}
           />
         )}
       </ScrollView>
@@ -385,7 +387,7 @@ const MovieBookingScreen = ({ navigation, route }) => {
   );
 };
 
-// Styles
+// Styles không thay đổi
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: 'white' },
   header: {
@@ -400,13 +402,13 @@ const styles = StyleSheet.create({
     zIndex: 1,
   },
   backButton: { padding: 5 },
-  headerTitle: { fontSize: 18, fontWeight: 'bold', color: 'black', left: 'auto'},
+  headerTitle: { fontSize: 18, fontWeight: 'bold', color: 'black', left: 'auto' },
   headerIcons: { flexDirection: 'row', alignItems: 'center' },
   iconButton: { marginLeft: 15 },
   scrollContainer: { flex: 1 },
   dateContainer: { padding: 15, backgroundColor: '#f5f5f5', borderBottomWidth: 1, borderBottomColor: '#e0e0e0' },
   currentDateText: { fontSize: 14, color: '#666', marginBottom: 10 },
-  monthDateScrollContent: { paddingRight: 20 },
+  
   dateBox: {
     width: 50,
     height: 70,
@@ -448,34 +450,34 @@ const styles = StyleSheet.create({
   divider: { height: 1, backgroundColor: '#E0E0E0', marginHorizontal: 15 },
   loadingContainer: {
     flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   loadingText: {
     marginTop: 10,
     fontSize: 16,
-    color: "#333",
+    color: '#333',
   },
   errorContainer: {
     flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
+    justifyContent: 'center',
+    alignItems: 'center',
     padding: 20,
   },
   errorText: {
     fontSize: 16,
-    color: "#ff4d6d",
+    color: '#ff4d6d',
     marginBottom: 10,
   },
   retryButton: {
     marginTop: 20,
-    backgroundColor: "#ff4d6d",
+    backgroundColor: '#ff4d6d',
     padding: 10,
     borderRadius: 5,
   },
   retryButtonText: {
-    color: "white",
-    fontWeight: "bold",
+    color: 'white',
+    fontWeight: 'bold',
   },
 });
 
