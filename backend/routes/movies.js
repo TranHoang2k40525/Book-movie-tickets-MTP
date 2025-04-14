@@ -9,4 +9,5 @@ router.get('/:id/cinemas', movieController.getCinemasByMovieAndDate);
 router.get('/:movieId/cinemas/:cinemaId/showtimes', movieController.getShowtimesByCinemaAndDate);
 router.get('/movies/showing-today', movieController.getMoviesShowingToday);
 router.get('/cinemas/:cinemaId/movies-and-showtimes', movieController.getMoviesAndShowtimesByCinema);
+router.get('/:showId/seats', movieController.getSeatMapByShow);
 module.exports = router;
