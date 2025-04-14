@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from "react";
+import React, { useState, useRef, useEffect } from 'react';
 import {
   View,
   Text,
@@ -6,16 +6,20 @@ import {
   StyleSheet,
   Dimensions,
   Animated,
-} from "react-native";
-import { Ionicons } from "@expo/vector-icons";
+  Alert,
+  ActivityIndicator,
+} from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import {
   GestureHandlerRootView,
   PinchGestureHandler,
   PanGestureHandler,
   State,
-} from "react-native-gesture-handler";
-
-const { width, height } = Dimensions.get("window");
+} from 'react-native-gesture-handler';
+import { useNavigation, useRoute } from '@react-navigation/native';
+import { getSeatMapByShow } from './api';
+import Menu from './Menu';
+const { width, height } = Dimensions.get('window');
 const baseSeatSize = width / 25;
 const miniMapRatio = 0.2;
 
@@ -24,25 +28,33 @@ const SEAT_MAP_HEIGHT = height * 0.5;
 const MINI_MAP_WIDTH = SEAT_MAP_WIDTH * miniMapRatio;
 const MINI_MAP_HEIGHT = SEAT_MAP_HEIGHT * miniMapRatio;
 
-const rows = ["A", "B", "C", "D", "E", "F", "G", "H"];
-const seatsPerRowMap = {
-  A: 13, B: 14, C: 14, D: 14, E: 14, F: 14, G: 14, H: 16,
-};
-const seatPrices = {
-  A: 60000, B: 60000, C: 60000, D: 80000, E: 80000, F: 80000, G: 80000, H: 60000,
-};
 const seatTypes = {
-  booked: "#A67C52",
-  selected: "#0047AB",
-  vip: "#FF0000",
-  regular: "#D3D3D3",
-  sweetbox: "#FF00FF",
-  gray: "#808080",
+  booked: '#A67C52',
+  selected: '#0047AB',
+  vip: '#FF0000',
+  regular: '#D3D3D3',
+  sweetbox: '#FF00FF',
 };
 
 export default function SeatSelection() {
+  const navigation = useNavigation();
+  const route = useRoute();
+  const {
+    showId,
+    cinemaId,
+    cinemaName,
+    showDate,
+    showTime,
+    movieTitle,
+    movieId,
+  } = route.params;
+
   const [selectedSeats, setSelectedSeats] = useState([]);
   const [totalPrice, setTotalPrice] = useState(0);
+  const [seatLayout, setSeatLayout] = useState([]);
+  const [hallInfo, setHallInfo] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
   const [currentScale, setCurrentScale] = useState(1);
   const [viewportPosition, setViewportPosition] = useState({ x: 0.5, y: 0.5, width: 1, height: 1 });
 
@@ -56,6 +68,26 @@ export default function SeatSelection() {
   const lastScale = useRef(1);
   const lastTranslateX = useRef(0);
   const lastTranslateY = useRef(0);
+
+  // Hàm fetchSeatMap được định nghĩa ở đây để tái sử dụng
+  const fetchSeatMap = async () => {
+    try {
+      setLoading(true);
+      setError(null); // Reset lỗi trước khi thử lại
+      const response = await getSeatMapByShow(showId);
+      setSeatLayout(response.data.seatLayout);
+      setHallInfo(response.data.hall);
+      setLoading(false);
+    } catch (err) {
+      setError(err.message || 'Không thể tải sơ đồ ghế ngồi');
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchSeatMap();
+    console.log('showId:', showId);
+  }, [showId]);
 
   useEffect(() => {
     const updateViewportPosition = () => {
@@ -114,8 +146,14 @@ export default function SeatSelection() {
         const maxTranslateX = (SEAT_MAP_WIDTH * lastScale.current - SEAT_MAP_WIDTH) / 2;
         const maxTranslateY = (SEAT_MAP_HEIGHT * lastScale.current - SEAT_MAP_HEIGHT) / 2;
 
-        const newTranslateX = Math.max(-maxTranslateX, Math.min(maxTranslateX, lastTranslateX.current + event.nativeEvent.translationX));
-        const newTranslateY = Math.max(-maxTranslateY, Math.min(maxTranslateY, lastTranslateY.current + event.nativeEvent.translationY));
+        const newTranslateX = Math.max(
+          -maxTranslateX,
+          Math.min(maxTranslateX, lastTranslateX.current + event.nativeEvent.translationX)
+        );
+        const newTranslateY = Math.max(
+          -maxTranslateY,
+          Math.min(maxTranslateY, lastTranslateY.current + event.nativeEvent.translationY)
+        );
 
         translateX.setValue(newTranslateX);
         translateY.setValue(newTranslateY);
@@ -159,45 +197,74 @@ export default function SeatSelection() {
   };
 
   const toggleSeat = (seat) => {
+    if (seat.status === 'booked') return;
+
     setSelectedSeats((prev) => {
       let newSelection = [...prev];
-      const isSweetBox = seat.startsWith("H");
+      const isSweetBox = seat.type === 'sweetbox';
+      const seatIndex = newSelection.findIndex((s) => s.seatId === seat.seatId);
 
-      if (newSelection.includes(seat)) {
-        newSelection = newSelection.filter((s) => s !== seat);
+      if (seatIndex !== -1) {
+        newSelection = newSelection.filter((s) => s.seatId !== seat.seatId);
         if (isSweetBox) {
-          const pairSeat = `H${parseInt(seat.slice(1)) + (parseInt(seat.slice(1)) % 2 === 1 ? 1 : -1)}`;
-          newSelection = newSelection.filter((s) => s !== pairSeat);
+          const pairSeatNumber = seat.seatNumber.startsWith('H')
+            ? `H${parseInt(seat.seatNumber.slice(1)) + (parseInt(seat.seatNumber.slice(1)) % 2 === 1 ? 1 : -1)}`
+            : null;
+          newSelection = newSelection.filter((s) => s.seatNumber !== pairSeatNumber);
         }
       } else {
         newSelection.push(seat);
         if (isSweetBox) {
-          const pairSeat = `H${parseInt(seat.slice(1)) + (parseInt(seat.slice(1)) % 2 === 1 ? 1 : -1)}`;
-          if (!newSelection.includes(pairSeat)) newSelection.push(pairSeat);
+          const pairSeatNumber = seat.seatNumber.startsWith('H')
+            ? `H${parseInt(seat.seatNumber.slice(1)) + (parseInt(seat.seatNumber.slice(1)) % 2 === 1 ? 1 : -1)}`
+            : null;
+          const pairSeat = seatLayout
+            .flatMap((row) => row.seats)
+            .find((s) => s.seatNumber === pairSeatNumber);
+          if (pairSeat && pairSeat.status !== 'booked' && !newSelection.find((s) => s.seatId === pairSeat.seatId)) {
+            newSelection.push(pairSeat);
+          }
         }
       }
 
-      const newTotalPrice = newSelection.reduce((sum, s) => sum + (seatPrices[s[0]] || 0), 0);
+      const newTotalPrice = newSelection.reduce((sum, s) => sum + s.price, 0);
       setTotalPrice(newTotalPrice);
       return newSelection;
     });
   };
 
-  const Seat = ({ row, index, isSelected, onPress, minimap = false }) => {
-    const seat = `${row}${index + 1}`;
-    let seatColor = seatTypes.regular;
+  const navigateToPayment = () => {
+    if (selectedSeats.length === 0) {
+      Alert.alert('Thông báo', 'Vui lòng chọn ít nhất một ghế');
+      return;
+    }
 
-    if (["A", "B", "C"].includes(row)) seatColor = seatTypes.gray;
-    else if (["D", "E", "F", "G"].includes(row)) seatColor = seatTypes.vip;
-    else if (row === "H") seatColor = seatTypes.sweetbox;
-    if (isSelected) seatColor = seatTypes.selected;
+    navigation.navigate('DatVeThanhToan', {
+      selectedSeats,
+      totalPrice,
+      showId,
+      cinemaId,
+      cinemaName,
+      showDate,
+      showTime,
+      movieTitle,
+      movieId,
+    });
+  };
+
+  const Seat = ({ seat, isSelected, onPress, minimap = false }) => {
+    const seatColor = isSelected
+      ? seatTypes.selected
+      : seat.status === 'booked'
+      ? seatTypes.booked
+      : seatTypes[seat.type] || seatTypes.regular;
 
     const seatSize = minimap ? baseSeatSize * miniMapRatio * 0.8 : baseSeatSize;
 
     return (
       <TouchableOpacity
         onPress={minimap ? null : () => onPress(seat)}
-        disabled={minimap}
+        disabled={minimap || seat.status === 'booked'}
         style={[
           styles.seat,
           {
@@ -208,9 +275,7 @@ export default function SeatSelection() {
           },
         ]}
       >
-        {!minimap && (
-          <Text style={[styles.seatText, { fontSize: 8 }]}>{seat}</Text>
-        )}
+        {!minimap && <Text style={[styles.seatText, { fontSize: 8 }]}>{seat.seatNumber}</Text>}
       </TouchableOpacity>
     );
   };
@@ -228,20 +293,16 @@ export default function SeatSelection() {
           </View>
 
           <View style={styles.miniSeatsContainer}>
-            {rows.map((row) => (
-              <View key={`mini-${row}`} style={styles.miniRow}>
-                {[...Array(seatsPerRowMap[row])].map((_, i) => {
-                  const seat = `${row}${i + 1}`;
-                  return (
-                    <Seat
-                      key={`mini-${seat}`}
-                      row={row}
-                      index={i}
-                      isSelected={selectedSeats.includes(seat)}
-                      minimap={true}
-                    />
-                  );
-                })}
+            {seatLayout.map((row) => (
+              <View key={`mini-${row.row}`} style={styles.miniRow}>
+                {row.seats.map((seat, i) => (
+                  <Seat
+                    key={`mini-${seat.seatId}`}
+                    seat={seat}
+                    isSelected={selectedSeats.some((s) => s.seatId === seat.seatId)}
+                    minimap={true}
+                  />
+                ))}
               </View>
             ))}
           </View>
@@ -262,25 +323,39 @@ export default function SeatSelection() {
     );
   };
 
-  const handleBookPress = () => {
-    if (selectedSeats.length > 0) {
-      console.log("Đặt vé thành công với các ghế:", selectedSeats);
-    }
-  };
+  if (loading) {
+    return (
+      <View style={styles.loadingContainer}>
+        <ActivityIndicator size="large" color="#ff4d6d" />
+        <Text style={styles.loadingText}>Đang tải sơ đồ ghế...</Text>
+      </View>
+    );
+  }
+
+  if (error) {
+    return (
+      <View style={styles.errorContainer}>
+        <Text style={styles.errorText}>Có lỗi xảy ra: {error}</Text>
+        <TouchableOpacity onPress={fetchSeatMap} style={styles.retryButton}>
+          <Text style={styles.retryButtonText}>Thử lại</Text>
+        </TouchableOpacity>
+      </View>
+    );
+  }
 
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <View style={styles.header}>
-        <TouchableOpacity>
+        <TouchableOpacity onPress={() => navigation.goBack()}>
           <Ionicons name="arrow-back" size={24} color="black" />
         </TouchableOpacity>
         <View style={styles.headerTextContainer}>
-          <Text style={styles.headerTitle}>MTB Aeon Hà Đông</Text>
-          <Text style={styles.subHeader}>Cinema 5 23-02-25 20:15-22:30</Text>
+          <Text style={styles.headerTitle}>{cinemaName}</Text>
+          <Text style={styles.subHeader}>
+            {`${hallInfo?.hallName || 'Phòng chiếu'} - ${showDate} ${showTime}`}
+          </Text>
         </View>
-        <TouchableOpacity>
-          <Ionicons name="menu" size={24} color="black" />
-        </TouchableOpacity>
+        <Menu navigation={navigation} />
       </View>
 
       <View style={styles.container}>
@@ -309,28 +384,20 @@ export default function SeatSelection() {
                   style={[
                     styles.seatMap,
                     {
-                      transform: [
-                        { scale },
-                        { translateX },
-                        { translateY },
-                      ],
+                      transform: [{ scale }, { translateX }, { translateY }],
                     },
                   ]}
                 >
-                  {rows.map((row) => (
-                    <View key={row} style={styles.row}>
-                      {[...Array(seatsPerRowMap[row])].map((_, i) => {
-                        const seat = `${row}${i + 1}`;
-                        return (
-                          <Seat
-                            key={seat}
-                            row={row}
-                            index={i}
-                            isSelected={selectedSeats.includes(seat)}
-                            onPress={toggleSeat}
-                          />
-                        );
-                      })}
+                  {seatLayout.map((row) => (
+                    <View key={row.row} style={styles.row}>
+                      {row.seats.map((seat) => (
+                        <Seat
+                          key={seat.seatId}
+                          seat={seat}
+                          isSelected={selectedSeats.some((s) => s.seatId === seat.seatId)}
+                          onPress={toggleSeat}
+                        />
+                      ))}
                     </View>
                   ))}
                 </Animated.View>
@@ -347,12 +414,12 @@ export default function SeatSelection() {
                 <Text>Ghế VIP</Text>
               </View>
               <View style={styles.legendItem}>
-                <Text style={{ color: seatTypes.gray }}>■ </Text>
+                <Text style={{ color: seatTypes.regular }}>■ </Text>
                 <Text>Ghế thường</Text>
               </View>
               <View style={styles.legendItem}>
-                <Text style={{ color: seatTypes.regular }}>■ </Text>
-                <Text>Ghế đã chọn</Text>
+                <Text style={{ color: seatTypes.booked }}>■ </Text>
+                <Text>Ghế đã đặt</Text>
               </View>
             </View>
             <View style={styles.legendRow}>
@@ -372,14 +439,11 @@ export default function SeatSelection() {
       <View style={styles.footer}>
         <Text style={styles.priceText}>Giá vé: {totalPrice.toLocaleString()}đ</Text>
         <TouchableOpacity
-          style={[
-            styles.bookButton,
-            selectedSeats.length === 0 && styles.bookButtonDisabled,
-          ]}
-          onPress={handleBookPress}
+          style={[styles.bookButton, selectedSeats.length === 0 && styles.bookButtonDisabled]}
+          onPress={navigateToPayment}
           disabled={selectedSeats.length === 0}
         >
-          <Text style={styles.bookText}>Đặt vé</Text>
+          <Text style={styles.bookText}>Đặt Vé</Text>
         </TouchableOpacity>
       </View>
     </GestureHandlerRootView>
@@ -389,93 +453,93 @@ export default function SeatSelection() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#E6C36A",
+    backgroundColor: '#E6C36A',
     paddingHorizontal: 20,
     paddingTop: 20,
   },
   header: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
     paddingVertical: 10,
-    backgroundColor: "white",
+    backgroundColor: 'white',
     paddingHorizontal: 20,
     zIndex: 3,
   },
   headerTextContainer: {
-    alignItems: "center",
+    alignItems: 'center',
   },
   headerTitle: {
     fontSize: 18,
-    fontWeight: "bold",
+    fontWeight: 'bold',
   },
   subHeader: {
     fontSize: 14,
-    color: "gray",
+    color: 'gray',
   },
   miniMapContainer: {
-    position: "absolute",
+    position: 'absolute',
     top: 10,
-    left: 10,  // Changed from "right: 10" to "left: 10"
+    left: 10,
     width: MINI_MAP_WIDTH,
     height: MINI_MAP_HEIGHT,
-    backgroundColor: "rgba(255, 255, 255, 0.8)",
+    backgroundColor: 'rgba(255, 255, 255, 0.8)',
     borderRadius: 5,
     padding: 2,
     zIndex: 2,
     borderWidth: 1,
-    borderColor: "#ccc",
+    borderColor: '#ccc',
   },
   miniMap: {
-    width: "100%",
-    height: "100%",
-    justifyContent: "center",
+    width: '100%',
+    height: '100%',
+    justifyContent: 'center',
   },
   miniScreenContainer: {
-    width: "100%",
-    alignItems: "center",
-    position: "absolute",
+    width: '100%',
+    alignItems: 'center',
+    position: 'absolute',
     top: 3,
   },
   miniScreen: {
-    width: "60%",
+    width: '60%',
     height: 3,
-    backgroundColor: "#866B5E",
+    backgroundColor: '#866B5E',
     borderRadius: 1,
   },
   miniSeatsContainer: {
-    alignItems: "center",
-    justifyContent: "center",
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   miniRow: {
-    flexDirection: "row",
+    flexDirection: 'row',
     marginVertical: 0.5,
   },
   viewport: {
-    position: "absolute",
+    position: 'absolute',
     borderWidth: 1,
-    borderColor: "red",
-    backgroundColor: "rgba(255, 0, 0, 0.1)",
+    borderColor: 'red',
+    backgroundColor: 'rgba(255, 0, 0, 0.1)',
   },
   screenContainer: {
-    alignItems: "center",
+    alignItems: 'center',
     marginTop: 20,
     marginBottom: 10,
     zIndex: 1,
   },
   screenText: {
-    backgroundColor: "#866B5E",
+    backgroundColor: '#866B5E',
     padding: 5,
     borderRadius: 5,
-    color: "white",
+    color: 'white',
     fontSize: 16,
   },
   seatMapContainer: {
     width: SEAT_MAP_WIDTH,
     height: SEAT_MAP_HEIGHT,
-    overflow: "hidden",
-    alignSelf: "center",
-    backgroundColor: "#fff",
+    overflow: 'hidden',
+    alignSelf: 'center',
+    backgroundColor: '#fff',
     borderRadius: 10,
     zIndex: 1,
   },
@@ -483,69 +547,100 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   seatMap: {
-    alignItems: "center",
+    alignItems: 'center',
     paddingVertical: 10,
   },
   row: {
-    flexDirection: "row",
-    justifyContent: "center",
+    flexDirection: 'row',
+    justifyContent: 'center',
     marginVertical: 2,
   },
   seat: {
-    justifyContent: "center",
-    alignItems: "center",
+    justifyContent: 'center',
+    alignItems: 'center',
     borderRadius: 3,
   },
   seatText: {
-    color: "black",
+    color: 'black',
   },
   legendContainer: {
     marginTop: 10,
-    alignItems: "center",
+    alignItems: 'center',
     zIndex: 2,
   },
   legend: {
     padding: 10,
     borderRadius: 5,
-    backgroundColor: "rgba(255, 255, 255, 0.9)",
+    backgroundColor: 'rgba(255, 255, 255, 0.9)',
   },
   legendRow: {
-    flexDirection: "row",
-    justifyContent: "space-around",
+    flexDirection: 'row',
+    justifyContent: 'space-around',
     marginVertical: 2,
   },
   legendItem: {
-    flexDirection: "row",
-    alignItems: "center",
+    flexDirection: 'row',
+    alignItems: 'center',
     marginHorizontal: 5,
   },
   footer: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
     padding: 10,
-    backgroundColor: "white",
+    backgroundColor: 'white',
     borderRadius: 10,
-    position: "absolute",
+    position: 'absolute',
     bottom: 0,
-    width: "100%",
+    width: '100%',
     zIndex: 3,
   },
   priceText: {
     fontSize: 16,
-    fontWeight: "bold",
+    fontWeight: 'bold',
   },
   bookButton: {
-    backgroundColor: "red",
+    backgroundColor: 'red',
     padding: 10,
     borderRadius: 5,
   },
   bookButtonDisabled: {
-    backgroundColor: "#ccc",
+    backgroundColor: '#ccc',
     opacity: 0.6,
   },
   bookText: {
-    color: "white",
-    fontWeight: "bold",
+    color: 'white',
+    fontWeight: 'bold',
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  loadingText: {
+    marginTop: 10,
+    fontSize: 16,
+    color: '#333',
+  },
+  errorContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  errorText: {
+    fontSize: 16,
+    color: '#ff4d6d',
+    marginBottom: 10,
+  },
+  retryButton: {
+    marginTop: 20,
+    backgroundColor: '#ff4d6d',
+    padding: 10,
+    borderRadius: 5,
+  },
+  retryButtonText: {
+    color: 'white',
+    fontWeight: 'bold',
   },
 });
