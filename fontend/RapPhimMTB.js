@@ -8,47 +8,42 @@ import {
   Alert,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import axios from "axios";
-import { useUser } from "./User/UserContext";
-import Menu from "./Menu";
+import { getCinemas } from "./api"; // Import API
+import Menu from "./Menu"; // Import Menu component
 
 export default function RapPhimMTB({ navigation }) {
   const [cinemas, setCinemas] = useState([]);
   const [areas, setAreas] = useState([]);
   const [expanded, setExpanded] = useState({});
   const scrollViewRef = useRef(null);
-  const { user } = useUser();
-  const customerId = user?.customerId || 1; // Fallback nếu chưa đăng nhập
 
   // Lấy dữ liệu từ API
   useEffect(() => {
     const fetchCinemas = async () => {
       try {
-        const response = await axios.get(`http://192.168.1.102:3000/api/cinemas/${customerId}`);
-        const cinemaData = response.data;
+        const response = await getCinemas();
+        const cinemaData = response.data.cinemas;
 
-        // Gợi ý cho bạn: Lấy 5 rạp đầu tiên
+        // Gợi ý cho bạn: Lấy các rạp gần nhất (giả sử 5 rạp đầu tiên)
         const suggestedCinemas = cinemaData.slice(0, 5).map((cinema) => ({
-          id: cinema.cinemaId,
-          name: cinema.cinemaName,
-          distance: `${cinema.distance}Km`,
-          favorite: cinema.cinemaId === 1, // Ví dụ: rạp đầu tiên là yêu thích
+          name: cinema.CinemaName,
+          distance: cinema.Distance ? `${cinema.Distance}Km` : "N/A",
+          favorite: false, // Có thể thêm logic để xác định rạp yêu thích
         }));
 
-        // Nhóm rạp theo thành phố (giả sử API trả về CityID và CityAddress)
+        // Nhóm rạp theo thành phố
         const groupedByCity = cinemaData.reduce((acc, cinema) => {
-          const cityId = cinema.CityID || `city_${cinema.cinemaId}`; // Fallback nếu không có CityID
+          const cityId = cinema.CityID;
           if (!acc[cityId]) {
             acc[cityId] = {
-              name: cinema.CityAddress || "Unknown City", // Fallback nếu không có CityAddress
+              name: cinema.CityAddress,
               count: 0,
               cinemas: [],
             };
           }
           acc[cityId].cinemas.push({
-            id: cinema.cinemaId,
-            name: cinema.cinemaName,
-            distance: `${cinema.distance}Km`,
+            name: cinema.CinemaName,
+            distance: cinema.Distance ? `${cinema.Distance}Km` : "N/A",
           });
           acc[cityId].count = acc[cityId].cinemas.length;
           return acc;
@@ -58,23 +53,15 @@ export default function RapPhimMTB({ navigation }) {
         setAreas(Object.values(groupedByCity));
       } catch (error) {
         console.error("Lỗi khi lấy danh sách rạp:", error);
-        Alert.alert("Lỗi", "Không thể tải danh sách rạp phim. Vui lòng thử lại sau.");
+        Alert.alert(
+          "Lỗi",
+          "Không thể tải danh sách rạp phim. Vui lòng thử lại sau."
+        );
       }
     };
 
-    if (user) {
-      fetchCinemas();
-    } else {
-      Alert.alert(
-        "Yêu cầu đăng nhập",
-        "Vui lòng đăng nhập để xem danh sách rạp phim.",
-        [
-          { text: "Hủy", style: "cancel", onPress: () => navigation.goBack() },
-          { text: "Đăng nhập", onPress: () => navigation.navigate("Login") },
-        ]
-      );
-    }
-  }, [user, customerId, navigation]);
+    fetchCinemas();
+  }, []);
 
   const toggleExpand = (index) => {
     setExpanded((prev) => ({ ...prev, [index]: !prev[index] }));
@@ -84,19 +71,16 @@ export default function RapPhimMTB({ navigation }) {
     scrollViewRef.current?.scrollTo({ y: 0, animated: true });
   };
 
-  const handleCinemaPress = (cinema) => {
-    navigation.navigate("ChonRap_TheoKhuVuc", {
-      cinemaId: cinema.id,
-      cinemaName: cinema.name,
-    });
-  };
-
   const handleBackPress = () => {
     navigation.goBack();
   };
 
   const handleLocationPress = () => {
-    Alert.alert("Thông báo", "Chức năng bản đồ hiện đang cập nhật, vui lòng chờ đợi vài năm!.");
+    // Hiển thị thông báo khi nhấn vào icon bản đồ
+    Alert.alert(
+      "Thông báo",
+      "Chức năng bản đồ hiện đang cập nhật, vui lòng chờ đợi vài năm!."
+    );
   };
 
   return (
@@ -109,9 +93,14 @@ export default function RapPhimMTB({ navigation }) {
         <Text style={styles.headerTitle}>Rạp phim MTB</Text>
         <View style={styles.rightIcons}>
           <TouchableOpacity onPress={handleLocationPress}>
-            <Ionicons name="location-sharp" size={24} color="red" style={styles.locationIcon} />
+            <Ionicons
+              name="location-sharp"
+              size={24}
+              color="red"
+              style={styles.locationIcon}
+            />
           </TouchableOpacity>
-          <Menu navigation={navigation} />
+          <Menu navigation={navigation} /> {/* Sử dụng component Menu */}
         </View>
       </View>
 
@@ -125,17 +114,17 @@ export default function RapPhimMTB({ navigation }) {
           <Text style={styles.sectionHeaderText}>GỢI Ý CHO BẠN</Text>
         </View>
         {cinemas.map((item, index) => (
-          <TouchableOpacity
-            key={index}
-            style={styles.cinemaItem}
-            onPress={() => handleCinemaPress(item)}
-          >
+          <TouchableOpacity key={index} style={styles.cinemaItem}>
             <View style={styles.cinemaNameContainer}>
               <Text style={styles.cinemaName}>{item.name}</Text>
             </View>
             <View style={styles.cinemaInfo}>
-              {item.favorite && <Ionicons name="heart" size={20} color="black" />}
-              {item.distance && <Text style={styles.distance}>{item.distance}</Text>}
+              {item.favorite && (
+                <Ionicons name="heart" size={20} color="black" />
+              )}
+              {item.distance && (
+                <Text style={styles.distance}>{item.distance}</Text>
+              )}
             </View>
           </TouchableOpacity>
         ))}
@@ -144,7 +133,10 @@ export default function RapPhimMTB({ navigation }) {
         </View>
         {areas.map((area, index) => (
           <View key={index}>
-            <TouchableOpacity style={styles.areaItem} onPress={() => toggleExpand(index)}>
+            <TouchableOpacity
+              style={styles.areaItem}
+              onPress={() => toggleExpand(index)}
+            >
               <View style={styles.areaNameContainer}>
                 <Text style={styles.areaName}>{area.name}</Text>
               </View>
@@ -162,14 +154,18 @@ export default function RapPhimMTB({ navigation }) {
                 {area.cinemas.map((cinema, idx) => (
                   <TouchableOpacity
                     key={idx}
-                    style={[styles.subItemContainer, idx !== area.cinemas.length - 1 && styles.subItemBorder]}
-                    onPress={() => handleCinemaPress(cinema)}
+                    style={[
+                      styles.subItemContainer,
+                      idx !== area.cinemas.length - 1 && styles.subItemBorder,
+                    ]}
                   >
                     <View style={styles.subItemNameContainer}>
                       <Text style={styles.subItem}>{cinema.name}</Text>
                     </View>
                     {cinema.distance && (
-                      <Text style={styles.subItemDistance}>{cinema.distance}</Text>
+                      <Text style={styles.subItemDistance}>
+                        {cinema.distance}
+                      </Text>
                     )}
                   </TouchableOpacity>
                 ))}
@@ -177,7 +173,10 @@ export default function RapPhimMTB({ navigation }) {
             )}
           </View>
         ))}
-        <TouchableOpacity style={styles.scrollToTopButton} onPress={scrollToTop}>
+        <TouchableOpacity
+          style={styles.scrollToTopButton}
+          onPress={scrollToTop}
+        >
           <Ionicons name="arrow-up-circle" size={40} color="#ccc" />
         </TouchableOpacity>
       </ScrollView>
@@ -203,7 +202,12 @@ const styles = StyleSheet.create({
     right: 0,
     zIndex: 1,
   },
-  headerTitle: { fontSize: 18, fontWeight: "bold", marginLeft: -170 },
+  headerTitle: {
+    fontSize: 18,
+    fontWeight: "bold",
+    color: "black",
+    marginLeft: -150,
+  },
   rightIcons: {
     flexDirection: "row",
     alignItems: "center",
@@ -218,20 +222,20 @@ const styles = StyleSheet.create({
   cinemaItem: {
     flexDirection: "row",
     justifyContent: "space-between",
-    alignItems: "center",
+    alignItems: "center", // Đảm bảo các phần tử căn giữa theo chiều dọc
     paddingVertical: 10,
     paddingHorizontal: 10,
     borderBottomWidth: 1,
     borderBottomColor: "#ddd",
   },
   cinemaNameContainer: {
-    flex: 1,
-    flexShrink: 1,
+    flex: 1, // Chiếm toàn bộ không gian còn lại
+    flexShrink: 1, // Cho phép co lại nếu văn bản quá dài
   },
   cinemaName: {
     fontSize: 16,
     color: "red",
-    flexWrap: "wrap",
+    flexWrap: "wrap", // Văn bản tự động xuống dòng
   },
   cinemaInfo: {
     flexDirection: "row",
@@ -240,8 +244,8 @@ const styles = StyleSheet.create({
   distance: {
     fontSize: 14,
     color: "red",
-    marginLeft: 10,
-    flexWrap: "wrap",
+    marginLeft: 10, // Khoảng cách giữa icon và khoảng cách
+    flexWrap: "wrap", // Văn bản tự động xuống dòng
   },
   areaItem: {
     flexDirection: "row",
@@ -253,12 +257,12 @@ const styles = StyleSheet.create({
     borderBottomColor: "#ddd",
   },
   areaNameContainer: {
-    flex: 1,
-    flexShrink: 1,
+    flex: 1, // Chiếm toàn bộ không gian còn lại
+    flexShrink: 1, // Cho phép co lại nếu văn bản quá dài
   },
   areaName: {
     fontSize: 16,
-    flexWrap: "wrap",
+    flexWrap: "wrap", // Văn bản tự động xuống dòng
   },
   iconContainer: {
     flexDirection: "row",
