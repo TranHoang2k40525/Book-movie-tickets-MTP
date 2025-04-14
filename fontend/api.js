@@ -128,5 +128,8 @@ export const getCinemas = () => api.get("/api/cinemas");
 export const getCinemasByCity = (cityId) => api.get(`/api/cinemas-by-city/${cityId}`);
 export const getMoviesAndShowtimesByCinema = (cinemaId, date) =>
   api.get(`/api/movies/cinemas/${cinemaId}/movies-and-showtimes`, { params: { date } });
-
+// Hàm mới để lấy sơ đồ ghế ngồi (Sửa)
+export const getSeatMapByShow = async (showId) => {
+  return await api.get(`/api/movies/${showId}/seats`);
+};
 export default api;
