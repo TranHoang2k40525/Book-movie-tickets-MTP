@@ -14,4 +14,7 @@ router.post('/send-otp', authController.sendOtp);
 // Đặt lại mật khẩu
 router.post('/reset-password', authController.resetPassword);
 
+// Làm mới token
+router.post('/refresh-token', authController.refreshToken);
+
 module.exports = router;
