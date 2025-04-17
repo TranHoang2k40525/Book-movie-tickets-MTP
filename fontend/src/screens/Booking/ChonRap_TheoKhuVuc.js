@@ -100,9 +100,12 @@ const DateSelector = memo(({ selectedDate, onDateChange }) => {
 
 const MovieSchedule = memo(({ selectedDate, cinemaId, cinemaName }) => {
   const navigation = useNavigation();
+const MovieSchedule = memo(({ selectedDate, cinemaId, cinemaName }) => {
+  const navigation = useNavigation();
   const [scheduleData, setScheduleData] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [expandedMovie, setExpandedMovie] = useState(null);
   const [expandedMovie, setExpandedMovie] = useState(null);
 
   const fetchMoviesAndShowtimes = useCallback(
@@ -122,6 +125,7 @@ const MovieSchedule = memo(({ selectedDate, cinemaId, cinemaName }) => {
           const dateString = selectedDate.toISOString().split('T')[0];
           const response = await getMoviesAndShowtimesByCinema(cinemaId, dateString);
           const movies = response.data.map((item) => ({
+            movieId: item.movieId,
             movieId: item.movieId,
             movie: item.title,
             ageRating: item.ageRating,
@@ -166,6 +170,19 @@ const MovieSchedule = memo(({ selectedDate, cinemaId, cinemaName }) => {
     },
     [navigation, cinemaId, cinemaName, selectedDate]
   );
+  const handleShowtimeClick = useCallback(
+    (showId, movieTitle, movieId) => {
+      navigation.navigate('SoDoGheNgoi1', {
+        showId,
+        cinemaId,
+        cinemaName,
+        showDate: selectedDate.toISOString().split('T')[0],
+        movieTitle,
+        movieId,
+      });
+    },
+    [navigation, cinemaId, cinemaName, selectedDate]
+  );
 
   const toggleMovieExpansion = useCallback((movieId) => {
     setExpandedMovie((prev) => (prev === movieId ? null : movieId));
@@ -174,9 +191,11 @@ const MovieSchedule = memo(({ selectedDate, cinemaId, cinemaName }) => {
   const renderShowtimes = useCallback(
     (item) => {
       return item.times.map((time) => (
+      return item.times.map((time) => (
         <TouchableOpacity
           key={`showtime-${time.showId}`}
           style={[styles.timeButton, time.isPassed && styles.passedTimeButton]}
+          onPress={() => !time.isPassed && handleShowtimeClick(time.showId, item.movie, item.movieId)}
           onPress={() => !time.isPassed && handleShowtimeClick(time.showId, item.movie, item.movieId)}
           disabled={time.isPassed}
         >
@@ -192,10 +211,12 @@ const MovieSchedule = memo(({ selectedDate, cinemaId, cinemaName }) => {
   const renderSchedule = useCallback(() => {
     return scheduleData.map((item, index) => {
       const isExpanded = expandedMovie === item.movieId;
+      const isExpanded = expandedMovie === item.movieId;
       return (
         <View key={`movie-${index}`} style={styles.movieContainer}>
           <TouchableOpacity
             style={styles.movieHeader}
+            onPress={() => toggleMovieExpansion(item.movieId)}
             onPress={() => toggleMovieExpansion(item.movieId)}
           >
             <View style={styles.movieTitleContainer}>
@@ -205,10 +226,12 @@ const MovieSchedule = memo(({ selectedDate, cinemaId, cinemaName }) => {
             </View>
             <Ionicons
               name={isExpanded ? 'chevron-down' : 'chevron-forward'}
+              name={isExpanded ? 'chevron-down' : 'chevron-forward'}
               size={20}
               color="gray"
             />
           </TouchableOpacity>
+          {isExpanded && (
           {isExpanded && (
             <ScrollView horizontal showsHorizontalScrollIndicator={false}>
               {renderShowtimes(item)}
@@ -244,6 +267,7 @@ const MovieSchedule = memo(({ selectedDate, cinemaId, cinemaName }) => {
 });
 
 const ChonRap_TheoKhuVuc = ({navigation}) => {
+const ChonRap_TheoKhuVuc = ({navigation}) => {
   const route = useRoute();
   const { cinemaId, cinemaName } = route.params;
   const [selectedDate, setSelectedDate] = useState(new Date());
@@ -272,11 +296,13 @@ const ChonRap_TheoKhuVuc = ({navigation}) => {
       <ScrollView style={styles.scrollContainer} stickyHeaderIndices={[0]}>
         <DateSelector selectedDate={selectedDate} onDateChange={setSelectedDate} />
         <MovieSchedule selectedDate={selectedDate} cinemaId={cinemaId} cinemaName={cinemaName} />
+        <MovieSchedule selectedDate={selectedDate} cinemaId={cinemaId} cinemaName={cinemaName} />
       </ScrollView>
     </SafeAreaView>
   );
 };
 
+// Styles không thay đổi
 // Styles không thay đổi
 const styles = StyleSheet.create({
   container: {
@@ -393,12 +419,15 @@ const styles = StyleSheet.create({
   movieTitleContainer: {
     flex: 1,
     marginRight: 10,
+    flex: 1,
+    marginRight: 10,
   },
   movieTitle: {
     fontSize: 16,
     fontWeight: 'bold',
     color: 'red',
     flexShrink: 1,
+    flexWrap: 'wrap',
     flexWrap: 'wrap',
   },
   theaterText: {

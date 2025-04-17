@@ -210,51 +210,20 @@ const resetPassword = async (req, res) => {
       .input("newPassword", sql.VarChar, hashedPassword)
       .query("UPDATE Account SET AccountPassword = @newPassword WHERE AccountName = @email");
 
-    if (result.rowsAffected[0] === 0) {
-      return res.status(404).json({ message: "Tài khoản không tồn tại!" });
+        if (result.rowsAffected[0] === 0) {
+            return res.status(404).json({ message: 'Tài khoản không tồn tại!' });
+        }
+
+        res.json({ message: 'Đổi mật khẩu thành công!' });
+    } catch (err) {
+        console.error('Lỗi đặt lại mật khẩu:', err);
+        res.status(500).json({ message: 'Lỗi server!', error: err.message });
     }
-
-    res.json({ message: "Đổi mật khẩu thành công!" });
-  } catch (err) {
-    console.error("Lỗi đặt lại mật khẩu:", err);
-    res.status(500).json({ message: "Lỗi server!", error: err.message });
-  }
-};
-// Làm mới token
-const refreshToken = async (req, res) => {
-  const { refreshToken } = req.body;
-  if (!refreshToken) {
-    return res.status(400).json({ message: "Refresh token không được cung cấp!" });
-  }
-
-  try {
-    const payload = verifyRefreshToken(refreshToken);
-    const userData = {
-      AccountID: payload.AccountID,
-      AccountName: payload.AccountName,
-      AccountType: payload.AccountType,
-      customerID: payload.customerID,
-      customerName: payload.customerName,
-      customerEmail: payload.customerEmail,
-      customerPhone: payload.customerPhone,
-      CustomerGender: payload.CustomerGender,
-      CustomerDate: payload.CustomerDate,
-      CustomerAddress: payload.CustomerAddress,
-      AvatarUrl: payload.AvatarUrl,
-    };
-
-    const newAccessToken = generateToken(userData);
-    const newRefreshToken = generateRefreshToken(userData);
-
-    res.json({
-      message: "Làm mới token thành công!",
-      accessToken: newAccessToken,
-      refreshToken: newRefreshToken,
-    });
-  } catch (err) {
-    console.error("Lỗi làm mới token:", err);
-    res.status(401).json({ message: "Refresh token không hợp lệ hoặc đã hết hạn!" });
-  }
 };
 
-module.exports =  { login, register, sendOtp, resetPassword, refreshToken };
+module.exports = {
+    login,
+    register,
+    sendOtp,
+    resetPassword
+};

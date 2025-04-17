@@ -12,6 +12,8 @@ import {
   ActivityIndicator,
   Share,
    // Thêm Share
+  Share,
+   // Thêm Share
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { WebView } from "react-native-webview";
@@ -34,10 +36,12 @@ export default function MovieDetailsScreen({ route, navigation }) {
   const [showShare, setShowShare] = useState(false);
   const [isExpanded, setIsExpanded] = useState(false);
   
+  
   const [showPlayButton, setShowPlayButton] = useState(true);
 
   const currentDate = new Date();
   const [selectedDay, setSelectedDay] = useState(currentDate.getDate());
+  const [selectedMonth, setSelectedMonth] = useState(currentDate.getMonth() + 1);
   const [selectedMonth, setSelectedMonth] = useState(currentDate.getMonth() + 1);
   const [selectedYear, setSelectedYear] = useState(currentDate.getFullYear());
   const [currentCalendarMonth, setCurrentCalendarMonth] = useState(
@@ -49,6 +53,30 @@ export default function MovieDetailsScreen({ route, navigation }) {
   }/${
     selectedMonth < 10 ? "0" + selectedMonth : selectedMonth
   }/${selectedYear}`;
+
+  // Xử lý Deep Link khi ứng dụng được mở
+  useEffect(() => {
+    const handleDeepLink = ({ url }) => {
+      if (url.startsWith(`${APP_SCHEME}movie/`)) {
+        const id = url.split("movie/")[1];
+        if (id) {
+          navigation.navigate("MovieDetailsScreen", { movieId: id });
+        }
+      }
+    };
+
+    // Lắng nghe sự kiện deep link
+    Linking.addEventListener("url", handleDeepLink);
+
+    // Kiểm tra liên kết khi ứng dụng mở
+    Linking.getInitialURL().then((url) => {
+      if (url) handleDeepLink({ url });
+    });
+
+    return () => {
+      Linking.removeAllListeners("url");
+    };
+  }, [navigation]);
 
   // Xử lý Deep Link khi ứng dụng được mở
   useEffect(() => {
@@ -90,6 +118,7 @@ export default function MovieDetailsScreen({ route, navigation }) {
         setCurrentCalendarMonth(releaseDate.getMonth() + 1);
       } catch (error) {
         console.error("Lỗi khi lấy thông tin phim:", error);
+        setError("Không thể tải thông tin phim");
         setError("Không thể tải thông tin phim");
       } finally {
         setLoading(false);
@@ -153,6 +182,7 @@ export default function MovieDetailsScreen({ route, navigation }) {
     setShowPlayButton(true);
   };
 
+
   const handleBookTicket = () => {
     if (!user) {
       Alert.alert(
@@ -162,6 +192,11 @@ export default function MovieDetailsScreen({ route, navigation }) {
           { text: "Hủy", style: "cancel" },
           {
             text: "Đăng nhập",
+            onPress: () =>
+              navigation.navigate("Login", {
+                from: "MovieDetailsScreen",
+                movieId,
+              }),
             onPress: () =>
               navigation.navigate("Login", {
                 from: "MovieDetailsScreen",
@@ -196,7 +231,31 @@ export default function MovieDetailsScreen({ route, navigation }) {
     } catch (error) {
       console.error("Lỗi khi chia sẻ:", error);
       Alert.alert("Lỗi", "Không thể chia sẻ lúc này. Vui lòng thử lại.");
+
+  
+
+  // Hàm chia sẻ liên kết đến phim
+  const handleShare = async () => {
+    if (!movie || !movieId) {
+      Alert.alert("Lỗi", "Không thể chia sẻ vì thiếu thông tin phim.");
+      return;
     }
+  
+    const shareLink = `${APP_SCHEME}movie/${movieId}`;
+    const shareMessage = `Xem phim "${movie.MovieTitle}" trên ứng dụng của chúng tôi! ${shareLink}`;
+  
+    try {
+      await Share.share({
+        message: shareMessage,
+        url: shareLink, // Chỉ dùng trên iOS
+        title: `Chia sẻ phim: ${movie.MovieTitle}`,
+      });
+    } catch (error) {
+      console.error("Lỗi khi chia sẻ:", error);
+      Alert.alert("Lỗi", "Không thể chia sẻ lúc này. Vui lòng thử lại.");
+    }
+  
+    setShowShare(false);
   
     setShowShare(false);
   };
@@ -287,6 +346,36 @@ export default function MovieDetailsScreen({ route, navigation }) {
     </Modal>
   );
 };
+  // Sửa renderShareModal để sử dụng Share API
+ const renderShareModal = () => {
+  return (
+    <Modal
+      animationType="slide"
+      transparent={true}
+      visible={showShare}
+      onRequestClose={() => setShowShare(false)}
+    >
+      <View style={styles.modalOverlay}>
+        <View style={styles.modalContainer}>
+          <Text style={styles.modalTitle}>Chia sẻ</Text>
+          <TouchableOpacity
+            style={styles.shareButton}
+            onPress={handleShare}
+          >
+            <Ionicons name="share-social" size={24} color="black" />
+            <Text style={styles.shareButtonText}>Chia sẻ phim</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.closeButton}
+            onPress={() => setShowShare(false)}
+          >
+            <Text style={styles.closeButtonText}>Đóng</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+    </Modal>
+  );
+};
 
   if (loading) {
     return (
@@ -333,12 +422,24 @@ export default function MovieDetailsScreen({ route, navigation }) {
           contentContainerStyle={styles.scrollContentContainer}
         >
           {!!movie?.MovieTrailer && (
+          {!!movie?.MovieTrailer && (
             <View style={styles.trailerContainer}>
               <TouchableOpacity
                 activeOpacity={1}
                 onPress={handleVideoPress}
                 style={styles.trailerWrapper}
               >
+                <WebView
+                  source={{
+                    uri: movie.MovieTrailer,
+                  }}
+                  style={{ height: 210 }}
+                  mediaPlaybackRequiresUserAction={false}
+                  allowsInlineMediaPlayback={true}
+                  onError={(e) =>
+                    console.log("Lỗi tải video:", e.nativeEvent.description)
+                  }
+                />
                 <WebView
                   source={{
                     uri: movie.MovieTrailer,
@@ -419,6 +520,7 @@ export default function MovieDetailsScreen({ route, navigation }) {
             <View style={styles.movieInfoDetail}>
               <Text style={styles.infoLabel}>Kiểm duyệt:</Text>
               <Text style={styles.infoValue}>{movie.MovieAge}</Text>
+              <Text style={styles.infoValue}>{movie.MovieAge}</Text>
             </View>
             <View style={styles.movieInfoDetail}>
               <Text style={styles.infoLabel}>Thể loại:</Text>
@@ -448,6 +550,7 @@ export default function MovieDetailsScreen({ route, navigation }) {
 
           <View style={styles.newsHeader}>
             <TouchableOpacity
+              onPress={() => navigation.navigate("TinMoiUuDaiTatCa")}
               onPress={() => navigation.navigate("TinMoiUuDaiTatCa")}
             >
               <Text style={styles.infoLabel1}>Tin mới & Ưu đãi</Text>
@@ -479,6 +582,10 @@ export default function MovieDetailsScreen({ route, navigation }) {
         style={styles.bookTicketButton}
         onPress={handleBookTicket}
       >
+      <TouchableOpacity
+        style={styles.bookTicketButton}
+        onPress={handleBookTicket}
+      >
         <Text style={styles.bookTicketButtonText}>Đặt Vé</Text>
       </TouchableOpacity>
 
@@ -496,10 +603,16 @@ const styles = StyleSheet.create({
   header: {
     flexDirection: "row",
     alignItems: "center",
+    alignItems: "center",
     justifyContent: "space-between",
     paddingHorizontal: 10,
     paddingVertical: 0,
+    paddingHorizontal: 10,
+    paddingVertical: 0,
     backgroundColor: "white",
+    borderBottomWidth: 1,
+    borderBottomColor: "#ddd",
+    paddingTop: 10,
     borderBottomWidth: 1,
     borderBottomColor: "#ddd",
     paddingTop: 10,
@@ -613,6 +726,7 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: "bold",
     marginBottom: 15,
+    marginBottom: 15,
     textAlign: "center",
   },
   modalDate: { fontSize: 16, color: "#666", textAlign: "center" },
@@ -635,6 +749,19 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: "#eee",
   },
+  shareButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    padding: 10,
+    backgroundColor: "#f0f0f0",
+    borderRadius: 5,
+    marginBottom: 15,
+  },
+  shareButtonText: {
+    marginLeft: 10,
+    fontSize: 16,
+    fontWeight: "bold",
   shareButton: {
     flexDirection: "row",
     alignItems: "center",

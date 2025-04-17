@@ -161,6 +161,14 @@ const getMovieById = async (req, res) => {
     
     }
 
+    // Tạo URL trailer cục bộ
+    if (movie.MovieTrailer) {
+      const baseUrl = `${req.protocol}://${req.get('host')}`;
+      const cleanTrailer = movie.MovieTrailer.replace(/^.*[\\\/]/, '');
+      movie.MovieTrailer = `${baseUrl}/Video/${cleanTrailer}`;
+    
+    }
+
     res.json({ movie });
   } catch (err) {
     console.error('Lỗi khi lấy thông tin phim:', err);
@@ -451,5 +459,6 @@ module.exports = {
   getShowtimesByCinemaAndDate,
   getMoviesShowingToday,
   getMoviesAndShowtimesByCinema,
+  getSeatMapByShow,
   getSeatMapByShow,
 };

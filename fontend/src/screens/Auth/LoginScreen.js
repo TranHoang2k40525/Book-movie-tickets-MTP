@@ -9,10 +9,7 @@ import {
   Image,
   ImageBackground,
 } from "react-native";
-import { useNavigation, useRoute } from "@react-navigation/native";
-import { UserContext } from "../../contexts/User/UserContext";
-import { login } from "../../Api/api";
-import AsyncStorage from "@react-native-async-storage/async-storage";
+import { UserContext } from "./User/UserContext";
 import Icon from "react-native-vector-icons/FontAwesome";
 
 const LoginScreen = () => {
