@@ -149,9 +149,6 @@ MTP Cinema mang đến nhiều giá trị cho người dùng và ngành công ng
 ## Hướng Phát Triển
 
 Dự án có nhiều tiềm năng phát triển trong tương lai:
-
-- **Trí tuệ nhân tạo**: Đề xuất phim dựa trên AI
-- **Thực tế ảo**: Xem trước phòng chiếu bằng VR
 - **Loyalty program**: Hệ thống điểm thưởng và đặc quyền
 - **Social features**: Chia sẻ, bình luận, tạo nhóm xem phim
 - **Mở rộng dịch vụ**: Liên kết với các dịch vụ giải trí khác
