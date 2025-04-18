@@ -3,21 +3,6 @@ const sql = require('mssql');
 const axios = require('axios');
 const router = express.Router();
 
-<<<<<<< HEAD
-=======
-// Cấu hình SQL Server
-const dbConfig = {
-    user: 'your_username', // Thay bằng username SQL Server của bạn
-    password: 'your_password', // Thay bằng password SQL Server của bạn
-    server: 'your_server', // Thay bằng server SQL Server, ví dụ: 'localhost' hoặc IP
-    database: 'MTB 67CS1',
-    options: {
-        encrypt: true,
-        trustServerCertificate: true,
-    },
-};
-
->>>>>>> 259430187e2398ff2d9c39e096d87a1c6ce7111b
 // Google Maps API Key
 require('dotenv').config();
 const GOOGLE_API_KEY = process.env.GOOGLE_API_KEY;
@@ -144,21 +129,4 @@ router.put('/update-customer-address', async (req, res) => {
     }
 });
 
-<<<<<<< HEAD
-=======
-module.exports = router;
-const express = require('express');
-const router = express.Router();
-const {
-    getNearbyCinemas,
-    updateCustomerAddress
-} = require('../controllers/cinemaController');
-
-// Route: GET /api/cinemas/:customerId
-router.get('/cinemas/:customerId', getNearbyCinemas);
-
-// Route: PUT /api/update-customer-address
-router.put('/update-customer-address', updateCustomerAddress);
-
->>>>>>> 259430187e2398ff2d9c39e096d87a1c6ce7111b
 module.exports = router;

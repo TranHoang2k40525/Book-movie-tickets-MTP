@@ -192,7 +192,6 @@ const resetPassword = async (req, res) => {
   if (!email || !newPassword) {
     return res.status(400).json({ message: "Vui lòng cung cấp email và mật khẩu mới!" });
   }
-<<<<<<< HEAD
 
   if (!isValidEmail(email)) {
     return res.status(400).json({ message: "Email không hợp lệ!" });
@@ -246,25 +245,6 @@ const refreshToken = async (req, res) => {
 
     const newAccessToken = generateToken(userData);
     const newRefreshToken = generateRefreshToken(userData);
-=======
-
-  if (!isValidEmail(email)) {
-    return res.status(400).json({ message: "Email không hợp lệ!" });
-  }
-
-  if (newPassword.length < 6) {
-    return res.status(400).json({ message: "Mật khẩu phải có ít nhất 6 ký tự!" });
-  }
-
-  try {
-    const pool = await sql.connect(dbConfig);
-    const hashedPassword = await bcrypt.hash(newPassword, SALT_ROUNDS);
-    const result = await pool
-      .request()
-      .input("email", sql.VarChar, email)
-      .input("newPassword", sql.VarChar, hashedPassword)
-      .query("UPDATE Account SET AccountPassword = @newPassword WHERE AccountName = @email");
->>>>>>> 259430187e2398ff2d9c39e096d87a1c6ce7111b
 
     res.json({
       message: "Làm mới token thành công!",

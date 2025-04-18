@@ -1,17 +1,9 @@
 // backend/server.js
-<<<<<<< HEAD
-=======
-// backend/server.js
->>>>>>> 259430187e2398ff2d9c39e096d87a1c6ce7111b
 const express = require('express');
 const cors = require('cors');
 const bodyParser = require('body-parser');
 const path = require('path');
 require('dotenv').config();
-<<<<<<< HEAD
-=======
-require('dotenv').config();
->>>>>>> 259430187e2398ff2d9c39e096d87a1c6ce7111b
 const { connectDB } = require('./config/db');
 
 // Import routes
@@ -22,11 +14,6 @@ const locationRoutes = require('./routes/locations');
 const likeRoutes = require("./routes/likes");
 const productRoutes = require("./routes/products");
 const app = express();
-<<<<<<< HEAD
-=======
-
-// Chỉ gọi cors và bodyParser một lần
->>>>>>> 259430187e2398ff2d9c39e096d87a1c6ce7111b
 // Chỉ gọi cors và bodyParser một lần
 app.use(cors());
 app.use(bodyParser.json());
@@ -51,11 +38,7 @@ app.use('/Video', express.static(path.join(__dirname, 'assets/Video')));
 // Route mặc định
 app.get('/', (req, res) => {
   res.json({ message: 'Welcome to the Movie Ticket Booking API!' });
-<<<<<<< HEAD
 
-=======
-  res.json({ message: 'Welcome to the Movie Ticket Booking API!' });
->>>>>>> 259430187e2398ff2d9c39e096d87a1c6ce7111b
 });
 
 // Sử dụng routes
@@ -75,19 +58,7 @@ async function startServer() {
     console.error('Failed to start server:', err);
     process.exit(1);
   }
-<<<<<<< HEAD
 
-=======
-  try {
-    await connectDB();
-    app.listen(port, host, () => {
-      console.log(`Server running at http://${host}:${port}`);
-    });
-  } catch (err) {
-    console.error('Failed to start server:', err);
-    process.exit(1);
-  }
->>>>>>> 259430187e2398ff2d9c39e096d87a1c6ce7111b
 }
 
 startServer();
