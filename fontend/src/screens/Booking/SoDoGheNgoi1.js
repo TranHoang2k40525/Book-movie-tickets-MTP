@@ -192,9 +192,32 @@ export default function SeatSelection() {
     }
   }, [showId]);
 
+<<<<<<< HEAD
   useEffect(() => {
     fetchSeatMap();
   }, [fetchSeatMap]);
+=======
+  // Kiểm tra ghế hết hạn và cập nhật
+  const checkExpiredSeats = useCallback(async () => {
+    try {
+      setRefreshing(true);
+      const response = await axios.get(`${BASE_URL}/api/movies/${showId}/expired-seats`);
+      
+      if (response.data.releasedSeats && response.data.releasedSeats.length > 0) {
+        console.log('Released seats:', response.data.releasedSeats);
+        
+        // Nếu có ghế được giải phóng, tải lại toàn bộ sơ đồ
+        await fetchSeatMap();
+      }
+    } catch (err) {
+      console.error('Error checking expired seats:', err);
+    } finally {
+      setRefreshing(false);
+    }
+  }, [showId, fetchSeatMap]);
+
+ 
+>>>>>>> 259430187e2398ff2d9c39e096d87a1c6ce7111b
 
   // Cập nhật vị trí viewport cho mini-map
   const updateViewportPosition = useCallback(() => {
@@ -381,6 +404,7 @@ export default function SeatSelection() {
       Alert.alert('Thông báo', 'Vui lòng chọn ít nhất một ghế');
       return;
     }
+<<<<<<< HEAD
     const invalidSeats = selectedSeats.filter(seat => !Number.isInteger(seat.seatId));
     if (invalidSeats.length > 0) {
       console.error('Ghế không hợp lệ:', invalidSeats);
@@ -400,6 +424,53 @@ export default function SeatSelection() {
       movieId,
     });
   }, [selectedSeats, totalPrice, showId, cinemaId, cinemaName, showDate, showTime, movieTitle, movieId, navigation]);
+=======
+    
+    // Kiểm tra lại xem có ghế nào mới bị đặt trong quá trình chọn không
+    checkExpiredSeats().then(() => {
+      const seatIds = selectedSeats.map(seat => seat.seatId);
+      
+      // Kiểm tra xem các ghế đã chọn có còn trống không
+      const unavailableSeats = seatLayout
+        .flatMap(row => row.seats)
+        .filter(seat => 
+          seatIds.includes(seat.seatId) && 
+          seat.status === 'booked'
+        );
+      
+      if (unavailableSeats.length > 0) {
+        const unavailableSeatNumbers = unavailableSeats.map(seat => seat.seatNumber).join(', ');
+        Alert.alert(
+          'Ghế đã có người đặt',
+          `Ghế ${unavailableSeatNumbers} vừa được người khác đặt. Vui lòng chọn ghế khác.`,
+          [{ text: 'OK' }]
+        );
+        
+        // Cập nhật lại danh sách ghế đã chọn
+        setSelectedSeats(prev => prev.filter(seat => 
+          !unavailableSeats.some(unavailableSeat => unavailableSeat.seatId === seat.seatId)
+        ));
+        
+        return;
+      }
+      
+      console.log('Chuyển hướng với selectedSeats:', selectedSeats);
+      
+      // Không có vấn đề, chuyển hướng đến màn hình thanh toán
+      navigation.navigate('DatVeThanhToan', {
+        selectedSeats,
+        totalPrice,
+        showId,
+        cinemaId,
+        cinemaName,
+        showDate,
+        showTime,
+        movieTitle,
+        movieId,
+      });
+    });
+  }, [selectedSeats, totalPrice, showId, cinemaId, cinemaName, showDate, showTime, movieTitle, movieId, navigation, checkExpiredSeats, seatLayout]);
+>>>>>>> 259430187e2398ff2d9c39e096d87a1c6ce7111b
 
   if (loading) {
     return (

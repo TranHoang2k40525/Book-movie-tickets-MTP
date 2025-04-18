@@ -12,6 +12,11 @@ import {
   ActivityIndicator,
   Share,
    // Thêm Share
+<<<<<<< HEAD
+=======
+  Share,
+   // Thêm Share
+>>>>>>> 259430187e2398ff2d9c39e096d87a1c6ce7111b
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { WebView } from "react-native-webview";
@@ -34,11 +39,19 @@ export default function MovieDetailsScreen({ route, navigation }) {
   const [showShare, setShowShare] = useState(false);
   const [isExpanded, setIsExpanded] = useState(false);
   
+<<<<<<< HEAD
+=======
+  
+>>>>>>> 259430187e2398ff2d9c39e096d87a1c6ce7111b
   const [showPlayButton, setShowPlayButton] = useState(true);
 
   const currentDate = new Date();
   const [selectedDay, setSelectedDay] = useState(currentDate.getDate());
   const [selectedMonth, setSelectedMonth] = useState(currentDate.getMonth() + 1);
+<<<<<<< HEAD
+=======
+  const [selectedMonth, setSelectedMonth] = useState(currentDate.getMonth() + 1);
+>>>>>>> 259430187e2398ff2d9c39e096d87a1c6ce7111b
   const [selectedYear, setSelectedYear] = useState(currentDate.getFullYear());
   const [currentCalendarMonth, setCurrentCalendarMonth] = useState(
     currentDate.getMonth() + 1
@@ -74,6 +87,33 @@ export default function MovieDetailsScreen({ route, navigation }) {
     };
   }, [navigation]);
 
+<<<<<<< HEAD
+=======
+  // Xử lý Deep Link khi ứng dụng được mở
+  useEffect(() => {
+    const handleDeepLink = ({ url }) => {
+      if (url.startsWith(`${APP_SCHEME}movie/`)) {
+        const id = url.split("movie/")[1];
+        if (id) {
+          navigation.navigate("MovieDetailsScreen", { movieId: id });
+        }
+      }
+    };
+
+    // Lắng nghe sự kiện deep link
+    Linking.addEventListener("url", handleDeepLink);
+
+    // Kiểm tra liên kết khi ứng dụng mở
+    Linking.getInitialURL().then((url) => {
+      if (url) handleDeepLink({ url });
+    });
+
+    return () => {
+      Linking.removeAllListeners("url");
+    };
+  }, [navigation]);
+
+>>>>>>> 259430187e2398ff2d9c39e096d87a1c6ce7111b
   useEffect(() => {
     const fetchMovieDetails = async () => {
       try {
@@ -91,6 +131,10 @@ export default function MovieDetailsScreen({ route, navigation }) {
       } catch (error) {
         console.error("Lỗi khi lấy thông tin phim:", error);
         setError("Không thể tải thông tin phim");
+<<<<<<< HEAD
+=======
+        setError("Không thể tải thông tin phim");
+>>>>>>> 259430187e2398ff2d9c39e096d87a1c6ce7111b
       } finally {
         setLoading(false);
       }
@@ -153,6 +197,10 @@ export default function MovieDetailsScreen({ route, navigation }) {
     setShowPlayButton(true);
   };
 
+<<<<<<< HEAD
+=======
+
+>>>>>>> 259430187e2398ff2d9c39e096d87a1c6ce7111b
   const handleBookTicket = () => {
     if (!user) {
       Alert.alert(
@@ -167,6 +215,14 @@ export default function MovieDetailsScreen({ route, navigation }) {
                 from: "MovieDetailsScreen",
                 movieId,
               }),
+<<<<<<< HEAD
+=======
+            onPress: () =>
+              navigation.navigate("Login", {
+                from: "MovieDetailsScreen",
+                movieId,
+              }),
+>>>>>>> 259430187e2398ff2d9c39e096d87a1c6ce7111b
           },
         ]
       );
@@ -196,8 +252,37 @@ export default function MovieDetailsScreen({ route, navigation }) {
     } catch (error) {
       console.error("Lỗi khi chia sẻ:", error);
       Alert.alert("Lỗi", "Không thể chia sẻ lúc này. Vui lòng thử lại.");
+<<<<<<< HEAD
     }
   
+=======
+
+  
+
+  // Hàm chia sẻ liên kết đến phim
+  const handleShare = async () => {
+    if (!movie || !movieId) {
+      Alert.alert("Lỗi", "Không thể chia sẻ vì thiếu thông tin phim.");
+      return;
+    }
+  
+    const shareLink = `${APP_SCHEME}movie/${movieId}`;
+    const shareMessage = `Xem phim "${movie.MovieTitle}" trên ứng dụng của chúng tôi! ${shareLink}`;
+  
+    try {
+      await Share.share({
+        message: shareMessage,
+        url: shareLink, // Chỉ dùng trên iOS
+        title: `Chia sẻ phim: ${movie.MovieTitle}`,
+      });
+    } catch (error) {
+      console.error("Lỗi khi chia sẻ:", error);
+      Alert.alert("Lỗi", "Không thể chia sẻ lúc này. Vui lòng thử lại.");
+    }
+  
+    setShowShare(false);
+  
+>>>>>>> 259430187e2398ff2d9c39e096d87a1c6ce7111b
     setShowShare(false);
   };
 
@@ -287,6 +372,39 @@ export default function MovieDetailsScreen({ route, navigation }) {
     </Modal>
   );
 };
+<<<<<<< HEAD
+=======
+  // Sửa renderShareModal để sử dụng Share API
+ const renderShareModal = () => {
+  return (
+    <Modal
+      animationType="slide"
+      transparent={true}
+      visible={showShare}
+      onRequestClose={() => setShowShare(false)}
+    >
+      <View style={styles.modalOverlay}>
+        <View style={styles.modalContainer}>
+          <Text style={styles.modalTitle}>Chia sẻ</Text>
+          <TouchableOpacity
+            style={styles.shareButton}
+            onPress={handleShare}
+          >
+            <Ionicons name="share-social" size={24} color="black" />
+            <Text style={styles.shareButtonText}>Chia sẻ phim</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.closeButton}
+            onPress={() => setShowShare(false)}
+          >
+            <Text style={styles.closeButtonText}>Đóng</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+    </Modal>
+  );
+};
+>>>>>>> 259430187e2398ff2d9c39e096d87a1c6ce7111b
 
   if (loading) {
     return (
@@ -333,6 +451,10 @@ export default function MovieDetailsScreen({ route, navigation }) {
           contentContainerStyle={styles.scrollContentContainer}
         >
           {!!movie?.MovieTrailer && (
+<<<<<<< HEAD
+=======
+          {!!movie?.MovieTrailer && (
+>>>>>>> 259430187e2398ff2d9c39e096d87a1c6ce7111b
             <View style={styles.trailerContainer}>
               <TouchableOpacity
                 activeOpacity={1}
@@ -350,6 +472,20 @@ export default function MovieDetailsScreen({ route, navigation }) {
                     console.log("Lỗi tải video:", e.nativeEvent.description)
                   }
                 />
+<<<<<<< HEAD
+=======
+                <WebView
+                  source={{
+                    uri: movie.MovieTrailer,
+                  }}
+                  style={{ height: 210 }}
+                  mediaPlaybackRequiresUserAction={false}
+                  allowsInlineMediaPlayback={true}
+                  onError={(e) =>
+                    console.log("Lỗi tải video:", e.nativeEvent.description)
+                  }
+                />
+>>>>>>> 259430187e2398ff2d9c39e096d87a1c6ce7111b
               </TouchableOpacity>
             </View>
           )}
@@ -419,6 +555,10 @@ export default function MovieDetailsScreen({ route, navigation }) {
             <View style={styles.movieInfoDetail}>
               <Text style={styles.infoLabel}>Kiểm duyệt:</Text>
               <Text style={styles.infoValue}>{movie.MovieAge}</Text>
+<<<<<<< HEAD
+=======
+              <Text style={styles.infoValue}>{movie.MovieAge}</Text>
+>>>>>>> 259430187e2398ff2d9c39e096d87a1c6ce7111b
             </View>
             <View style={styles.movieInfoDetail}>
               <Text style={styles.infoLabel}>Thể loại:</Text>
@@ -449,6 +589,10 @@ export default function MovieDetailsScreen({ route, navigation }) {
           <View style={styles.newsHeader}>
             <TouchableOpacity
               onPress={() => navigation.navigate("TinMoiUuDaiTatCa")}
+<<<<<<< HEAD
+=======
+              onPress={() => navigation.navigate("TinMoiUuDaiTatCa")}
+>>>>>>> 259430187e2398ff2d9c39e096d87a1c6ce7111b
             >
               <Text style={styles.infoLabel1}>Tin mới & Ưu đãi</Text>
             </TouchableOpacity>
@@ -479,6 +623,13 @@ export default function MovieDetailsScreen({ route, navigation }) {
         style={styles.bookTicketButton}
         onPress={handleBookTicket}
       >
+<<<<<<< HEAD
+=======
+      <TouchableOpacity
+        style={styles.bookTicketButton}
+        onPress={handleBookTicket}
+      >
+>>>>>>> 259430187e2398ff2d9c39e096d87a1c6ce7111b
         <Text style={styles.bookTicketButtonText}>Đặt Vé</Text>
       </TouchableOpacity>
 
@@ -496,13 +647,28 @@ const styles = StyleSheet.create({
   header: {
     flexDirection: "row",
     alignItems: "center",
+<<<<<<< HEAD
     justifyContent: "space-between",
     paddingHorizontal: 10,
     paddingVertical: 0,
+=======
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingHorizontal: 10,
+    paddingVertical: 0,
+    paddingHorizontal: 10,
+    paddingVertical: 0,
+>>>>>>> 259430187e2398ff2d9c39e096d87a1c6ce7111b
     backgroundColor: "white",
     borderBottomWidth: 1,
     borderBottomColor: "#ddd",
     paddingTop: 10,
+<<<<<<< HEAD
+=======
+    borderBottomWidth: 1,
+    borderBottomColor: "#ddd",
+    paddingTop: 10,
+>>>>>>> 259430187e2398ff2d9c39e096d87a1c6ce7111b
   },
   backButton: { flexDirection: "row", alignItems: "center", gap: 10 },
   backButtonText: { fontSize: 16, fontWeight: "bold" },
@@ -613,6 +779,10 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: "bold",
     marginBottom: 15,
+<<<<<<< HEAD
+=======
+    marginBottom: 15,
+>>>>>>> 259430187e2398ff2d9c39e096d87a1c6ce7111b
     textAlign: "center",
   },
   modalDate: { fontSize: 16, color: "#666", textAlign: "center" },
@@ -648,6 +818,22 @@ const styles = StyleSheet.create({
     marginLeft: 10,
     fontSize: 16,
     fontWeight: "bold",
+<<<<<<< HEAD
+=======
+  shareButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    padding: 10,
+    backgroundColor: "#f0f0f0",
+    borderRadius: 5,
+    marginBottom: 15,
+  },
+  shareButtonText: {
+    marginLeft: 10,
+    fontSize: 16,
+    fontWeight: "bold",
+>>>>>>> 259430187e2398ff2d9c39e096d87a1c6ce7111b
   },
   closeButton: {
     backgroundColor: "red",

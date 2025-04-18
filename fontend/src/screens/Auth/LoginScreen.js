@@ -11,15 +11,23 @@ import {
 } from "react-native";
 import { UserContext } from "../../contexts/User/UserContext";
 import Icon from "react-native-vector-icons/FontAwesome";
+<<<<<<< HEAD
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { login, getCustomer } from "../../Api/api"; // Import các hàm từ api.js
 const LoginScreen = ({navigation, route}) => {
+=======
+
+const LoginScreen = () => {
+>>>>>>> 259430187e2398ff2d9c39e096d87a1c6ce7111b
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [isPasswordVisible, setIsPasswordVisible] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+  const navigation = useNavigation();
+  const route = useRoute();
   const { setUser } = useContext(UserContext);
 
   useEffect(() => {
+<<<<<<< HEAD
       const checkLoginStatus = async () => {
         try {
           const accessToken = await AsyncStorage.getItem("accessToken");
@@ -85,6 +93,73 @@ const LoginScreen = ({navigation, route}) => {
         console.error("Lỗi đăng nhập:", error);
       }
     };
+=======
+    const checkLoginStatus = async () => {
+      try {
+        const accessToken = await AsyncStorage.getItem("accessToken");
+        if (accessToken) {
+          navigation.navigate("Home");
+        }
+      } catch (error) {
+        console.error("Lỗi kiểm tra trạng thái đăng nhập:", error);
+      }
+    };
+    checkLoginStatus();
+  }, [navigation]);
+
+  useEffect(() => {
+    if (route.params?.email) {
+      setEmail(route.params.email);
+    }
+    if (route.params?.password) {
+      setPassword(route.params.password);
+    }
+  }, [route.params?.email, route.params?.password]);
+
+  const validateInput = () => {
+    if (!email || !password) {
+      Alert.alert("Lỗi", "Vui lòng nhập email và mật khẩu!");
+      return false;
+    }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      Alert.alert("Lỗi", "Email không hợp lệ!");
+      return false;
+    }
+    if (password.length < 6) {
+      Alert.alert("Lỗi", "Mật khẩu phải có ít nhất 6 ký tự!");
+      return false;
+    }
+    return true;
+  };
+
+  const handleLogin = async () => {
+    if (!validateInput()) return;
+
+    try {
+      const trimmedEmail = email.trim().toLowerCase();
+      const trimmedPassword = password.trim();
+      const loginResponse = await login(trimmedEmail, trimmedPassword);
+      if (loginResponse.user && loginResponse.accessToken) {
+        await AsyncStorage.setItem("accessToken", loginResponse.accessToken);
+        await AsyncStorage.setItem("refreshToken", loginResponse.refreshToken);
+        setUser(loginResponse.user);
+        const fromScreen = route.params?.from || "Home";
+        navigation.navigate(fromScreen);
+      } else {
+        Alert.alert("Lỗi", loginResponse.message || "Đăng nhập thất bại!");
+      }
+    } catch (error) {
+      const message =
+        error.response?.status === 401
+          ? "Email hoặc mật khẩu không đúng!"
+          : error.response?.status === 404
+          ? "Tài khoản không tồn tại!"
+          : "Đã xảy ra lỗi khi đăng nhập. Vui lòng thử lại!";
+      Alert.alert("Lỗi", message);
+      console.error("Lỗi đăng nhập:", error);
+    }
+  };
+>>>>>>> 259430187e2398ff2d9c39e096d87a1c6ce7111b
 
   return (
     <View style={styles.container}>
@@ -117,6 +192,7 @@ const LoginScreen = ({navigation, route}) => {
       </ImageBackground>
 
       <View style={styles.formContainer}>
+<<<<<<< HEAD
               <View style={styles.inputContainer}>
                 <TextInput
                   style={styles.input}
@@ -146,6 +222,38 @@ const LoginScreen = ({navigation, route}) => {
                       size={20}
                       color="#888"
                     />
+=======
+        <View style={styles.inputContainer}>
+          <TextInput
+            style={styles.input}
+            placeholder="Email"
+            placeholderTextColor="#888"
+            value={email}
+            onChangeText={setEmail}
+            keyboardType="email-address"
+            autoCapitalize="none"
+          />
+        </View>
+
+        <View style={styles.inputContainer}>
+          <TextInput
+            style={styles.input}
+            placeholder="Mật khẩu"
+            placeholderTextColor="#888"
+            value={password}
+            onChangeText={setPassword}
+            secureTextEntry={!showPassword}
+          />
+          <TouchableOpacity
+            style={styles.eyeIcon}
+            onPress={() => setShowPassword(!showPassword)}
+          >
+            <Icon
+              name={showPassword ? "eye" : "eye-slash"}
+              size={20}
+              color="#888"
+            />
+>>>>>>> 259430187e2398ff2d9c39e096d87a1c6ce7111b
           </TouchableOpacity>
         </View>
 

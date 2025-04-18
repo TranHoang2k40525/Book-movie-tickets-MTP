@@ -28,6 +28,7 @@ const getAccount = async (req, res) => {
 const getCustomer = async (req, res) => {
   try {
     const accountID = req.user.AccountID;
+<<<<<<< HEAD
 
     const pool = await sql.connect(dbConfig);
 
@@ -35,15 +36,29 @@ const getCustomer = async (req, res) => {
     
     console.log("SQL connection established");
 
+=======
+<<<<<<< HEAD
+    const pool = await sql.connect(dbConfig);
+=======
+    console.log("Fetching customer for AccountID:", accountID);
+    const pool = await sql.connect(dbConfig);
+    console.log("SQL connection established");
+>>>>>>> 9fb427d6dab1025ec067629bfeac351d80c18b84
+>>>>>>> 259430187e2398ff2d9c39e096d87a1c6ce7111b
     const result = await pool
       .request()
       .input("accountID", sql.Int, accountID)
       .query("SELECT * FROM [MTB 67CS1].[dbo].[Customer] WHERE AccountID = @accountID");
+<<<<<<< HEAD
 
+=======
+<<<<<<< HEAD
+>>>>>>> 259430187e2398ff2d9c39e096d87a1c6ce7111b
     if (result.recordset.length === 0) {
       console.log("No customer found for AccountID:", accountID);
       return res.status(404).json({ message: "Khách hàng không tồn tại!" });
     }
+<<<<<<< HEAD
 
     const customer = result.recordset[0];
     
@@ -55,6 +70,17 @@ const getCustomer = async (req, res) => {
 };
 
 
+=======
+
+    const customer = result.recordset[0];
+    
+    res.json({ message: "Lấy thông tin khách hàng thành công!", customer });
+  } catch (err) {
+    console.error("Lỗi lấy thông tin khách hàng:", err.message);
+    res.status(500).json({ message: "Lỗi server!", error: err.message });
+  }
+};
+>>>>>>> 259430187e2398ff2d9c39e096d87a1c6ce7111b
 // Cập nhật avatar
 const updateAvatar = async (req, res) => {
   const { avatarUrl } = req.body;
@@ -79,6 +105,50 @@ const updateAvatar = async (req, res) => {
     if (customerResult.recordset.length === 0) {
       return res.status(404).json({ message: "Không tìm thấy khách hàng!" });
     }
+<<<<<<< HEAD
+=======
+
+
+
+    console.log("Customer query result:", result.recordset);
+    if (result.recordset.length === 0) {
+      console.log("No customer found for AccountID:", accountID);
+      return res.status(404).json({ message: "Khách hàng không tồn tại!" });
+    }
+
+    const customer = result.recordset[0];
+    console.log("Customer found:", customer);
+    res.json({ message: "Lấy thông tin khách hàng thành công!", customer });
+  } catch (err) {
+    console.error("Lỗi lấy thông tin khách hàng:", err.message);
+    res.status(500).json({ message: "Lỗi server!", error: err.message });
+  }
+};
+// Cập nhật avatar
+const updateAvatar = async (req, res) => {
+  const { avatarUrl } = req.body;
+  const customerID = req.user.customerID; // Lấy từ req.user
+
+  // Kiểm tra avatarUrl
+  if (!avatarUrl) {
+    return res.status(400).json({ message: "Vui lòng cung cấp avatarUrl!" });
+  }
+
+  try {
+    const pool = await sql.connect(dbConfig);
+    const accountID = req.user.AccountID;
+    const customerResult = await pool
+      .request()
+      .input("customerID", sql.Int, customerID)
+      .input("accountID", sql.Int, accountID)
+      .query(
+        "SELECT * FROM Customer WHERE CustomerID = @customerID AND AccountID = @accountID"
+      );
+
+    if (customerResult.recordset.length === 0) {
+      return res.status(404).json({ message: "Không tìm thấy khách hàng!" });
+    }
+>>>>>>> 259430187e2398ff2d9c39e096d87a1c6ce7111b
     await pool
       .request()
       .input("avatarUrl", sql.VarChar, avatarUrl)
@@ -180,7 +250,15 @@ module.exports = {
   updateAvatar,
   updateCustomer,
   deleteAccount,
+<<<<<<< HEAD
 };
 
 
 
+=======
+<<<<<<< HEAD
+};
+=======
+};
+>>>>>>> 9fb427d6dab1025ec067629bfeac351d80c18b84
+>>>>>>> 259430187e2398ff2d9c39e096d87a1c6ce7111b

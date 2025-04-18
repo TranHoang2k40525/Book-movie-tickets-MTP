@@ -149,9 +149,12 @@ MTP Cinema mang đến nhiều giá trị cho người dùng và ngành công ng
 ## Hướng Phát Triển
 
 Dự án có nhiều tiềm năng phát triển trong tương lai:
+<<<<<<< HEAD
 
 - **Trí tuệ nhân tạo**: Đề xuất phim dựa trên AI
 - **Thực tế ảo**: Xem trước phòng chiếu bằng VR
+=======
+>>>>>>> 259430187e2398ff2d9c39e096d87a1c6ce7111b
 - **Loyalty program**: Hệ thống điểm thưởng và đặc quyền
 - **Social features**: Chia sẻ, bình luận, tạo nhóm xem phim
 - **Mở rộng dịch vụ**: Liên kết với các dịch vụ giải trí khác
@@ -185,4 +188,8 @@ Dự án được phát triển bởi nhóm sinh viên 67CS1 như một dự án
 
 ## Giấy Phép
 
+<<<<<<< HEAD
 Dự án được phát hành dưới giấy phép ISC License. 
+=======
+Dự án được phát hành dưới giấy phép ISC License. 
+>>>>>>> 259430187e2398ff2d9c39e096d87a1c6ce7111b

@@ -13,6 +13,15 @@ router.post('/:showId/hold-seats', authMiddleware, async (req, res) => {
   const { seatIds } = req.body;
   const customerId = req.user.customerID; // Lấy từ token (cần đảm bảo nhất quán với tên cột trong DB)
 
+<<<<<<< HEAD
+=======
+// Route để đặt ghế tạm thời
+router.post('/:showId/hold-seats', authMiddleware, async (req, res) => {
+  const { showId } = req.params;
+  const { seatIds } = req.body;
+  const customerId = req.user.customerID; // Lấy từ token (cần đảm bảo nhất quán với tên cột trong DB)
+
+>>>>>>> 259430187e2398ff2d9c39e096d87a1c6ce7111b
   console.log('Received showId:', showId);
   console.log('Received seatIds:', seatIds);
   console.log('CustomerId from token:', customerId);
@@ -67,7 +76,11 @@ router.post('/:showId/hold-seats', authMiddleware, async (req, res) => {
 
     console.log('Deleting old pending seats...');
     await request
+<<<<<<< HEAD
       .input('CustomerID', sql.Int, customerId) // Sửa customerId thành CustomerID để khớp với tên cột trong DB
+=======
+      .input('CustomerID', sql.Int, customerId) // CustomerID (viết hoa) để khớp với tên cột trong DB
+>>>>>>> 259430187e2398ff2d9c39e096d87a1c6ce7111b
       .query(`
         DELETE FROM BookingSeat 
         WHERE ShowID = @ShowID AND CustomerID = @CustomerID AND Status = 'Pending'
@@ -93,7 +106,11 @@ router.post('/:showId/hold-seats', authMiddleware, async (req, res) => {
       BookingID: bookingId,
       ShowID: showId,
       SeatID: seatId,
+<<<<<<< HEAD
       CustomerID: customerId, // Sửa customerId thành CustomerID để khớp với tên cột trong DB
+=======
+      CustomerID: customerId, // CustomerID (viết hoa) để khớp với tên cột trong DB
+>>>>>>> 259430187e2398ff2d9c39e096d87a1c6ce7111b
       Status: 'Pending',
       TicketPrice: ticketPrice,
       HoldUntil: holdUntil,
@@ -105,7 +122,11 @@ router.post('/:showId/hold-seats', authMiddleware, async (req, res) => {
         .input('BookingSeatID', sql.NVarChar, seat.BookingSeatID)
         .input('BookingID', sql.NVarChar, seat.BookingID)
         .input('SeatID', sql.Int, seat.SeatID)
+<<<<<<< HEAD
         .input('CustomerID', sql.Int, seat.CustomerID) // Sửa customerId thành CustomerID để khớp với tên cột trong DB
+=======
+        .input('CustomerID', sql.Int, seat.CustomerID) // CustomerID (viết hoa) để khớp với tham số đúng
+>>>>>>> 259430187e2398ff2d9c39e096d87a1c6ce7111b
         .input('TicketPrice', sql.Decimal(10, 2), seat.TicketPrice)
         .input('HoldUntil', sql.DateTime, seat.HoldUntil)
         .query(`

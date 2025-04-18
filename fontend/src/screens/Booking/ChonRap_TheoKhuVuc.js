@@ -15,6 +15,10 @@ import Menu from "../../components/Menu";
 import { getMoviesAndShowtimesByCinema } from '../../Api/api';
 
 const { width } = Dimensions.get('window');
+<<<<<<< HEAD
+=======
+
+>>>>>>> 259430187e2398ff2d9c39e096d87a1c6ce7111b
 const cache = new Map();
 
 const DateSelector = memo(({ selectedDate, onDateChange }) => {
@@ -99,10 +103,19 @@ const DateSelector = memo(({ selectedDate, onDateChange }) => {
 
 const MovieSchedule = memo(({ selectedDate, cinemaId, cinemaName }) => {
   const navigation = useNavigation();
+<<<<<<< HEAD
+=======
+const MovieSchedule = memo(({ selectedDate, cinemaId, cinemaName }) => {
+  const navigation = useNavigation();
+>>>>>>> 259430187e2398ff2d9c39e096d87a1c6ce7111b
   const [scheduleData, setScheduleData] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [expandedMovie, setExpandedMovie] = useState(null);
+<<<<<<< HEAD
+=======
+  const [expandedMovie, setExpandedMovie] = useState(null);
+>>>>>>> 259430187e2398ff2d9c39e096d87a1c6ce7111b
 
   const fetchMoviesAndShowtimes = useCallback(
     async (retries = 3, delay = 1000) => {
@@ -122,6 +135,10 @@ const MovieSchedule = memo(({ selectedDate, cinemaId, cinemaName }) => {
           const response = await getMoviesAndShowtimesByCinema(cinemaId, dateString);
           const movies = response.data.map((item) => ({
             movieId: item.movieId,
+<<<<<<< HEAD
+=======
+            movieId: item.movieId,
+>>>>>>> 259430187e2398ff2d9c39e096d87a1c6ce7111b
             movie: item.title,
             ageRating: item.ageRating,
             times: item.showtimes.map((showtime) => ({
@@ -165,6 +182,22 @@ const MovieSchedule = memo(({ selectedDate, cinemaId, cinemaName }) => {
     },
     [navigation, cinemaId, cinemaName, selectedDate]
   );
+<<<<<<< HEAD
+=======
+  const handleShowtimeClick = useCallback(
+    (showId, movieTitle, movieId) => {
+      navigation.navigate('SoDoGheNgoi1', {
+        showId,
+        cinemaId,
+        cinemaName,
+        showDate: selectedDate.toISOString().split('T')[0],
+        movieTitle,
+        movieId,
+      });
+    },
+    [navigation, cinemaId, cinemaName, selectedDate]
+  );
+>>>>>>> 259430187e2398ff2d9c39e096d87a1c6ce7111b
 
   const toggleMovieExpansion = useCallback((movieId) => {
     setExpandedMovie((prev) => (prev === movieId ? null : movieId));
@@ -173,10 +206,18 @@ const MovieSchedule = memo(({ selectedDate, cinemaId, cinemaName }) => {
   const renderShowtimes = useCallback(
     (item) => {
       return item.times.map((time) => (
+<<<<<<< HEAD
+=======
+      return item.times.map((time) => (
+>>>>>>> 259430187e2398ff2d9c39e096d87a1c6ce7111b
         <TouchableOpacity
           key={`showtime-${time.showId}`}
           style={[styles.timeButton, time.isPassed && styles.passedTimeButton]}
           onPress={() => !time.isPassed && handleShowtimeClick(time.showId, item.movie, item.movieId)}
+<<<<<<< HEAD
+=======
+          onPress={() => !time.isPassed && handleShowtimeClick(time.showId, item.movie, item.movieId)}
+>>>>>>> 259430187e2398ff2d9c39e096d87a1c6ce7111b
           disabled={time.isPassed}
         >
           <Text style={[styles.timeText, time.isPassed && styles.passedTimeText]}>
@@ -191,11 +232,19 @@ const MovieSchedule = memo(({ selectedDate, cinemaId, cinemaName }) => {
   const renderSchedule = useCallback(() => {
     return scheduleData.map((item, index) => {
       const isExpanded = expandedMovie === item.movieId;
+<<<<<<< HEAD
+=======
+      const isExpanded = expandedMovie === item.movieId;
+>>>>>>> 259430187e2398ff2d9c39e096d87a1c6ce7111b
       return (
         <View key={`movie-${index}`} style={styles.movieContainer}>
           <TouchableOpacity
             style={styles.movieHeader}
             onPress={() => toggleMovieExpansion(item.movieId)}
+<<<<<<< HEAD
+=======
+            onPress={() => toggleMovieExpansion(item.movieId)}
+>>>>>>> 259430187e2398ff2d9c39e096d87a1c6ce7111b
           >
             <View style={styles.movieTitleContainer}>
               <Text style={styles.movieTitle} numberOfLines={2} ellipsizeMode="tail">
@@ -204,11 +253,19 @@ const MovieSchedule = memo(({ selectedDate, cinemaId, cinemaName }) => {
             </View>
             <Ionicons
               name={isExpanded ? 'chevron-down' : 'chevron-forward'}
+<<<<<<< HEAD
+=======
+              name={isExpanded ? 'chevron-down' : 'chevron-forward'}
+>>>>>>> 259430187e2398ff2d9c39e096d87a1c6ce7111b
               size={20}
               color="gray"
             />
           </TouchableOpacity>
           {isExpanded && (
+<<<<<<< HEAD
+=======
+          {isExpanded && (
+>>>>>>> 259430187e2398ff2d9c39e096d87a1c6ce7111b
             <ScrollView horizontal showsHorizontalScrollIndicator={false}>
               {renderShowtimes(item)}
             </ScrollView>
@@ -242,7 +299,12 @@ const MovieSchedule = memo(({ selectedDate, cinemaId, cinemaName }) => {
   return <ScrollView style={styles.scheduleScrollView}>{renderSchedule()}</ScrollView>;
 });
 
+<<<<<<< HEAD
 const ChonRap_TheoKhuVuc = ({ navigation }) => {
+=======
+const ChonRap_TheoKhuVuc = ({navigation}) => {
+const ChonRap_TheoKhuVuc = ({navigation}) => {
+>>>>>>> 259430187e2398ff2d9c39e096d87a1c6ce7111b
   const route = useRoute();
   const { cinemaId, cinemaName } = route.params;
   const [selectedDate, setSelectedDate] = useState(new Date());
@@ -271,11 +333,20 @@ const ChonRap_TheoKhuVuc = ({ navigation }) => {
       <ScrollView style={styles.scrollContainer} stickyHeaderIndices={[0]}>
         <DateSelector selectedDate={selectedDate} onDateChange={setSelectedDate} />
         <MovieSchedule selectedDate={selectedDate} cinemaId={cinemaId} cinemaName={cinemaName} />
+<<<<<<< HEAD
+=======
+        <MovieSchedule selectedDate={selectedDate} cinemaId={cinemaId} cinemaName={cinemaName} />
+>>>>>>> 259430187e2398ff2d9c39e096d87a1c6ce7111b
       </ScrollView>
     </SafeAreaView>
   );
 };
 
+<<<<<<< HEAD
+=======
+// Styles không thay đổi
+// Styles không thay đổi
+>>>>>>> 259430187e2398ff2d9c39e096d87a1c6ce7111b
 const styles = StyleSheet.create({
   container: {
     flex: 1,
@@ -391,6 +462,11 @@ const styles = StyleSheet.create({
   movieTitleContainer: {
     flex: 1,
     marginRight: 10,
+<<<<<<< HEAD
+=======
+    flex: 1,
+    marginRight: 10,
+>>>>>>> 259430187e2398ff2d9c39e096d87a1c6ce7111b
   },
   movieTitle: {
     fontSize: 16,
@@ -398,6 +474,10 @@ const styles = StyleSheet.create({
     color: 'red',
     flexShrink: 1,
     flexWrap: 'wrap',
+<<<<<<< HEAD
+=======
+    flexWrap: 'wrap',
+>>>>>>> 259430187e2398ff2d9c39e096d87a1c6ce7111b
   },
   theaterText: {
     fontSize: 16,
