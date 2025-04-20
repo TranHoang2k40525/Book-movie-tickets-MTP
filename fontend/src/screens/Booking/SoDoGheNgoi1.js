@@ -21,6 +21,7 @@ import { useNavigation, useRoute } from '@react-navigation/native';
 import { getSeatMapByShow } from '../../Api/api';
 import Menu from '../../components/Menu';
 import axios from 'axios';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const { width, height } = Dimensions.get('window');
 const baseSeatSize = width / 25;
@@ -131,7 +132,7 @@ export default function SeatSelection() {
     movieTitle,
     movieId,
     moviePoster,
-    movieLanguage,
+    MovieLanguage,
   } = route.params;
 
   const [selectedSeats, setSelectedSeats] = useState([]);
@@ -143,6 +144,7 @@ export default function SeatSelection() {
   const [currentScale, setCurrentScale] = useState(1);
   const [viewportPosition, setViewportPosition] = useState({ x: 0.5, y: 0.5, width: 1, height: 1 });
   const [refreshing, setRefreshing] = useState(false);
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
 
   const scale = useRef(new Animated.Value(1)).current;
   const translateX = useRef(new Animated.Value(0)).current;
@@ -154,6 +156,43 @@ export default function SeatSelection() {
   const lastTranslateX = useRef(0);
   const lastTranslateY = useRef(0);
   const refreshInterval = useRef(null);
+
+  // Kiểm tra trạng thái đăng nhập của người dùng
+  useEffect(() => {
+    checkAuthStatus();
+  }, []);
+
+  const checkAuthStatus = async () => {
+    try {
+      const token = await AsyncStorage.getItem('accessToken');
+      if (token) {
+        setIsLoggedIn(true);
+      } else {
+        // Hiện thông báo yêu cầu đăng nhập và chuyển về trang đăng nhập
+        Alert.alert(
+          "Yêu cầu đăng nhập",
+          "Bạn cần đăng nhập để chọn ghế và đặt vé",
+          [
+            {
+              text: "Đăng nhập ngay",
+              onPress: () => navigation.navigate('Login', { 
+                returnScreen: 'SoDoGheNgoi1', 
+                returnParams: route.params 
+              })
+            },
+            {
+              text: "Quay lại",
+              onPress: () => navigation.goBack(),
+              style: "cancel"
+            }
+          ]
+        );
+      }
+    } catch (error) {
+      console.error('Lỗi kiểm tra trạng thái đăng nhập:', error);
+      setIsLoggedIn(false);
+    }
+  };
 
   // Lấy dữ liệu sơ đồ ghế và tối ưu hóa với đường đi
   const fetchSeatMap = useCallback(async () => {
@@ -190,7 +229,7 @@ export default function SeatSelection() {
     } finally {
       setLoading(false);
     }
-  }, [showId]);
+  }, [showId,]);
 
   useEffect(() => {
     fetchSeatMap();
@@ -401,6 +440,105 @@ export default function SeatSelection() {
     });
   }, [selectedSeats, totalPrice, showId, cinemaId, cinemaName, showDate, showTime, movieTitle, movieId, navigation]);
 
+  // Xử lý chọn ghế chỉ khi người dùng đã đăng nhập
+  const handleSeatPress = (seat) => {
+    if (!isLoggedIn) {
+      Alert.alert(
+        "Yêu cầu đăng nhập",
+        "Bạn cần đăng nhập để chọn ghế và đặt vé",
+        [
+          {
+            text: "Đăng nhập ngay",
+            onPress: () => navigation.navigate('Login', { 
+              returnScreen: 'SoDoGheNgoi1', 
+              returnParams: route.params 
+            })
+          },
+          {
+            text: "Đóng",
+            style: "cancel"
+          }
+        ]
+      );
+      return;
+    }
+
+    // Kiểm tra tổng số ghế đã chọn, giới hạn tối đa 8 ghế
+    if (selectedSeats.some((s) => s.seatId === seat.seatId)) {
+      setSelectedSeats(selectedSeats.filter((s) => s.seatId !== seat.seatId));
+      setTotalPrice(totalPrice - seat.price);
+    } else if (selectedSeats.length < 8) {
+      setSelectedSeats([...selectedSeats, seat]);
+      setTotalPrice(totalPrice + seat.price);
+    } else {
+      Alert.alert('Thông báo', 'Bạn không thể chọn quá 8 ghế cho một lần đặt vé');
+    }
+  };
+
+  // Sửa lại hàm tiếp tục
+  const handleContinue = () => {
+    if (!isLoggedIn) {
+      Alert.alert(
+        "Yêu cầu đăng nhập",
+        "Bạn cần đăng nhập để đặt vé",
+        [
+          {
+            text: "Đăng nhập ngay",
+            onPress: () => navigation.navigate('Login', { 
+              returnScreen: 'SoDoGheNgoi1', 
+              returnParams: route.params 
+            })
+          },
+          {
+            text: "Đóng",
+            style: "cancel"
+          }
+        ]
+      );
+      return;
+    }
+
+    if (selectedSeats.length === 0) {
+      Alert.alert('Thông báo', 'Vui lòng chọn ít nhất một ghế để tiếp tục');
+      return;
+    }
+
+    navigation.navigate('DatVeThanhToan', {
+      selectedSeats,
+      totalPrice,
+      showId,
+      cinemaId,
+      cinemaName,
+      showDate,
+      showTime,
+      movieTitle,
+      movieId,
+    });
+  };
+
+  // Thêm message khi chưa đăng nhập
+  const renderLoginMessage = () => {
+    if (!isLoggedIn) {
+      return (
+        <View style={styles.loginRequiredContainer}>
+          <Text style={styles.loginRequiredText}>
+            Bạn cần đăng nhập để chọn ghế và đặt vé
+          </Text>
+          <TouchableOpacity 
+            style={styles.loginButton}
+            onPress={() => navigation.navigate('Login', { 
+              returnScreen: 'SoDoGheNgoi1', 
+              returnParams: route.params 
+            })}
+          >
+            <Text style={styles.loginButtonText}>ĐĂNG NHẬP NGAY</Text>
+          </TouchableOpacity>
+        </View>
+      );
+    }
+    return null;
+  };
+
   if (loading) {
     return (
       <View style={styles.loadingContainer}>
@@ -494,7 +632,7 @@ export default function SeatSelection() {
                             key={seat.seatId}
                             seat={seat}
                             isSelected={selectedSeats.some((s) => s.seatId === seat.seatId)}
-                            onPress={toggleSeat}
+                            onPress={handleSeatPress}
                           />
                         ))}
                       </View>
@@ -538,17 +676,20 @@ export default function SeatSelection() {
         <View style={styles.footer}>
           <View style={styles.movieInfo}>
             <Text style={styles.movieTitle}>{movieTitle}</Text>
-            <Text style={styles.movieLanguage}>Ngôn ngữ: {movieLanguage || 'N/A'}</Text>
+            <Text style={styles.movieLanguage}>Ngôn ngữ: {MovieLanguage || 'N/A'}</Text>
             <Text style={styles.priceText}>Giá vé: {totalPrice.toLocaleString()}đ</Text>
           </View>
           <TouchableOpacity
             style={[styles.bookButton, selectedSeats.length === 0 && styles.bookButtonDisabled]}
-            onPress={navigateToPayment}
+            onPress={handleContinue}
             disabled={selectedSeats.length === 0}
           >
             <Text style={styles.bookText}>Đặt Vé</Text>
           </TouchableOpacity>
         </View>
+
+        {/* Hiển thị thông báo đăng nhập nếu chưa đăng nhập */}
+        {renderLoginMessage()}
       </ImageBackground>
     </GestureHandlerRootView>
   );
@@ -795,5 +936,65 @@ const styles = StyleSheet.create({
     color: '#fff',
     marginLeft: 5,
     fontSize: 12,
+  },
+  loginRequiredContainer: {
+    backgroundColor: '#333',
+    padding: 15,
+    borderRadius: 5,
+    marginHorizontal: 10,
+    marginTop: 10,
+    alignItems: 'center',
+  },
+  loginRequiredText: {
+    color: '#fff',
+    fontSize: 14,
+    textAlign: 'center',
+    marginBottom: 10,
+  },
+  loginButton: {
+    backgroundColor: '#e71a0f',
+    paddingVertical: 8,
+    paddingHorizontal: 15,
+    borderRadius: 5,
+  },
+  loginButtonText: {
+    color: '#fff',
+    fontSize: 14,
+    fontWeight: 'bold',
+  },
+  disabledButton: {
+    backgroundColor: '#666',
+    opacity: 0.7,
+  },
+  bottomContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 12,
+    backgroundColor: 'rgba(255, 255, 255, 0.95)',
+    borderTopLeftRadius: 12,
+    borderTopRightRadius: 12,
+    elevation: 5,
+    zIndex: 3,
+  },
+  totalPriceContainer: {
+    flex: 1,
+  },
+  totalPriceText: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#ff4d6d',
+  },
+  continueButton: {
+    backgroundColor: '#ff4d6d',
+    paddingVertical: 10,
+    paddingHorizontal: 20,
+    borderRadius: 8,
+    elevation: 2,
+  },
+  continueButtonText: {
+    color: 'white',
+    fontWeight: 'bold',
+    fontSize: 16,
   },
 });

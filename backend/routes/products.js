@@ -1,8 +1,10 @@
 // backend/routes/products.js
 const express = require('express');
 const router = express.Router();
-const getAllProducts = require('../controllers/productController'); // Import hàm trực tiếp
-const authMiddleware = require('../middleware/authMiddleware');
+const { getAllProducts } = require('../controllers/productController'); // Import hàm từ object
 
-router.get('/products', authMiddleware, getAllProducts); // Sử dụng hàm trực tiếp
+// Bỏ middleware xác thực để dễ test
+// Đảm bảo mọi thiết bị có thể truy cập API này mà không cần xác thực
+router.get('/products', getAllProducts);
+
 module.exports = router;
