@@ -359,63 +359,6 @@ export default function SeatSelection() {
     []
   );
 
-  // Xử lý chọn/bỏ chọn ghế, đảm bảo sweetbox chọn cả cặp
-  const toggleSeat = useCallback(
-    (seat) => {
-      if (seat.status === 'booked' || seat.type === 'aisle') return;
-
-      // Kiểm tra nếu đang làm mới sơ đồ
-      if (refreshing) {
-        Alert.alert('Thông báo', 'Đang cập nhật sơ đồ ghế, vui lòng đợi một chút.');
-        return;
-      }
-
-      setSelectedSeats((prev) => {
-        let newSelection = [...prev];
-        const isSweetBox = seat.type === 'sweetbox';
-        const seatIndex = newSelection.findIndex((s) => s.seatId === seat.seatId);
-
-        if (seatIndex !== -1) {
-          // Bỏ chọn
-          newSelection = newSelection.filter((s) => s.seatId !== seat.seatId);
-          if (isSweetBox) {
-            const pairSeatNumber = seat.seatNumber.startsWith('H')
-              ? `H${parseInt(seat.seatNumber.slice(1)) + (parseInt(seat.seatNumber.slice(1)) % 2 === 1 ? 1 : -1)}`
-              : null;
-            newSelection = newSelection.filter((s) => s.seatNumber !== pairSeatNumber);
-          }
-        } else {
-          // Chọn ghế
-          if (isSweetBox) {
-            const seatNumber = parseInt(seat.seatNumber.slice(1));
-            const isOdd = seatNumber % 2 === 1;
-            const pairSeatNumber = `H${isOdd ? seatNumber + 1 : seatNumber - 1}`;
-            const pairSeat = seatLayout
-              .flatMap((row) => row.seats)
-              .find((s) => s.seatNumber === pairSeatNumber);
-
-            // Kiểm tra cặp sweetbox
-            if (!pairSeat || pairSeat.status === 'booked' || pairSeat.type !== 'sweetbox') {
-              Alert.alert('Thông báo', 'Ghế Sweet Box phải chọn cả cặp!');
-              return prev;
-            }
-
-            newSelection.push(seat, pairSeat);
-          } else {
-            newSelection.push(seat);
-          }
-        }
-
-        const newTotalPrice = newSelection.reduce((sum, s) => sum + (s.price || 0), 0);
-        setTotalPrice(newTotalPrice);
-        return newSelection;
-      });
-    },
-    [seatLayout, refreshing]
-  );
-
-  // Chuyển hướng đến màn hình thanh toán
-
   // Xử lý chọn ghế chỉ khi người dùng đã đăng nhập
   const handleSeatPress = (seat) => {
     if (!isLoggedIn) {
@@ -438,17 +381,45 @@ export default function SeatSelection() {
       );
       return;
     }
-
-    // Kiểm tra tổng số ghế đã chọn, giới hạn tối đa 8 ghế
-    if (selectedSeats.some((s) => s.seatId === seat.seatId)) {
-      setSelectedSeats(selectedSeats.filter((s) => s.seatId !== seat.seatId));
-      setTotalPrice(totalPrice - seat.price);
-    } else if (selectedSeats.length < 8) {
-      setSelectedSeats([...selectedSeats, seat]);
-      setTotalPrice(totalPrice + seat.price);
-    } else {
-      Alert.alert('Thông báo', 'Bạn không thể chọn quá 8 ghế cho một lần đặt vé');
+    // Đặt lại toggleSeat logic tại đây, loại bỏ giới hạn 8 ghế
+    if (seat.status === 'booked' || seat.type === 'aisle') return;
+    if (refreshing) {
+      Alert.alert('Thông báo', 'Đang cập nhật sơ đồ ghế, vui lòng đợi một chút.');
+      return;
     }
+    setSelectedSeats((prev) => {
+      let newSelection = [...prev];
+      const isSweetBox = seat.type === 'sweetbox';
+      const seatIndex = newSelection.findIndex((s) => s.seatId === seat.seatId);
+      if (seatIndex !== -1) {
+        newSelection = newSelection.filter((s) => s.seatId !== seat.seatId);
+        if (isSweetBox) {
+          const pairSeatNumber = seat.seatNumber.startsWith('H')
+            ? `H${parseInt(seat.seatNumber.slice(1)) + (parseInt(seat.seatNumber.slice(1)) % 2 === 1 ? 1 : -1)}`
+            : null;
+          newSelection = newSelection.filter((s) => s.seatNumber !== pairSeatNumber);
+        }
+      } else {
+        if (isSweetBox) {
+          const seatNumber = parseInt(seat.seatNumber.slice(1));
+          const isOdd = seatNumber % 2 === 1;
+          const pairSeatNumber = `H${isOdd ? seatNumber + 1 : seatNumber - 1}`;
+          const pairSeat = seatLayout
+            .flatMap((row) => row.seats)
+            .find((s) => s.seatNumber === pairSeatNumber);
+          if (!pairSeat || pairSeat.status === 'booked' || pairSeat.type !== 'sweetbox') {
+            Alert.alert('Thông báo', 'Ghế Sweet Box phải chọn cả cặp!');
+            return prev;
+          }
+          newSelection.push(seat, pairSeat);
+        } else {
+          newSelection.push(seat);
+        }
+      }
+      const newTotalPrice = newSelection.reduce((sum, s) => sum + (s.price || 0), 0);
+      setTotalPrice(newTotalPrice);
+      return newSelection;
+    });
   };
 
   // Sửa lại hàm tiếp tục
