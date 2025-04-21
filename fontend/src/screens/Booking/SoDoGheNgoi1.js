@@ -415,30 +415,6 @@ export default function SeatSelection() {
   );
 
   // Chuyển hướng đến màn hình thanh toán
-  const navigateToPayment = useCallback(() => {
-    if (selectedSeats.length === 0) {
-      Alert.alert('Thông báo', 'Vui lòng chọn ít nhất một ghế');
-      return;
-    }
-    const invalidSeats = selectedSeats.filter(seat => !Number.isInteger(seat.seatId));
-    if (invalidSeats.length > 0) {
-      console.error('Ghế không hợp lệ:', invalidSeats);
-      Alert.alert('Lỗi', 'Một hoặc nhiều ghế có seatId không hợp lệ');
-      return;
-    }
-    console.log('Chuyển hướng với selectedSeats:', selectedSeats);
-    navigation.navigate('DatVeThanhToan', {
-      selectedSeats,
-      totalPrice,
-      showId,
-      cinemaId,
-      cinemaName,
-      showDate,
-      showTime,
-      movieTitle,
-      movieId,
-    });
-  }, [selectedSeats, totalPrice, showId, cinemaId, cinemaName, showDate, showTime, movieTitle, movieId, navigation]);
 
   // Xử lý chọn ghế chỉ khi người dùng đã đăng nhập
   const handleSeatPress = (seat) => {
