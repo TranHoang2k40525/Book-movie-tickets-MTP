@@ -13,7 +13,21 @@ import {
 import { Ionicons } from "@expo/vector-icons";
 import { UserContext } from '../../contexts/User/UserContext';
 import Menu from "../../components/Menu";
-import { getCities, getCinemas } from '../../Api/api'; // Import API functions
+import { getCities, getCinemas } from '../../Api/api';
+import * as Location from 'expo-location';
+
+// Tính khoảng cách bằng công thức Haversine
+const getDistanceFromLatLonInKm = (lat1, lon1, lat2, lon2) => {
+  const R = 6371; // Bán kính Trái Đất (km)
+  const dLat = (lat2 - lat1) * Math.PI / 180;
+  const dLon = (lon2 - lon1) * Math.PI / 180;
+  const a =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+    Math.sin(dLon / 2) * Math.sin(dLon / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return R * c; // Khoảng cách (km)
+};
 
 export default function ChonPhimTheoRap({ navigation }) {
   const scrollViewRef = useRef();
@@ -23,19 +37,62 @@ export default function ChonPhimTheoRap({ navigation }) {
   const [cinemas, setCinemas] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [userLocation, setUserLocation] = useState(null);
 
-  // Kiểm tra người dùng ngay khi vào màn hình
+  // Lấy vị trí người dùng từ định vị
+  const getUserLocation = async () => {
+    try {
+      const { status } = await Location.requestForegroundPermissionsAsync();
+      if (status !== 'granted') {
+        setError('Không được cấp quyền truy cập vị trí. Danh sách rạp sẽ hiển thị nhưng không có khoảng cách.');
+        console.log('Quyền vị trí bị từ chối');
+        return false;
+      }
+
+      const location = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.High });
+      const userLoc = {
+        latitude: location.coords.latitude,
+        longitude: location.coords.longitude
+      };
+      setUserLocation(userLoc);
+      console.log('Vị trí người dùng:', userLoc);
+      return true;
+    } catch (err) {
+      setError('Lỗi khi lấy vị trí người dùng: ' + err.message + '. Danh sách rạp sẽ hiển thị nhưng không có khoảng cách.');
+      console.log('Lỗi lấy vị trí:', err);
+      return false;
+    }
+  };
+
+  // Lấy dữ liệu từ API
+  const fetchData = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+
+      const citiesResponse = await getCities();
+      setCities(citiesResponse.data.cities);
+      console.log('Dữ liệu thành phố:', citiesResponse.data.cities);
+
+      const cinemasResponse = await getCinemas();
+      setCinemas(cinemasResponse.data.cinemas);
+      console.log('Dữ liệu rạp:', cinemasResponse.data.cinemas);
+    } catch (err) {
+      setError('Không thể tải dữ liệu từ server: ' + err.message);
+      console.error('Lỗi khi lấy dữ liệu:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Kiểm tra đăng nhập và lấy dữ liệu
   useEffect(() => {
     if (!user) {
       Alert.alert(
         'Yêu cầu đăng nhập',
-        'Xin vui lòng đăng nhập để sử dụng dịch vụ',
+        'Vui lòng đăng nhập để sử dụng dịch vụ',
         [
-          {
-            text: 'Hủy',
-            style: 'cancel',
-            onPress: () => navigation.goBack(),
-          },
+          { text: 'Hủy', style: 'cancel', onPress: () => navigation.goBack() },
           {
             text: 'Xác nhận',
             onPress: () => navigation.navigate('Login', { from: 'ChonPhimTheoRap' }),
@@ -45,61 +102,85 @@ export default function ChonPhimTheoRap({ navigation }) {
         { cancelable: false }
       );
     } else {
-      fetchData();
+      getUserLocation().then(() => fetchData());
     }
   }, [user, navigation]);
 
-  // Lấy dữ liệu từ API
-  const fetchData = async () => {
-    try {
-      setLoading(true);
-      setError(null);
-
-      // Lấy danh sách thành phố
-      const citiesResponse = await getCities();
-      setCities(citiesResponse.data.cities);
-
-      // Lấy danh sách rạp chiếu phim
-      const cinemasResponse = await getCinemas();
-      setCinemas(cinemasResponse.data.cinemas);
-    } catch (err) {
-      console.error('Lỗi khi lấy dữ liệu:', err);
-    } finally {
-      setLoading(false);
-    }
+  // Kiểm tra tọa độ hợp lệ
+  const isValidCoordinate = (lat, lon) => {
+    return (
+      lat != null &&
+      lon != null &&
+      !isNaN(lat) &&
+      !isNaN(lon) &&
+      lat >= -90 &&
+      lat <= 90 &&
+      lon >= -180 &&
+      lon <= 180
+    );
   };
 
+  // Chuẩn bị danh sách rạp gợi ý
+  const suggestedCinemas = cinemas
+    .filter(cinema => isValidCoordinate(cinema.Latitude, cinema.Longitude))
+    .map(cinema => ({
+      id: cinema.CinemaID,
+      name: cinema.CinemaName,
+      distance: userLocation
+        ? getDistanceFromLatLonInKm(
+            userLocation.latitude,
+            userLocation.longitude,
+            cinema.Latitude,
+            cinema.Longitude
+          ).toFixed(2)
+        : 'N/A',
+      latitude: cinema.Latitude,
+      longitude: cinema.Longitude,
+    }))
+    .sort((a, b) => {
+      if (a.distance === 'N/A' && b.distance === 'N/A') return 0;
+      if (a.distance === 'N/A') return 1;
+      if (b.distance === 'N/A') return -1;
+      return parseFloat(a.distance) - parseFloat(b.distance);
+    })
+    .slice(0, 5);
 
-  const suggestedCinemas = cinemas.slice(0, 5).map(cinema => ({
-    id: cinema.CinemaID,
-    name: cinema.CinemaName,
-    distance: cinema.CityAddress ? `${(Math.random() * 10).toFixed(2)}Km` : null,
-    isFavorite: cinema.CinemaID === 1, // Ví dụ: rạp đầu tiên là yêu thích
-  }));
-
-  // Tạo danh sách khu vực (thành phố) và rạp con
+  // Chuẩn bị danh sách khu vực
   const regions = cities.map(city => ({
     id: city.CityID,
     name: city.CityName,
     count: cinemas.filter(cinema => cinema.CityID === city.CityID).length,
     subRegions: cinemas
       .filter(cinema => cinema.CityID === city.CityID)
+      .filter(cinema => isValidCoordinate(cinema.Latitude, cinema.Longitude))
       .map(cinema => ({
         id: cinema.CinemaID,
         name: cinema.CinemaName,
-        distance: cinema.CityAddress ? `${(Math.random() * 10).toFixed(2)}Km` : null,
-      })),
+        distance: userLocation
+          ? getDistanceFromLatLonInKm(
+              userLocation.latitude,
+              userLocation.longitude,
+              cinema.Latitude,
+              cinema.Longitude
+            ).toFixed(2)
+          : 'N/A',
+        latitude: cinema.Latitude,
+        longitude: cinema.Longitude,
+      }))
+      .sort((a, b) => {
+        if (a.distance === 'N/A' && b.distance === 'N/A') return 0;
+        if (a.distance === 'N/A') return 1;
+        if (b.distance === 'N/A') return -1;
+        return parseFloat(a.distance) - parseFloat(b.distance);
+      }),
   }));
 
-  // Chuyển đổi tên rạp để giống với ảnh (thêm "CGV" vào trước tên rạp)
+  // Định dạng tên rạp
   const formatCinemaName = (name) => ` ${name}`;
 
   // Mở rộng/thu gọn khu vực
   const toggleRegion = (id) => {
-    setExpandedRegions(prev => ({
-      ...prev,
-      [id]: !prev[id],
-    }));
+    setExpandedRegions(prev => ({ ...prev, [id]: !prev[id] }));
   };
 
   // Cuộn lên đầu
@@ -107,16 +188,18 @@ export default function ChonPhimTheoRap({ navigation }) {
     scrollViewRef.current.scrollTo({ y: 0, animated: true });
   };
 
-
-  // Xử lý khi nhấn vào rạp con
+  // Xử lý khi chọn rạp
   const handleCinemaPress = (cinema) => {
-    navigation.navigate('ChonRap_TheoKhuVuc', {
+    console.log('Chọn rạp:', cinema);
+    navigation.navigate('Map', {
       cinemaId: cinema.id,
       cinemaName: formatCinemaName(cinema.name),
+      cinemaLat: cinema.latitude,
+      cinemaLng: cinema.longitude,
     });
   };
 
-  // Xử lý khi đang loading hoặc có lỗi
+  // Trạng thái đang tải
   if (loading) {
     return (
       <View style={styles.loadingContainer}>
@@ -126,10 +209,24 @@ export default function ChonPhimTheoRap({ navigation }) {
     );
   }
 
-  if (error) {
+  // Trạng thái lỗi
+  if (error && cinemas.length === 0) {
     return (
       <View style={styles.errorContainer}>
-        <Text>Có lỗi xảy ra: {error}</Text>
+        <Text>Có lỗi: {error}</Text>
+        <TouchableOpacity onPress={() => getUserLocation().then(fetchData)} style={styles.retryButton}>
+          <Text style={styles.retryButtonText}>Thử lại</Text>
+        </TouchableOpacity>
+      </View>
+    );
+  }
+
+  // Kiểm tra dữ liệu rạp
+  const validCinemas = cinemas.filter(cinema => isValidCoordinate(cinema.Latitude, cinema.Longitude));
+  if (cinemas.length === 0 || validCinemas.length === 0) {
+    return (
+      <View style={styles.errorContainer}>
+        <Text>Không tìm thấy rạp phim với tọa độ hợp lệ. Vui lòng kiểm tra dữ liệu trong bảng Cinemas (SQL Server).</Text>
         <TouchableOpacity onPress={fetchData} style={styles.retryButton}>
           <Text style={styles.retryButtonText}>Thử lại</Text>
         </TouchableOpacity>
@@ -155,45 +252,47 @@ export default function ChonPhimTheoRap({ navigation }) {
         </View>
       </View>
 
-      {/* Main Content */}
+      {/* Thông báo nếu không có vị trí */}
+      {error && (
+        <View style={styles.warningContainer}>
+          <Text style={styles.warningText}>{error}</Text>
+        </View>
+      )}
+
+      {/* Nội dung chính */}
       <ScrollView
         ref={scrollViewRef}
         style={styles.scrollView}
         showsVerticalScrollIndicator={false}
       >
-        {/* Suggested Cinemas Section */}
-        <View style={styles.sectionHeader}>
-          <Text style={styles.sectionTitle}>GỢI Ý CHO BẠN</Text>
-        </View>
-
-        {suggestedCinemas.map(cinema => (
-          <TouchableOpacity
-            key={cinema.id}
-            style={styles.cinemaItem}
-            onPress={() => handleCinemaPress(cinema)}
-          >
-            <Text style={styles.cinemaName}>{formatCinemaName(cinema.name)}</Text>
-            {cinema.isFavorite ? (
-              <TouchableOpacity>
-                <Text style={styles.favoriteIcon}>❤️</Text>
+        {/* Phần rạp gợi ý */}
+        {suggestedCinemas.length > 0 && (
+          <>
+            <View style={styles.sectionHeader}>
+              <Text style={styles.sectionTitle}>GỢI Ý CHO BẠN</Text>
+            </View>
+            {suggestedCinemas.map(cinema => (
+              <TouchableOpacity
+                key={cinema.id}
+                style={styles.cinemaItem}
+                onPress={() => handleCinemaPress(cinema)}
+              >
+                <Text style={styles.cinemaName}>{formatCinemaName(cinema.name)}</Text>
+                <Text style={styles.distanceText}>
+                  {cinema.distance === 'N/A' ? 'Không có khoảng cách' : `${cinema.distance} km`}
+                </Text>
               </TouchableOpacity>
-            ) : (
-              <Text style={styles.distanceText}>{cinema.distance}</Text>
-            )}
-          </TouchableOpacity>
-        ))}
+            ))}
+          </>
+        )}
 
-        {/* Regions Section */}
+        {/* Phần khu vực */}
         <View style={styles.sectionHeader}>
-          <Text style={styles.sectionTitle}>KHU VỰC MTP</Text>
+          <Text style={styles.sectionTitle}>KHU VỰC</Text>
         </View>
-
         {regions.map(region => (
           <View key={region.id}>
-            <TouchableOpacity
-              style={styles.regionItem}
-              onPress={() => toggleRegion(region.id)}
-            >
+            <TouchableOpacity style={styles.regionItem} onPress={() => toggleRegion(region.id)}>
               <Text style={styles.regionName}>{region.name}</Text>
               <View style={styles.regionCountContainer}>
                 <Text style={styles.regionCount}>{region.count}</Text>
@@ -204,8 +303,6 @@ export default function ChonPhimTheoRap({ navigation }) {
                 />
               </View>
             </TouchableOpacity>
-
-            {/* SubRegions - will show when expanded */}
             {expandedRegions[region.id] &&
               region.subRegions.map(subRegion => (
                 <TouchableOpacity
@@ -214,19 +311,16 @@ export default function ChonPhimTheoRap({ navigation }) {
                   onPress={() => handleCinemaPress(subRegion)}
                 >
                   <Text style={styles.subRegionName}>{formatCinemaName(subRegion.name)}</Text>
-                  {subRegion.distance && (
-                    <Text style={styles.distanceText}>{subRegion.distance}</Text>
-                  )}
+                  <Text style={styles.distanceText}>
+                    {subRegion.distance === 'N/A' ? 'Không có khoảng cách' : `${subRegion.distance} km`}
+                  </Text>
                 </TouchableOpacity>
               ))}
           </View>
         ))}
 
         <View style={styles.footer}>
-          <TouchableOpacity
-            style={styles.scrollToTopButton}
-            onPress={scrollToTop}
-          >
+          <TouchableOpacity style={styles.scrollToTopButton} onPress={scrollToTop}>
             <Ionicons name="arrow-up" size={20} color="#666" />
           </TouchableOpacity>
         </View>
@@ -245,36 +339,38 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "space-between",
     paddingHorizontal: 10,
-    paddingVertical: 0,
+    paddingVertical: 10,
     backgroundColor: "white",
     borderBottomWidth: 1,
     borderBottomColor: "#ddd",
-    paddingTop: 10,
   },
   backButton: {
     padding: 8,
-  },
-  backButtonText: {
-    fontSize: 28,
-    color: '#8B0000',
-    marginLeft: -200,
   },
   headerTitle: {
     fontSize: 18,
     fontWeight: "bold",
     color: "black",
-    marginLeft: -170,
+    marginLeft: -120,
   },
   headerRightButtons: {
     flexDirection: 'row',
+    alignItems: 'center',
   },
   headerButton: {
     padding: 8,
-    marginLeft: 16,
   },
-  headerButtonText: {
-    fontSize: 20,
-    color: '#8B0000',
+  locationIcon: {
+    marginRight: 8,
+  },
+  warningContainer: {
+    padding: 10,
+    backgroundColor: '#ffebee',
+    alignItems: 'center',
+  },
+  warningText: {
+    color: '#c62828',
+    fontSize: 14,
   },
   scrollView: {
     flex: 1,
@@ -284,7 +380,6 @@ const styles = StyleSheet.create({
     backgroundColor: '#f0f0f0',
     borderBottomWidth: 1,
     borderBottomColor: '#e0e0e0',
-    marginBottom: 1,
   },
   sectionTitle: {
     fontSize: 16,
@@ -302,13 +397,11 @@ const styles = StyleSheet.create({
   cinemaName: {
     fontSize: 16,
     color: '#8B0000',
-  },
-  favoriteIcon: {
-    fontSize: 20,
+    flex: 1,
   },
   distanceText: {
-    fontSize: 16,
-    color: '#8B0000',
+    fontSize: 14,
+    color: '#666',
   },
   regionItem: {
     flexDirection: 'row',
@@ -331,10 +424,6 @@ const styles = StyleSheet.create({
     marginRight: 8,
     color: '#666',
   },
-  expandIcon: {
-    fontSize: 14,
-    color: '#666',
-  },
   subRegionItem: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -348,11 +437,11 @@ const styles = StyleSheet.create({
   subRegionName: {
     fontSize: 14,
     color: '#333',
+    flex: 1,
   },
   footer: {
     alignItems: 'center',
     paddingVertical: 24,
-    paddingHorizontal: 16,
   },
   scrollToTopButton: {
     width: 40,
@@ -361,11 +450,6 @@ const styles = StyleSheet.create({
     backgroundColor: '#f0f0f0',
     justifyContent: 'center',
     alignItems: 'center',
-    marginTop: 16,
-  },
-  scrollToTopButtonText: {
-    fontSize: 20,
-    color: '#666',
   },
   loadingContainer: {
     flex: 1,
