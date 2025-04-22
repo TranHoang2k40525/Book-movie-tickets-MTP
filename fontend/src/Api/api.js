@@ -1,7 +1,7 @@
 // fontend/src/Api/api.js
 import axios from "axios";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-const BASE_URL = "http://192.168.100.184:3000";
+const BASE_URL = "http://192.168.56.105:3000";
 
 const api = axios.create({
   baseURL: BASE_URL,
@@ -10,6 +10,7 @@ const api = axios.create({
     "Content-Type": "application/json",
   },
 });
+
 
 api.interceptors.request.use(
   async (config) => {
@@ -177,4 +178,71 @@ export const getProducts = async () => {
     throw error;
   }
 };
+
+// API cho thông báo
+export const getNotifications = async () => {
+  try {
+    const response = await api.get('/api/notifications');
+    return response.data;
+  } catch (error) {
+    console.error("Error fetching notifications:", error);
+    throw error;
+  }
+};
+
+export const markNotificationAsRead = async (notificationId) => {
+  try {
+    const response = await api.put(`/api/notifications/${notificationId}/read`);
+    return response.data;
+  } catch (error) {
+    console.error("Error marking notification as read:", error);
+    throw error;
+  }
+};
+
+export const getNotificationById = async (notificationId) => {
+  try {
+    const response = await api.get(`/api/notifications/${notificationId}`);
+    return response.data;
+  } catch (error) {
+    console.error("Error fetching notification details:", error);
+    throw error;
+  }
+};
+
+// API cho vé
+export const getBookings = async () => {
+  try {
+    const response = await api.get('/api/bookings');
+    return response.data;
+  } catch (error) {
+    console.error("Error fetching bookings:", error);
+    throw error;
+  }
+};
+
+export const getBookingById = async (bookingId) => {
+  try {
+    const response = await api.get(`/api/bookings/${bookingId}`);
+    return response.data;
+  } catch (error) {
+    console.error("Error fetching booking details:", error);
+    throw error;
+  }
+};
+
+export const checkExpiredBookings = async () => {
+  try {
+    const response = await api.get('/api/bookings/check-expiration');
+    return response.data;
+  } catch (error) {
+    // Nếu lỗi 404, xử lý như không có vé sắp hết hạn
+    if (error.response && error.response.status === 404) {
+      return { message: 'Không có vé sắp hết hạn', expiringTickets: 0 };
+    }
+    console.error("Error checking expired bookings:", error);
+    throw error;
+  }
+};
+
 export default api;
