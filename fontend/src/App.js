@@ -23,6 +23,8 @@ import SoDoGheNgoi1 from "./screens/Booking/SoDoGheNgoi1";
 import TinMoiUuDaiTatCa from "./screens/Promotions/TinMoi&UuDai(TatCa)";
 import tintucvauudai from "./screens/Promotions/Tintucvauudai";
 import DatVeThanhToan from "./screens/Booking/DatVeThanhToan";
+import VeCuaToi from "./screens/User/VeCuaToi";
+import ThongBao from "./screens/User/ThongBao";
 const Stack = createStackNavigator();
 
 export default function App() {
@@ -110,31 +112,41 @@ export default function App() {
                         component={ChonRap_TheoKhuVuc}
                         options={{ headerShown: false }}
                     />
-                        <Stack.Screen
-                            name="MTBStoreChonDoUong"
-                            component={MTBStoreChonDoUong}
-                            options={{ headerShown: false }}
-                          />
-                          <Stack.Screen
-                            name="DatVeThanhToan"
-                            component={DatVeThanhToan}
-                            options={{ headerShown: false }}
-                          />
-                          <Stack.Screen
-                            name="SoDoGheNgoi1"
-                            component={SoDoGheNgoi1}
-                            options={{ headerShown: false }}
-                          />
-                           <Stack.Screen
-                            name="TinMoiUuDaiTatCa"
-                            component={TinMoiUuDaiTatCa}
-                            options={{ headerShown: false }}
-                          />
-                          <Stack.Screen
-                            name="Tintucvauudai"
-                            component={tintucvauudai}
-                            options={{ headerShown: false }}
-                          /> 
+                    <Stack.Screen
+                        name="MTBStoreChonDoUong"
+                        component={MTBStoreChonDoUong}
+                        options={{ headerShown: false }}
+                    />
+                    <Stack.Screen
+                        name="DatVeThanhToan"
+                        component={DatVeThanhToan}
+                        options={{ headerShown: false }}
+                    />
+                    <Stack.Screen
+                        name="SoDoGheNgoi1"
+                        component={SoDoGheNgoi1}
+                        options={{ headerShown: false }}
+                    />
+                    <Stack.Screen
+                        name="TinMoiUuDaiTatCa"
+                        component={TinMoiUuDaiTatCa}
+                        options={{ headerShown: false }}
+                    />
+                    <Stack.Screen
+                        name="Tintucvauudai"
+                        component={tintucvauudai}
+                        options={{ headerShown: false }}
+                    />
+                    <Stack.Screen
+                        name="VeCuaToi"
+                        component={VeCuaToi}
+                        options={{ headerShown: false }}
+                    />
+                    <Stack.Screen
+                        name="ThongBao"
+                        component={ThongBao}
+                        options={{ headerShown: false }}
+                    />
                 </Stack.Navigator>
             </NavigationContainer>
         </UserProvider>

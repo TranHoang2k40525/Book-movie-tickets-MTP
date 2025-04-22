@@ -13,6 +13,8 @@ const movieRoutes = require('./routes/movies');
 const locationRoutes = require('./routes/locations');
 const likeRoutes = require("./routes/likes");
 const productRoutes = require("./routes/products");
+const notificationRoutes = require("./routes/notifications");
+const bookingRoutes = require("./routes/bookings");
 const app = express();
 
 
@@ -86,6 +88,8 @@ app.use('/api', userRoutes);
 app.use('/api/movies', movieRoutes);
 app.use('/api', locationRoutes);
 app.use('/api', productRoutes);
+app.use('/api', notificationRoutes);
+app.use('/api', bookingRoutes);
 
 // Kết nối database và khởi động server
 async function startServer() {
