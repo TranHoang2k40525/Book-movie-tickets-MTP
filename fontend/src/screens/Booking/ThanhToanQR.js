@@ -56,7 +56,7 @@ export default function App() {
         <View style={styles.paymentHeader}>
           <View style={styles.logoContainer}>
             <Image
-              source={require('../assets/logo.png')}
+              source={require('../../Book-movie-tickets-MTP/fontend/src/assets/logo.png')}
               style={styles.logo}
               resizeMode="contain"
             />
@@ -117,7 +117,7 @@ export default function App() {
         
         <View style={styles.paymentImageContainer}>
           <Image
-            source={require('../assets/AnhNH.jpg')}
+            source={require('../../Book-movie-tickets-MTP/fontend/src/assets/AnhNH.jpg')}
             style={styles.paymentImage}
             resizeMode="contain"
           />
