@@ -53,6 +53,7 @@ export default function Menu({ navigation }) {
       { cancelable: true }
     );
   };
+  
 
   const handleMemberPress = () => {
     setMenuVisible(false);

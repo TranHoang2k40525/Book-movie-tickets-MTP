@@ -23,4 +23,5 @@ const styles = StyleSheet.create({
   item: { fontSize: 18, padding: 10, borderBottomWidth: 1 },
 });
 
+
 export default ProductList;

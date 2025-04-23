@@ -214,7 +214,7 @@ export default function DatVeThanhToan({ navigation, route }) {
         <View style={styles.headerContent}>
           <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>
             <Text style={{ color: "#fff" }}>
-              <Ionicons name="arrow-back" size={24} color="#fff" /> Quay lại
+              <Ionicons name="arrow-back" size={24} color="#fff" /> 
             </Text>
           </TouchableOpacity>
           <View style={styles.headerTextContainer}>
@@ -315,7 +315,7 @@ export default function DatVeThanhToan({ navigation, route }) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#000",
+    backgroundColor: "#fff",
   },
   loadingContainer: {
     flex: 1,
@@ -431,7 +431,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   comboTitle: {
-    color: "#fff",
+    color: "#black",
     fontSize: 16,
     fontWeight: "bold",
     marginBottom: 5,
@@ -442,7 +442,7 @@ const styles = StyleSheet.create({
     marginBottom: 5,
   },
   comboNote: {
-    color: "#999",
+    color: "#black",
     fontSize: 12,
     marginBottom: 3,
   },
@@ -455,12 +455,12 @@ const styles = StyleSheet.create({
     width: 30,
     height: 30,
     borderRadius: 15,
-    backgroundColor: "#333",
+    backgroundColor: "#c0c0c0",
     justifyContent: "center",
     alignItems: "center",
   },
   quantityButtonText: {
-    color: "#fff",
+    color: "#red",
     fontSize: 18,
     fontWeight: "bold",
   },
@@ -472,7 +472,7 @@ const styles = StyleSheet.create({
     marginHorizontal: 5,
   },
   quantityText: {
-    color: "#fff",
+    color: "#black",
     fontSize: 16,
   },
   footer: {
@@ -493,7 +493,7 @@ const styles = StyleSheet.create({
     fontWeight: "bold",
   },
   totalPriceValue: {
-    color: "#e71a0f",
+    color: "#fff",
     fontSize: 18,
     fontWeight: "bold",
   },

@@ -12,6 +12,7 @@ import {
 } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import { getCinemas } from '../../Api/api';
+import Menu from '../../components/Menu'; // Cập nhật đường dẫn import
 
 export default function SweetBox({ navigation }) {
   const [cinemas, setCinemas] = useState([]);
@@ -24,13 +25,18 @@ export default function SweetBox({ navigation }) {
       try {
         setLoading(true);
         setError(null);
+
         const response = await getCinemas();
         const allCinemas = response.data.cinemas;
+
+        // Chuẩn bị danh sách rạp
         const sweetboxCinemas = allCinemas.map(cinema => ({
           id: cinema.CinemaID.toString(),
           name: cinema.CinemaName,
-          distance: `${(Math.random() * 10).toFixed(2)}Km`,
+          latitude: cinema.Latitude,
+          longitude: cinema.Longitude,
         }));
+
         setCinemas(sweetboxCinemas);
       } catch (err) {
         console.error('Lỗi khi lấy danh sách rạp:', err);
@@ -43,6 +49,11 @@ export default function SweetBox({ navigation }) {
     fetchCinemas();
   }, []);
 
+  // Xử lý khi nhấn nút "TÌM VÉ & ĐẶT VÉ"
+  const handleBookTickets = () => {
+    navigation.navigate('ChonPhimTheoRap');
+  };
+
   if (loading) {
     return (
       <View style={styles.loadingContainer}>
@@ -51,10 +62,21 @@ export default function SweetBox({ navigation }) {
     );
   }
 
-  if (error) {
+  if (error && cinemas.length === 0) {
     return (
       <View style={styles.errorContainer}>
         <Text>Có lỗi xảy ra: {error}</Text>
+        <TouchableOpacity onPress={() => fetchCinemas()} style={styles.retryButton}>
+          <Text style={styles.retryButtonText}>Thử lại</Text>
+        </TouchableOpacity>
+      </View>
+    );
+  }
+
+  if (cinemas.length === 0) {
+    return (
+      <View style={styles.errorContainer}>
+        <Text>Không tìm thấy rạp phim.</Text>
         <TouchableOpacity onPress={() => fetchCinemas()} style={styles.retryButton}>
           <Text style={styles.retryButtonText}>Thử lại</Text>
         </TouchableOpacity>
@@ -76,7 +98,7 @@ export default function SweetBox({ navigation }) {
         </View>
         <PromoSection expanded={expanded} setExpanded={setExpanded} />
         <LocationsList cinemas={cinemas} />
-        <Footer navigation={navigation} />
+        <Footer navigation={navigation} onBookTickets={handleBookTickets} />
       </ScrollView>
     </SafeAreaView>
   );
@@ -102,9 +124,7 @@ function Header({ navigation }) {
           <TouchableOpacity style={styles.headerIcon}>
             <Feather name="send" size={20} color="#999" />
           </TouchableOpacity>
-          <TouchableOpacity style={styles.headerIcon}>
-            <Feather name="menu" size={24} color="#E74C3C" />
-          </TouchableOpacity>
+          <Menu navigation={navigation} />
         </View>
       </View>
     </View>
@@ -138,7 +158,6 @@ function LocationsList({ cinemas }) {
         <Text style={styles.locationPrefix}>MTB</Text>
         <Text style={styles.locationName}>{item.name}</Text>
       </View>
-      <Text style={styles.distance}>{item.distance}</Text>
     </TouchableOpacity>
   );
 
@@ -155,7 +174,7 @@ function LocationsList({ cinemas }) {
   );
 }
 
-function Footer({ navigation }) {
+function Footer({ navigation, onBookTickets }) {
   return (
     <View style={styles.footerContainer}>
       <View style={styles.footerContent}>
@@ -166,7 +185,7 @@ function Footer({ navigation }) {
           <Text style={styles.allButtonText}>Tất cả</Text>
         </TouchableOpacity>
       </View>
-      <TouchableOpacity style={styles.bookButton}>
+      <TouchableOpacity style={styles.bookButton} onPress={onBookTickets}>
         <Text style={styles.bookButtonText}>TÌM VÉ & ĐẶT VÉ</Text>
       </TouchableOpacity>
     </View>
@@ -187,6 +206,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#fff',
     borderBottomWidth: 1,
     borderBottomColor: '#ECECEC',
+
   },
   scrollView: {
     flex: 1,
@@ -201,6 +221,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
+    marginTop: -30,
   },
   leftSection: {
     flexDirection: 'row',
@@ -278,7 +299,6 @@ const styles = StyleSheet.create({
   },
   locationItem: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
     paddingVertical: 12,
     paddingHorizontal: 15,
@@ -298,11 +318,6 @@ const styles = StyleSheet.create({
   locationName: {
     color: '#666',
     fontSize: 14,
-  },
-  distance: {
-    color: '#E74C3C',
-    fontSize: 12,
-    fontWeight: '300',
   },
   footerContainer: {
     paddingVertical: 15,
@@ -358,11 +373,12 @@ const styles = StyleSheet.create({
   retryButton: {
     marginTop: 20,
     backgroundColor: '#ff4d6d',
-    padding: 10,
+    paddingVertical: 10,
+    paddingHorizontal: 20,
     borderRadius: 5,
   },
   retryButtonText: {
-    color: 'white',
-    fontWeight: 'bold',
+    color: '#FFF',
+    fontSize: 16,
   },
 });

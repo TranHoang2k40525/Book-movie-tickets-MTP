@@ -25,6 +25,7 @@ import tintucvauudai from "./screens/Promotions/Tintucvauudai";
 import DatVeThanhToan from "./screens/Booking/DatVeThanhToan";
 import VeCuaToi from "./screens/User/VeCuaToi";
 import ThongBao from "./screens/User/ThongBao";
+import Map from './screens/Booking/Map';
 const Stack = createStackNavigator();
 
 export default function App() {
@@ -147,6 +148,11 @@ export default function App() {
                         component={ThongBao}
                         options={{ headerShown: false }}
                     />
+                    <Stack.Screen
+            name="Map"
+            component={Map}
+            options={{ headerShown: false }}
+          />
                 </Stack.Navigator>
             </NavigationContainer>
         </UserProvider>
