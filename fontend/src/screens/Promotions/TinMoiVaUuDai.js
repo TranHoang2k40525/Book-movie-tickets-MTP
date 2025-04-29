@@ -54,11 +54,9 @@ export default function TinMoiVaUuDai({ navigation }) {
         <View style={styles.infoSection}>
           <Text style={styles.subTitle}>Culture Day Tháng 3</Text>
           <Text style={styles.description}>
-            Với sự ủng hộ và tin tưởng của khách hàng trong nhiều năm qua, MTB đã và đang thực hiện mục tiêu mang điện ảnh đến gần hơn với tất cả mọi người. Xuất phát từ tinh thần này, với ngày Thứ 2 cuối cùng của mỗi tháng, MTB áp dụng chính sách giá vé đặc biệt nhằm tri ân khách hàng, đồng giá vé chỉ từ 55,000Đ, 
+            Với sự ủng hộ và tin tưởng của khách hàng trong nhiều năm qua, MTB đã và đang thực hiện mục tiêu mang điện ảnh đến gần hơn với tất cả mọi người. Xuất phát từ tinh thần này, với ngày Thứ 2 cuối cùng của mỗi tháng, MTB áp dụng chính sách giá vé đặc biệt nhằm tri ân khách hàng, đồng giá vé chỉ từ 55.000Đ 
             <Text> </Text>
-            <TouchableOpacity onPress={() => Linking.openURL('https://www.cgv.vn')}>
-              <Text style={styles.linkText}>Xem tại đây</Text>
-            </TouchableOpacity>
+            
           </Text>
         </View>
         

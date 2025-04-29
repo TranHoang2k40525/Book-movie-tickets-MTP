@@ -9,6 +9,7 @@ import {
   Alert,
   ActivityIndicator,
   ImageBackground,
+  BackHandler,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import {
@@ -17,10 +18,9 @@ import {
   PanGestureHandler,
   State,
 } from 'react-native-gesture-handler';
-import { useNavigation, useRoute } from '@react-navigation/native';
-import { getSeatMapByShow } from '../../Api/api';
+import { useNavigation, useRoute, useFocusEffect } from '@react-navigation/native';
+import { getSeatMapByShow, holdSeats, cancelBooking } from '../../Api/api';
 import Menu from '../../components/Menu';
-import axios from 'axios';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const { width, height } = Dimensions.get('window');
@@ -31,14 +31,14 @@ const SEAT_MAP_HEIGHT = height * 0.5;
 const MINI_MAP_WIDTH = SEAT_MAP_WIDTH * miniMapRatio;
 const MINI_MAP_HEIGHT = SEAT_MAP_HEIGHT * miniMapRatio;
 
-
 const seatTypes = {
   booked: '#A67C52',
+  reserved: '#FFA500',
   selected: '#0047AB',
   vip: '#FF0000',
   regular: '#D3D3D3',
   sweetbox: '#FF00FF',
-  aisle: 'transparent', // Đường đi
+  aisle: 'transparent',
 };
 
 const Seat = memo(({ seat, isSelected, onPress, minimap = false }) => {
@@ -48,16 +48,16 @@ const Seat = memo(({ seat, isSelected, onPress, minimap = false }) => {
 
   const seatColor = isSelected
     ? seatTypes.selected
-    : seat.status === 'booked'
-    ? seatTypes.booked
-    : seatTypes[seat.type] || seatTypes.regular;
+    : seat.status === 'booked' || seat.status === 'reserved'
+      ? seatTypes[seat.status]
+      : seatTypes[seat.type] || seatTypes.regular;
 
   const seatSize = minimap ? baseSeatSize * miniMapRatio * 0.8 : baseSeatSize;
 
   return (
     <TouchableOpacity
       onPress={minimap ? null : () => onPress(seat)}
-      disabled={minimap || seat.status === 'booked'}
+      disabled={minimap || seat.status === 'booked' || seat.status === 'reserved'}
       style={[
         styles.seat,
         {
@@ -133,6 +133,8 @@ export default function SeatSelection() {
     movieId,
     moviePoster,
     MovieLanguage,
+    ImageUrl,
+    fromScreen,
   } = route.params;
 
   const [selectedSeats, setSelectedSeats] = useState([]);
@@ -145,7 +147,9 @@ export default function SeatSelection() {
   const [viewportPosition, setViewportPosition] = useState({ x: 0.5, y: 0.5, width: 1, height: 1 });
   const [refreshing, setRefreshing] = useState(false);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
-
+  const [bookingId, setBookingId] = useState(null); // Thêm state để lưu bookingId
+  // Thêm state để kiểm soát trạng thái hủy
+  const [isCancelling, setIsCancelling] = useState(false);
   const scale = useRef(new Animated.Value(1)).current;
   const translateX = useRef(new Animated.Value(0)).current;
   const translateY = useRef(new Animated.Value(0)).current;
@@ -155,9 +159,8 @@ export default function SeatSelection() {
   const lastScale = useRef(1);
   const lastTranslateX = useRef(0);
   const lastTranslateY = useRef(0);
-  const refreshInterval = useRef(null);
 
-  // Kiểm tra trạng thái đăng nhập của người dùng
+  // Kiểm tra trạng thái đăng nhập
   useEffect(() => {
     checkAuthStatus();
   }, []);
@@ -168,23 +171,23 @@ export default function SeatSelection() {
       if (token) {
         setIsLoggedIn(true);
       } else {
-        // Hiện thông báo yêu cầu đăng nhập và chuyển về trang đăng nhập
         Alert.alert(
-          "Yêu cầu đăng nhập",
-          "Bạn cần đăng nhập để chọn ghế và đặt vé",
+          'Yêu cầu đăng nhập',
+          'Bạn cần đăng nhập để chọn ghế và đặt vé',
           [
             {
-              text: "Đăng nhập ngay",
-              onPress: () => navigation.navigate('Login', { 
-                returnScreen: 'SoDoGheNgoi1', 
-                returnParams: route.params 
-              })
+              text: 'Đăng nhập ngay',
+              onPress: () =>
+                navigation.navigate('Login', {
+                  returnScreen: 'SoDoGheNgoi1',
+                  returnParams: route.params,
+                }),
             },
             {
-              text: "Quay lại",
+              text: 'Quay lại',
               onPress: () => navigation.goBack(),
-              style: "cancel"
-            }
+              style: 'cancel',
+            },
           ]
         );
       }
@@ -194,26 +197,23 @@ export default function SeatSelection() {
     }
   };
 
-  // Lấy dữ liệu sơ đồ ghế và tối ưu hóa với đường đi
+  // Lấy dữ liệu sơ đồ ghế
   const fetchSeatMap = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
       const response = await getSeatMapByShow(showId);
-      const rawLayout = response.data.seatLayout;
+      const rawLayout = response.seatLayout || response.data.seatLayout; // Điều chỉnh theo cấu trúc API
 
-      // Tối ưu hóa sơ đồ ghế với đường đi và đảm bảo hàng cuối là sweetbox
       const optimizedLayout = rawLayout.map((row, rowIndex) => {
         const isLastRow = rowIndex === rawLayout.length - 1;
         const seats = row.seats.map((seat, seatIndex) => {
-          // Đặt hàng cuối là sweetbox
           if (isLastRow) {
             return { ...seat, type: 'sweetbox', seatNumber: `H${seatIndex + 1}` };
           }
           return seat;
         });
 
-        // Thêm đường đi ở 4 góc nếu cần
         if (rowIndex === 0 || rowIndex === rawLayout.length - 1) {
           seats.unshift({ seatId: `aisle-start-${row.row}`, type: 'aisle' });
           seats.push({ seatId: `aisle-end-${row.row}`, type: 'aisle' });
@@ -223,17 +223,80 @@ export default function SeatSelection() {
       });
 
       setSeatLayout(optimizedLayout);
-      setHallInfo(response.data.hall);
+      setHallInfo(response.hall || response.data.hall);
     } catch (err) {
       setError(err.message || 'Không thể tải sơ đồ ghế ngồi');
     } finally {
       setLoading(false);
     }
-  }, [showId,]);
+  }, [showId]);
 
   useEffect(() => {
     fetchSeatMap();
   }, [fetchSeatMap]);
+
+  // Xử lý hủy giao dịch
+  // Cập nhật handleCancelBooking
+  const handleCancelBooking = useCallback(async () => {
+    if (!bookingId || isCancelling) return;
+    setIsCancelling(true);
+    try {
+      await cancelBooking(bookingId);
+      console.log('Đã hủy đặt vé:', bookingId);
+      setBookingId(null);
+    } catch (error) {
+      const errorMessage = error.response?.data?.message || 'Không thể hủy đặt vé';
+      console.error('Lỗi khi hủy đặt vé:', error);
+      if (errorMessage === 'Đặt vé đã được hủy trước đó') {
+        console.log('Giao dịch đã được hủy trước đó, bỏ qua.');
+      } else {
+        Alert.alert('Lỗi', errorMessage);
+      }
+    } finally {
+      setIsCancelling(false);
+    }
+  }, [bookingId, isCancelling]);
+
+  // Gộp logic điều hướng quay lại
+  const handleGoBack = useCallback(async () => {
+    if (isCancelling) return;
+    Alert.alert(
+      'Hủy giao dịch',
+      'Bạn có muốn hủy quá trình chọn ghế không?',
+      [
+        {
+          text: 'Hủy',
+          onPress: async () => {
+            await handleCancelBooking();
+            if (fromScreen === 'MovieBookingScreen') {
+              navigation.navigate('MovieBookingScreen', { movieId });
+            } else if (fromScreen === 'ChonRap_TheoKhuVuc') {
+              navigation.navigate('ChonRap_TheoKhuVuc', { cinemaId, cinemaName });
+            } else {
+              navigation.goBack();
+            }
+          },
+          style: 'destructive',
+        },
+        { text: 'Tiếp tục', style: 'cancel' },
+      ],
+      { cancelable: false }
+    );
+  }, [handleCancelBooking, fromScreen, movieId, cinemaId, cinemaName, isCancelling]);
+
+  // Cập nhật BackHandler và nút quay lại
+  useEffect(() => {
+    const backAction = () => {
+      handleGoBack();
+      return true;
+    };
+
+    const backHandler = BackHandler.addEventListener('hardwareBackPress', backAction);
+
+    return () => backHandler.remove();
+  }, [handleGoBack]);
+
+
 
   // Cập nhật vị trí viewport cho mini-map
   const updateViewportPosition = useCallback(() => {
@@ -268,27 +331,29 @@ export default function SeatSelection() {
     }
   );
 
-  // Hoàn tất phóng to/thu nhỏ và giới hạn vị trí
-  const onPinchHandlerStateChange = useCallback(({ nativeEvent }) => {
-    if (nativeEvent.state === State.END) {
-      lastScale.current = Math.max(1, Math.min(3, nativeEvent.scale * lastScale.current));
-      scale.setValue(lastScale.current);
-      setCurrentScale(lastScale.current);
+  const onPinchHandlerStateChange = useCallback(
+    ({ nativeEvent }) => {
+      if (nativeEvent.state === State.END) {
+        lastScale.current = Math.max(1, Math.min(3, nativeEvent.scale * lastScale.current));
+        scale.setValue(lastScale.current);
+        setCurrentScale(lastScale.current);
 
-      const maxTranslateX = (SEAT_MAP_WIDTH * lastScale.current - SEAT_MAP_WIDTH) / 2;
-      const maxTranslateY = (SEAT_MAP_HEIGHT * lastScale.current - SEAT_MAP_HEIGHT) / 2;
-      const newTranslateX = Math.max(-maxTranslateX, Math.min(maxTranslateX, lastTranslateX.current));
-      const newTranslateY = Math.max(-maxTranslateY, Math.min(maxTranslateY, lastTranslateY.current));
+        const maxTranslateX = (SEAT_MAP_WIDTH * lastScale.current - SEAT_MAP_WIDTH) / 2;
+        const maxTranslateY = (SEAT_MAP_HEIGHT * lastScale.current - SEAT_MAP_HEIGHT) / 2;
+        const newTranslateX = Math.max(-maxTranslateX, Math.min(maxTranslateX, lastTranslateX.current));
+        const newTranslateY = Math.max(-maxTranslateY, Math.min(maxTranslateY, lastTranslateY.current));
 
-      Animated.spring(translateX, { toValue: newTranslateX, useNativeDriver: true }).start();
-      Animated.spring(translateY, { toValue: newTranslateY, useNativeDriver: true }).start();
+        Animated.spring(translateX, { toValue: newTranslateX, useNativeDriver: true }).start();
+        Animated.spring(translateY, { toValue: newTranslateY, useNativeDriver: true }).start();
 
-      lastTranslateX.current = newTranslateX;
-      lastTranslateY.current = newTranslateY;
+        lastTranslateX.current = newTranslateX;
+        lastTranslateY.current = newTranslateY;
 
-      updateViewportPosition();
-    }
-  }, [updateViewportPosition]);
+        updateViewportPosition();
+      }
+    },
+    [updateViewportPosition]
+  );
 
   // Xử lý kéo sơ đồ ghế
   const onPanGestureEvent = Animated.event(
@@ -314,25 +379,27 @@ export default function SeatSelection() {
     }
   );
 
-  // Hoàn tất kéo và cập nhật vị trí
-  const onPanHandlerStateChange = useCallback(({ nativeEvent }) => {
-    if (nativeEvent.state === State.END) {
-      lastTranslateX.current = translateX._value;
-      lastTranslateY.current = translateY._value;
+  const onPanHandlerStateChange = useCallback(
+    ({ nativeEvent }) => {
+      if (nativeEvent.state === State.END) {
+        lastTranslateX.current = translateX._value;
+        lastTranslateY.current = translateY._value;
 
-      Animated.spring(translateX, { toValue: lastTranslateX.current, useNativeDriver: true }).start();
-      Animated.spring(translateY, { toValue: lastTranslateY.current, useNativeDriver: true }).start();
+        Animated.spring(translateX, { toValue: lastTranslateX.current, useNativeDriver: true }).start();
+        Animated.spring(translateY, { toValue: lastTranslateY.current, useNativeDriver: true }).start();
 
-      updateViewportPosition();
-    }
-  }, [updateViewportPosition]);
+        updateViewportPosition();
+      }
+    },
+    [updateViewportPosition]
+  );
 
-  // Xử lý nhấn vào mini-map để di chuyển sơ đồ chính
+  // Xử lý nhấn vào mini-map
   const handleMiniMapPress = useCallback(
     (event) => {
       const { locationX, locationY } = event.nativeEvent;
-      const relativeX = Math.max(0, Math.min(8, locationX / MINI_MAP_WIDTH));
-      const relativeY = Math.max(0, Math.min(8, locationY / MINI_MAP_HEIGHT));
+      const relativeX = Math.max(0, Math.min(1, locationX / MINI_MAP_WIDTH));
+      const relativeY = Math.max(0, Math.min(1, locationY / MINI_MAP_HEIGHT));
 
       const targetX = (relativeX - 0.5) * SEAT_MAP_WIDTH * lastScale.current;
       const targetY = (relativeY - 0.5) * SEAT_MAP_HEIGHT * lastScale.current;
@@ -359,38 +426,41 @@ export default function SeatSelection() {
     []
   );
 
-  // Xử lý chọn ghế chỉ khi người dùng đã đăng nhập
+  // Xử lý chọn ghế
   const handleSeatPress = (seat) => {
     if (!isLoggedIn) {
       Alert.alert(
-        "Yêu cầu đăng nhập",
-        "Bạn cần đăng nhập để chọn ghế và đặt vé",
+        'Yêu cầu đăng nhập',
+        'Bạn cần đăng nhập để chọn ghế và đặt vé',
         [
           {
-            text: "Đăng nhập ngay",
-            onPress: () => navigation.navigate('Login', { 
-              returnScreen: 'SoDoGheNgoi1', 
-              returnParams: route.params 
-            })
+            text: 'Đăng nhập ngay',
+            onPress: () =>
+              navigation.navigate('Login', {
+                returnScreen: 'SoDoGheNgoi1',
+                returnParams: route.params,
+              }),
           },
           {
-            text: "Đóng",
-            style: "cancel"
-          }
+            text: 'Đóng',
+            style: 'cancel',
+          },
         ]
       );
       return;
     }
-    // Đặt lại toggleSeat logic tại đây, loại bỏ giới hạn 8 ghế
-    if (seat.status === 'booked' || seat.type === 'aisle') return;
+
+    if (seat.status === 'booked' || seat.status === 'reserved' || seat.type === 'aisle') return;
     if (refreshing) {
       Alert.alert('Thông báo', 'Đang cập nhật sơ đồ ghế, vui lòng đợi một chút.');
       return;
     }
+
     setSelectedSeats((prev) => {
       let newSelection = [...prev];
       const isSweetBox = seat.type === 'sweetbox';
       const seatIndex = newSelection.findIndex((s) => s.seatId === seat.seatId);
+
       if (seatIndex !== -1) {
         newSelection = newSelection.filter((s) => s.seatId !== seat.seatId);
         if (isSweetBox) {
@@ -407,7 +477,8 @@ export default function SeatSelection() {
           const pairSeat = seatLayout
             .flatMap((row) => row.seats)
             .find((s) => s.seatNumber === pairSeatNumber);
-          if (!pairSeat || pairSeat.status === 'booked' || pairSeat.type !== 'sweetbox') {
+
+          if (!pairSeat || pairSeat.status === 'booked' || pairSeat.status === 'reserved' || pairSeat.type !== 'sweetbox') {
             Alert.alert('Thông báo', 'Ghế Sweet Box phải chọn cả cặp!');
             return prev;
           }
@@ -416,30 +487,29 @@ export default function SeatSelection() {
           newSelection.push(seat);
         }
       }
+
       const newTotalPrice = newSelection.reduce((sum, s) => sum + (s.price || 0), 0);
       setTotalPrice(newTotalPrice);
       return newSelection;
     });
   };
 
-  // Sửa lại hàm tiếp tục
-  const handleContinue = () => {
+  // Xử lý đặt vé
+  const handleContinue = async () => {
     if (!isLoggedIn) {
       Alert.alert(
-        "Yêu cầu đăng nhập",
-        "Bạn cần đăng nhập để đặt vé",
+        'Yêu cầu đăng nhập',
+        'Bạn cần đăng nhập để đặt vé',
         [
           {
-            text: "Đăng nhập ngay",
-            onPress: () => navigation.navigate('Login', { 
-              returnScreen: 'SoDoGheNgoi1', 
-              returnParams: route.params 
-            })
+            text: 'Đăng nhập ngay',
+            onPress: () =>
+              navigation.navigate('Login', {
+                returnScreen: 'SoDoGheNgoi1',
+                returnParams: route.params,
+              }),
           },
-          {
-            text: "Đóng",
-            style: "cancel"
-          }
+          { text: 'Đóng', style: 'cancel' },
         ]
       );
       return;
@@ -450,20 +520,51 @@ export default function SeatSelection() {
       return;
     }
 
-    navigation.navigate('DatVeThanhToan', {
-      selectedSeats,
-      totalPrice,
-      showId,
-      cinemaId,
-      cinemaName,
-      showDate,
-      showTime,
-      movieTitle,
-      movieId,
-    });
+    try {
+      setRefreshing(true);
+      const seatIds = selectedSeats.map((seat) => seat.seatId);
+      const response = await holdSeats(showId, seatIds);
+      const { bookingId, expirationTime } = response;
+
+      // Lưu bookingId
+      setBookingId(bookingId);
+
+      // Cập nhật trạng thái ghế trên giao diện
+      setSeatLayout((prevLayout) =>
+        prevLayout.map((row) => ({
+          ...row,
+          seats: row.seats.map((seat) =>
+            seatIds.includes(seat.seatId) ? { ...seat, status: 'reserved' } : seat
+          ),
+        }))
+      );
+
+      navigation.navigate('DatVeThanhToan', {
+        bookingId,
+        expirationTime,
+        selectedSeats,
+        totalPrice,
+        showId,
+        cinemaId,
+        cinemaName,
+        showDate,
+        showTime,
+        movieTitle,
+        movieId,
+        moviePoster,
+        ImageUrl,
+        MovieLanguage,
+        fromScreen,
+      });
+    } catch (error) {
+      Alert.alert('Lỗi', error.response?.data?.message || 'Không thể giữ ghế. Vui lòng thử lại.');
+      console.error('Lỗi khi đặt vé:', error);
+    } finally {
+      setRefreshing(false);
+    }
   };
 
-  // Thêm message khi chưa đăng nhập
+  // Thông báo yêu cầu đăng nhập
   const renderLoginMessage = () => {
     if (!isLoggedIn) {
       return (
@@ -471,12 +572,14 @@ export default function SeatSelection() {
           <Text style={styles.loginRequiredText}>
             Bạn cần đăng nhập để chọn ghế và đặt vé
           </Text>
-          <TouchableOpacity 
+          <TouchableOpacity
             style={styles.loginButton}
-            onPress={() => navigation.navigate('Login', { 
-              returnScreen: 'SoDoGheNgoi1', 
-              returnParams: route.params 
-            })}
+            onPress={() =>
+              navigation.navigate('Login', {
+                returnScreen: 'SoDoGheNgoi1',
+                returnParams: route.params,
+              })
+            }
           >
             <Text style={styles.loginButtonText}>ĐĂNG NHẬP NGAY</Text>
           </TouchableOpacity>
@@ -496,9 +599,8 @@ export default function SeatSelection() {
   }
 
   if (refreshing) {
-    // Hiển thị nhỏ chỉ báo làm mới
     return (
-      <View style={[styles.refreshIndicator]}>
+      <View style={styles.refreshIndicator}>
         <ActivityIndicator size="small" color="#ff4d6d" />
         <Text style={styles.refreshText}>Đang cập nhật...</Text>
       </View>
@@ -525,8 +627,11 @@ export default function SeatSelection() {
       >
         <View style={styles.overlay} />
         <View style={styles.header}>
-          <TouchableOpacity onPress={() => navigation.goBack()}>
-            <Ionicons name="arrow-back" size={24} color="red" />
+          <TouchableOpacity
+            onPress={handleGoBack}
+            disabled={isCancelling}
+          >
+            <Ionicons name="arrow-back" size={24} color={isCancelling ? 'grey' : 'red'} />
           </TouchableOpacity>
           <View style={styles.headerTextContainer}>
             <Text style={styles.headerTitle}>{cinemaName}</Text>
@@ -615,6 +720,10 @@ export default function SeatSelection() {
                   <Text style={{ color: seatTypes.selected }}>■ </Text>
                   <Text>Ghế đang chọn</Text>
                 </View>
+                <View style={styles.legendItem}>
+                  <Text style={{ color: seatTypes.reserved }}>■ </Text>
+                  <Text>Ghế đã giữ</Text>
+                </View>
               </View>
             </View>
           </View>
@@ -629,13 +738,12 @@ export default function SeatSelection() {
           <TouchableOpacity
             style={[styles.bookButton, selectedSeats.length === 0 && styles.bookButtonDisabled]}
             onPress={handleContinue}
-            disabled={selectedSeats.length === 0}
+            disabled={selectedSeats.length === 0 || refreshing}
           >
             <Text style={styles.bookText}>Đặt Vé</Text>
           </TouchableOpacity>
         </View>
 
-        {/* Hiển thị thông báo đăng nhập nếu chưa đăng nhập */}
         {renderLoginMessage()}
       </ImageBackground>
     </GestureHandlerRootView>
@@ -675,7 +783,7 @@ const styles = StyleSheet.create({
   },
   subHeader: {
     fontSize: 14,
-    color: '#black',
+    color: 'black',
   },
   miniMapContainer: {
     position: 'absolute',
@@ -779,7 +887,7 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     backgroundColor: 'rgba(255, 255, 255, 0.95)',
     elevation: 2,
-    top:10,
+    top: 10,
   },
   legendRow: {
     flexDirection: 'row',
@@ -908,40 +1016,5 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 14,
     fontWeight: 'bold',
-  },
-  disabledButton: {
-    backgroundColor: '#666',
-    opacity: 0.7,
-  },
-  bottomContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    padding: 12,
-    backgroundColor: 'rgba(255, 255, 255, 0.95)',
-    borderTopLeftRadius: 12,
-    borderTopRightRadius: 12,
-    elevation: 5,
-    zIndex: 3,
-  },
-  totalPriceContainer: {
-    flex: 1,
-  },
-  totalPriceText: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: '#ff4d6d',
-  },
-  continueButton: {
-    backgroundColor: '#ff4d6d',
-    paddingVertical: 10,
-    paddingHorizontal: 20,
-    borderRadius: 8,
-    elevation: 2,
-  },
-  continueButtonText: {
-    color: 'white',
-    fontWeight: 'bold',
-    fontSize: 16,
   },
 });

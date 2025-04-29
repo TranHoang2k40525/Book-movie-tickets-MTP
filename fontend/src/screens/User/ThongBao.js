@@ -154,39 +154,7 @@ const ThongBao = ({ navigation }) => {
     );
   };
 
-  const renderSupportContent = () => {
-    return (
-      <View style={styles.supportContainer}>
-        <Text style={styles.supportTitle}>Hỗ trợ khách hàng</Text>
-        <Text style={styles.supportText}>Hotline: 1900 6017</Text>
-        <Text style={styles.supportText}>Email: hoangtran@gmail.com</Text>
-        <Text style={styles.supportText}>Giờ làm việc: 8:00 - 22:00 (Tất cả các ngày trong tuần)</Text>
-        
-        <View style={styles.supportBox}>
-          <Text style={styles.supportBoxTitle}>Các câu hỏi thường gặp</Text>
-          <TouchableOpacity style={styles.faqItem}>
-            <Text style={styles.faqTitle}>Làm thế nào để đặt vé?</Text>
-            <Ionicons name="chevron-forward" size={20} color="#666" />
-          </TouchableOpacity>
-          
-          <TouchableOpacity style={styles.faqItem}>
-            <Text style={styles.faqTitle}>Làm thế nào để hủy vé đã đặt?</Text>
-            <Ionicons name="chevron-forward" size={20} color="#666" />
-          </TouchableOpacity>
-          
-          <TouchableOpacity style={styles.faqItem}>
-            <Text style={styles.faqTitle}>Tôi có thể đổi vé sang suất chiếu khác không?</Text>
-            <Ionicons name="chevron-forward" size={20} color="#666" />
-          </TouchableOpacity>
-          
-          <TouchableOpacity style={styles.faqItem}>
-            <Text style={styles.faqTitle}>Chính sách hoàn tiền như thế nào?</Text>
-            <Ionicons name="chevron-forward" size={20} color="#666" />
-          </TouchableOpacity>
-        </View>
-      </View>
-    );
-  };
+  
 
   return (
     <View style={styles.container}>
@@ -200,32 +168,8 @@ const ThongBao = ({ navigation }) => {
         </TouchableOpacity>
       </View>
 
-      <View style={styles.tabsContainer}>
-        <TouchableOpacity onPress={() => setActiveTab('notification')}>
-          <Text
-            style={[
-              styles.tab,
-              activeTab === 'notification' && styles.activeTab,
-              activeTab !== 'notification' && styles.inactiveTab,
-            ]}
-          >
-            Thông báo
-          </Text>
-        </TouchableOpacity>
-        <TouchableOpacity onPress={() => setActiveTab('support')}>
-          <Text
-            style={[
-              styles.tab,
-              activeTab === 'support' && styles.activeTab,
-              activeTab !== 'support' && styles.inactiveTab,
-            ]}
-          >
-            Hỗ trợ
-          </Text>
-        </TouchableOpacity>
-      </View>
-
-      {activeTab === 'notification' ? renderContent() : renderSupportContent()}
+      
+      {activeTab === 'notification' && renderContent()}
       {renderNotificationDetail()}
 
       <View style={styles.bottomBar} />
@@ -358,44 +302,8 @@ const styles = StyleSheet.create({
     height: 10,
     backgroundColor: '#ccc',
   },
-  supportContainer: {
-    flex: 1,
-    padding: 15,
-  },
-  supportTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    marginBottom: 15,
-    color: 'red',
-  },
-  supportText: {
-    fontSize: 14,
-    marginBottom: 8,
-    color: '#333',
-  },
-  supportBox: {
-    marginTop: 20,
-    backgroundColor: '#f5f5f5',
-    borderRadius: 10,
-    padding: 15,
-  },
-  supportBoxTitle: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    marginBottom: 15,
-  },
-  faqItem: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingVertical: 10,
-    borderBottomWidth: 1,
-    borderBottomColor: '#ddd',
-  },
-  faqTitle: {
-    fontSize: 14,
-    flex: 1,
-  },
+
+  
 });
 
 export default ThongBao;

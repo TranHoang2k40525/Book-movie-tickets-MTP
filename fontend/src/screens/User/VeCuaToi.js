@@ -10,6 +10,7 @@ const VeCuaToi = ({ navigation }) => {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [selectedBooking, setSelectedBooking] = useState(null);
+  const [noBookingsMessage, setNoBookingsMessage] = useState('Bạn chưa đặt vé nào. Hãy đặt vé để xem phim bạn yêu thích!');
   const { user } = useContext(UserContext);
 
   useEffect(() => {
@@ -30,11 +31,22 @@ const VeCuaToi = ({ navigation }) => {
   const fetchBookings = async () => {
     try {
       setLoading(true);
+      console.log('Fetching bookings...');
       const response = await getBookings();
       setBookings(response.bookings || []);
+      // Sửa đổi: Cập nhật thông báo từ backend nếu có, hoặc giữ mặc định
+      if (response.bookings.length === 0) {
+        setNoBookingsMessage(response.message || 'Hiện tại bạn chưa có vé nào');
+      }
     } catch (error) {
-      console.error('Lỗi khi lấy danh sách vé:', error);
-      Alert.alert('Lỗi', 'Không thể lấy danh sách vé. Vui lòng thử lại sau.');
+      console.error('Lỗi khi lấy danh sách vé:', {
+        message: error.message,
+        response: error.response?.data,
+        status: error.response?.status,
+      });
+      setBookings([]);
+      // Sửa đổi: Hiển thị thông báo lỗi thay vì Alert.alert
+      setNoBookingsMessage('Không thể tải danh sách vé. Vui lòng thử lại sau.');
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -254,9 +266,7 @@ const VeCuaToi = ({ navigation }) => {
       {renderContent()}
       {selectedBooking && renderBookingDetail()}
 
-      <TouchableOpacity style={styles.button}>
-        <Text style={styles.buttonText}>Lịch sử quầy online</Text>
-      </TouchableOpacity>
+    
     </View>
   );
 };

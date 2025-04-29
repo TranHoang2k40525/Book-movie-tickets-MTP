@@ -3,12 +3,11 @@ const { dbConfig } = require('../config/db');
 
 const getAllMovies = async (req, res) => {
   try {
-    const { filter } = req.query; // Lấy tham số filter từ query
+    const { filter } = req.query;
     const pool = await sql.connect(dbConfig);
     let query = '';
 
     if (filter === 'showing') {
-      // Phim đang chiếu hôm nay (dựa trên ShowDate)
       query = `
         SELECT DISTINCT 
           m.MovieID, 
@@ -28,7 +27,6 @@ const getAllMovies = async (req, res) => {
         WHERE CONVERT(date, s.ShowDate) = CONVERT(date, GETDATE())
       `;
     } else if (filter === 'upcoming') {
-      // Phim sắp chiếu (ShowDate trong tương lai)
       query = `
         SELECT DISTINCT 
           m.MovieID, 
@@ -46,10 +44,8 @@ const getAllMovies = async (req, res) => {
         FROM [dbo].[Movie] m
         INNER JOIN [dbo].[Show] s ON m.MovieID = s.MovieID
         WHERE CONVERT(date, s.ShowDate) > CONVERT(date, GETDATE())
-      
       `;
     } else {
-      // Mặc định: trả tất cả phim (cho danh sách dọc hoặc tab Đặc biệt)
       query = 'SELECT * FROM Movie';
     }
 
@@ -68,14 +64,14 @@ const getAllMovies = async (req, res) => {
     res.status(500).json({ message: 'Lỗi server!', error: err.message });
   }
 };
+
 const getMoviesAndShowtimesByCinema = async (req, res) => {
   try {
     const { cinemaId } = req.params;
-    const { date } = req.query; // Ngày được gửi từ frontend (định dạng YYYY-MM-DD)
+    const { date } = req.query;
 
     const pool = await sql.connect(dbConfig);
 
-    // Truy vấn lấy danh sách phim và lịch chiếu tại rạp
     const result = await pool.request()
       .input('CinemaID', sql.Int, cinemaId)
       .input('ShowDate', sql.Date, date)
@@ -97,7 +93,6 @@ const getMoviesAndShowtimesByCinema = async (req, res) => {
         ORDER BY m.MovieTitle, s.ShowTime
       `);
 
-    // Nhóm dữ liệu theo phim
     const movies = [];
     const movieMap = new Map();
 
@@ -108,13 +103,12 @@ const getMoviesAndShowtimesByCinema = async (req, res) => {
         movieMap.set(movieId, {
           movieId: row.MovieID,
           title: row.MovieTitle,
-          ageRating: row.MovieAge || 'T16', // Sử dụng MovieAge làm độ tuổi giới hạn
+          ageRating: row.MovieAge || 'T16',
           showtimes: [],
         });
       }
 
       const movie = movieMap.get(movieId);
-      // Chuyển ShowTime thành định dạng HH:mm
       const showTime = new Date(row.ShowTime);
       const hours = showTime.getUTCHours().toString().padStart(2, '0');
       const minutes = showTime.getUTCMinutes().toString().padStart(2, '0');
@@ -131,11 +125,12 @@ const getMoviesAndShowtimesByCinema = async (req, res) => {
       movies.push(movie);
     }
     res.status(200).json(movies);
-    } catch (error) {
-      console.error(error);
-      res.status(500).json({ message: 'Server error' });
-    }
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: 'Server error' });
+  }
 };
+
 const getMovieById = async (req, res) => {
   const { id } = req.params;
   try {
@@ -153,20 +148,10 @@ const getMovieById = async (req, res) => {
       movie.ImageUrl = movie.ImageUrl.toString('base64');
     }
 
-    // Tạo URL trailer cục bộ
     if (movie.MovieTrailer) {
       const baseUrl = `${req.protocol}://${req.get('host')}`;
       const cleanTrailer = movie.MovieTrailer.replace(/^.*[\\\/]/, '');
       movie.MovieTrailer = `${baseUrl}/Video/${cleanTrailer}`;
-    
-    }
-
-    // Tạo URL trailer cục bộ
-    if (movie.MovieTrailer) {
-      const baseUrl = `${req.protocol}://${req.get('host')}`;
-      const cleanTrailer = movie.MovieTrailer.replace(/^.*[\\\/]/, '');
-      movie.MovieTrailer = `${baseUrl}/Video/${cleanTrailer}`;
-    
     }
 
     res.json({ movie });
@@ -179,7 +164,7 @@ const getMovieById = async (req, res) => {
 const getMoviesShowingToday = async (req, res) => {
   try {
     const pool = await sql.connect(dbConfig);
-    const currentDate = new Date().toISOString().split('T')[0]; // Lấy ngày hiện tại (2025-04-06)
+    const currentDate = new Date().toISOString().split('T')[0];
     const result = await pool.request()
       .input('showDate', sql.Date, currentDate)
       .query(`
@@ -218,6 +203,7 @@ const getMoviesShowingToday = async (req, res) => {
     res.status(500).json({ message: 'Lỗi server!', error: err.message });
   }
 };
+
 const getShowtimesByMovieId = async (req, res) => {
   const { id } = req.params;
   try {
@@ -256,37 +242,37 @@ const getShowtimesByMovieId = async (req, res) => {
 };
 
 const getCinemasByMovieAndDate = async (req, res) => {
-    const { id: movieId } = req.params;
-    const { date } = req.query;
-    try {
-      const formattedDate = new Date(date).toISOString().split('T')[0]; // Đảm bảo định dạng ngày
-      const pool = await sql.connect(dbConfig);
-      const result = await pool.request()
-        .input('movieId', sql.Int, movieId)
-        .input('showDate', sql.Date, formattedDate)
-        .query(`
-          SELECT DISTINCT 
-            c.CinemaID, 
-            c.CinemaName, 
-            c.CityAddress, 
-            c.latitude, 
-            c.longitude
-          FROM [dbo].[Show] s
-          INNER JOIN [dbo].[CinemaHall] ch ON s.HallID = ch.HallID
-          INNER JOIN [dbo].[Cinema] c ON ch.CinemaID = c.CinemaID
-          WHERE s.MovieID = @movieId AND s.ShowDate = @showDate
-        `);
-  
-      if (result.recordset.length === 0) {
-        return res.status(404).json({ message: 'Không tìm thấy rạp chiếu phim nào cho ngày này!' });
-      }
-  
-      res.json({ cinemas: result.recordset });
-    } catch (err) {
-      console.error('Lỗi khi lấy danh sách rạp:', err);
-      res.status(500).json({ message: 'Lỗi server!', error: err.message });
+  const { id: movieId } = req.params;
+  const { date } = req.query;
+  try {
+    const formattedDate = new Date(date).toISOString().split('T')[0];
+    const pool = await sql.connect(dbConfig);
+    const result = await pool.request()
+      .input('movieId', sql.Int, movieId)
+      .input('showDate', sql.Date, formattedDate)
+      .query(`
+        SELECT DISTINCT 
+          c.CinemaID, 
+          c.CinemaName, 
+          c.CityAddress, 
+          c.latitude, 
+          c.longitude
+        FROM [dbo].[Show] s
+        INNER JOIN [dbo].[CinemaHall] ch ON s.HallID = ch.HallID
+        INNER JOIN [dbo].[Cinema] c ON ch.CinemaID = c.CinemaID
+        WHERE s.MovieID = @movieId AND s.ShowDate = @showDate
+      `);
+
+    if (result.recordset.length === 0) {
+      return res.status(404).json({ message: 'Không tìm thấy rạp chiếu phim nào cho ngày này!' });
     }
-  };
+
+    res.json({ cinemas: result.recordset });
+  } catch (err) {
+    console.error('Lỗi khi lấy danh sách rạp:', err);
+    res.status(500).json({ message: 'Lỗi server!', error: err.message });
+  }
+};
 
 const getShowtimesByCinemaAndDate = async (req, res) => {
   const { movieId, cinemaId } = req.params;
@@ -327,7 +313,6 @@ const getShowtimesByCinemaAndDate = async (req, res) => {
       return res.status(404).json({ message: 'Không tìm thấy lịch chiếu cho rạp này!' });
     }
 
-    // Thêm logic kiểm tra isPassed
     const currentTime = new Date();
     const selectedDate = new Date(formattedDate);
     const areSameDay = (
@@ -337,12 +322,11 @@ const getShowtimesByCinemaAndDate = async (req, res) => {
     );
 
     const showtimesWithStatus = result.recordset.map(show => {
-      // Chuyển ShowTime thành chuỗi và điều chỉnh múi giờ
       const showTimeDate = new Date(show.ShowTime);
-      const hours = showTimeDate.getUTCHours().toString().padStart(2, '0'); // Lấy giờ theo UTC để tránh lệch múi giờ
+      const hours = showTimeDate.getUTCHours().toString().padStart(2, '0');
       const minutes = showTimeDate.getUTCMinutes().toString().padStart(2, '0');
       const seconds = showTimeDate.getUTCSeconds().toString().padStart(2, '0');
-      const showTimeStr = `${hours}:${minutes}:${seconds}`; // Định dạng thành HH:mm:ss
+      const showTimeStr = `${hours}:${minutes}:${seconds}`;
 
       let isPassed = false;
       if (areSameDay) {
@@ -354,7 +338,7 @@ const getShowtimesByCinemaAndDate = async (req, res) => {
 
       return {
         ...show,
-        ShowTime: showTimeStr, // Trả về ShowTime dưới dạng chuỗi
+        ShowTime: showTimeStr,
         isPassed
       };
     });
@@ -365,11 +349,17 @@ const getShowtimesByCinemaAndDate = async (req, res) => {
     res.status(500).json({ message: 'Lỗi server!', error: err.message });
   }
 };
-// Lấy sơ đồ ghế ngồi cho một suất chiếu
+
 const getSeatMapByShow = async (req, res) => {
+  let pool = null; // Khởi tạo pool với giá trị null
   try {
     const { showId } = req.params;
-    let pool = await sql.connect(dbConfig);
+    // Kiểm tra showId
+    if (!showId || isNaN(showId)) {
+      return res.status(400).json({ error: 'showId không hợp lệ' });
+    }
+
+    pool = await sql.connect(dbConfig);
 
     // Truy vấn thông tin rạp và phòng chiếu
     const hallQuery = `
@@ -397,16 +387,15 @@ const getSeatMapByShow = async (req, res) => {
         chs.SeatType,
         chs.SeatPrice,
         CASE 
-          WHEN bs.BookingSeatID IS NOT NULL AND bs.Status = 'Booked' THEN 'booked'
-          ELSE 'available'
+          WHEN chs.Status = 'Locked' THEN 'locked'
+          WHEN chs.Status = 'Booked' THEN 'booked'
+          WHEN chs.Status IS NULL OR chs.Status = 'Available' THEN 'available'
         END AS SeatStatus
       FROM CinemaHallSeat chs
-      LEFT JOIN BookingSeat bs ON chs.SeatID = bs.SeatID AND bs.ShowID = @showId
       WHERE chs.HallID = @hallId
       ORDER BY chs.SeatNumber
     `;
     const seatsResult = await pool.request()
-      .input('showId', sql.Int, showId)
       .input('hallId', sql.Int, hall.HallID)
       .query(seatsQuery);
 
@@ -448,9 +437,14 @@ const getSeatMapByShow = async (req, res) => {
     });
   } catch (error) {
     console.error('Error fetching seat map:', error);
-    res.status(500).json({ error: 'Lỗi server khi lấy sơ đồ ghế ngồi' });
+    res.status(500).json({ error: 'Lỗi server khi lấy sơ đồ ghế ngồi', details: error.message });
+  } finally {
+    if (pool && pool.connected) {
+      await pool.close();
+    }
   }
 };
+
 module.exports = {
   getAllMovies,
   getMovieById,
@@ -459,6 +453,5 @@ module.exports = {
   getShowtimesByCinemaAndDate,
   getMoviesShowingToday,
   getMoviesAndShowtimesByCinema,
-  getSeatMapByShow,
   getSeatMapByShow,
 };

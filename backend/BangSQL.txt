@@ -1,0 +1,150 @@
+Account:
+AccountID	int	Unchecked
+AccountName	varchar(255)	Unchecked
+AccountPassword	varchar(255)	Unchecked
+AccountType	varchar(50)	Unchecked
+IsActive	bit	Unchecked
+Booking:
+BookingID	int	Unchecked
+CustomerID	int	Unchecked
+ShowID	int	Unchecked
+TotalSeats	int	Unchecked
+Status	varchar(20)	Unchecked
+BookingProduct:
+BookingProductID	int	Unchecked
+BookingID	int	Unchecked
+ProductID	int	Unchecked
+Quantity	int	Unchecked
+TotalPriceBookingProduct	decimal(10, 2)	Unchecked
+
+BookingSeat:
+BookingSeatID	int	Unchecked
+BookingID	int	Unchecked
+ShowID	int	Unchecked
+SeatID	int	Unchecked
+Status	varchar(20)	Unchecked
+TicketPrice	decimal(10, 2)	Unchecked
+HoldUntil	datetime	Checked
+Cinema:
+CinemaID	int	Unchecked
+CinemaName	nvarchar(255)	Unchecked
+CityID	int	Unchecked
+CityAddress	nvarchar(255)	Unchecked
+Latitude	float	Checked
+Longitude	float	Checked
+		Unchecked
+		
+CinemaHall:
+HallID	int	Unchecked
+CinemaID	int	Unchecked
+HallName	nvarchar(255)	Unchecked
+TotalSeats	int	Unchecked
+		Unchecked
+CinemaHallSeat
+SeatID	int	Unchecked
+HallID	int	Unchecked
+SeatNumber	varchar(10)	Unchecked
+SeatType	nvarchar(20)	Unchecked
+SeatPrice	decimal(10, 2)	Unchecked
+PairID	int	Checked
+Status	varchar(20)	Checked
+		Unchecked
+City
+CityID	int	Unchecked
+CityName	nvarchar(255)	Unchecked
+		Unchecked
+
+Customer
+CustomerID	int	Unchecked
+CustomerName	nvarchar(255)	Checked
+CustomerEmail	varchar(255)	Checked
+CustomerPhone	varchar(20)	Checked
+AccountID	int	Checked
+CustomerGender	nvarchar(50)	Checked
+CustomerDate	date	Checked
+CustomerAddress	nvarchar(255)	Checked
+AvatarUrl	varchar(255)	Checked
+		Unchecked
+LoginHistory
+HistoryID	int	Unchecked
+AccountID	int	Unchecked
+LoginTime	datetime	Unchecked
+DeviceInfo	nvarchar(255)	Checked
+IPAddress	varchar(45)	Checked
+		Unchecked
+Movie
+MovieID	int	Unchecked
+MovieTitle	nvarchar(255)	Unchecked
+MovieDescription	nvarchar(MAX)	Checked
+MovieLanguage	nvarchar(50)	Unchecked
+MovieGenre	nvarchar(100)	Checked
+MovieReleaseDate	date	Unchecked
+MovieRuntime	int	Unchecked
+ImageUrl	varbinary(MAX)	Checked
+MovieActor	nvarchar(255)	Checked
+MovieDirector	nvarchar(50)	Checked
+MovieAge	nvarchar(50)	Unchecked
+MovieTrailer	nvarchar(500)	Checked
+		Unchecked
+Notification
+NotificationID	int	Unchecked
+CustomerID	int	Unchecked
+Message	nvarchar(MAX)	Unchecked
+DateSent	datetime	Unchecked
+IsRead	bit	Unchecked
+DeviceInfo	nvarchar(255)	Checked
+IPAddress	varchar(45)	Checked
+		Unchecked
+Payment
+PaymentID	int	Unchecked
+BookingID	int	Unchecked
+Amount	decimal(10, 2)	Unchecked
+PaymentDate	datetime	Unchecked
+PaymentMethod	varchar(50)	Unchecked
+
+Product
+ProductID	int	Unchecked
+ProductName	nvarchar(100)	Unchecked
+ProductDescription	nvarchar(255)	Checked
+ProductPrice	decimal(10, 2)	Unchecked
+ImageProduct	varbinary(MAX)	Checked
+
+Show
+ShowID	int	Unchecked
+MovieID	int	Unchecked
+HallID	int	Unchecked
+ShowTime	time(7)	Unchecked
+ShowDate	date	Unchecked
+		Unchecked
+UserSessions
+SessionID	int	Unchecked
+AccountID	int	Unchecked
+DeviceId	varchar(255)	Unchecked
+IsActive	bit	Checked
+CreatedAt	datetime	Checked
+		Unchecked
+Voucher
+VoucherID	int	Unchecked
+Code	varchar(50)	Unchecked
+DiscountValue	decimal(10, 2)	Unchecked
+StartDate	date	Unchecked
+EndDate	date	Unchecked
+Description	text	Checked
+PaymentID	int	Checked
+IsActive	bit	Checked
+Title	nvarchar(255)	Checked
+ImageVoucher	varbinary(MAX)	Checked
+UsageLimit	int	Unchecked
+UsageCount	int	Unchecked
+IsRestricted	bit	Unchecked
+		Unchecked
+VoucherCustomer
+VoucherCustomerID	int	Unchecked
+VoucherID	int	Unchecked
+CustomerID	int	Unchecked
+VoucherUsage
+VoucherUsageID	int	Unchecked
+VoucherID	int	Unchecked
+CustomerID	int	Unchecked
+UsedAt	datetime	Checked
+		Unchecked

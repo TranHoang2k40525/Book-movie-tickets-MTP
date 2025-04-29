@@ -171,7 +171,7 @@ export default function Menu({ navigation }) {
   const handleStorePress = () => {
     setMenuVisible(false);
     // Đi đến trang Store để hiển thị các Product từ CSDL
-    navigation.navigate("Store");
+    navigation.navigate("MTBStoreChonDoUong");
   };
 
   const handleRegisterPress = () => {
@@ -195,7 +195,7 @@ export default function Menu({ navigation }) {
       );
     } else {
       // Đi đến trang Voucher để hiển thị các Voucher từ CSDL
-      navigation.navigate("Voucher");
+      navigation.navigate("Vorcher");
     }
   };
 
@@ -228,7 +228,10 @@ export default function Menu({ navigation }) {
                   {/* Badge thông báo mới */}
                   
                 </TouchableOpacity>
-                <TouchableOpacity style={styles.settingsButton}>
+                <TouchableOpacity style={styles.settingsButton} onPress={() => {
+                  setMenuVisible(false);
+                  navigation.navigate("Setting");
+                }}>
                   <Icon1 name="cog" size={24} color="#fff" />
                 </TouchableOpacity>
               </View>

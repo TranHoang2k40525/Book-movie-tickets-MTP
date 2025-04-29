@@ -98,7 +98,7 @@ const DateSelector = memo(({ selectedDate, onDateChange }) => {
   );
 });
 
-const TheaterLocations = memo(({ navigation, movieId, selectedDate, cinemas, movieTitle }) => {
+const TheaterLocations = memo(({ navigation, movieId, selectedDate, cinemas, movieTitle, moviePoster, MovieLanguage }) => {
   const { user } = useContext(UserContext);
   const [expandedTheater, setExpandedTheater] = useState(null);
   const [localCinemas, setLocalCinemas] = useState([]);
@@ -155,7 +155,10 @@ const TheaterLocations = memo(({ navigation, movieId, selectedDate, cinemas, mov
         showDate: selectedDate.toISOString().split('T')[0],
         showTime: show.ShowTime,
         movieTitle,
-        movieId,
+      movieId,
+      moviePoster,
+      MovieLanguage,
+      fromScreen: 'MovieBookingScreen',
       });
     },
     [user, navigation, movieId, selectedDate, movieTitle]

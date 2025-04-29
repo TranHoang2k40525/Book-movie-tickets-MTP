@@ -18,7 +18,8 @@ import TinMoiVaUuDai from './screens/Promotions/TinMoiVaUuDai';
 import RapPhimMTB from './screens/Cinemas/RapPhimMTB';
 import MovieBookingScreen from './screens/Booking/MovieBookingScreen';
 import ChonRap_TheoKhuVuc from './screens/Booking/ChonRap_TheoKhuVuc';
-import MTBStoreChonDoUong from "./screens/Booking/MTBStore(ChonDoUong)";
+import MTBStoreChonDoUong from './screens/User/MTBStore(ChonDoUong)';
+import ProductDetail from './screens/User/ProductDetail';
 import SoDoGheNgoi1 from "./screens/Booking/SoDoGheNgoi1";
 import TinMoiUuDaiTatCa from "./screens/Promotions/TinMoi&UuDai(TatCa)";
 import tintucvauudai from "./screens/Promotions/Tintucvauudai";
@@ -26,6 +27,10 @@ import DatVeThanhToan from "./screens/Booking/DatVeThanhToan";
 import VeCuaToi from "./screens/User/VeCuaToi";
 import ThongBao from "./screens/User/ThongBao";
 import Map from './screens/Booking/Map';
+import ThanhToan from './screens/Booking/ThanhToan';
+import ThanhToanQR from './screens/Booking/ThanhToanQR';
+import Vorcher from './screens/User/VoucherScreen';
+import Setting from './screens/User/SettingScreen';
 const Stack = createStackNavigator();
 
 export default function App() {
@@ -114,10 +119,15 @@ export default function App() {
                         options={{ headerShown: false }}
                     />
                     <Stack.Screen
-                        name="MTBStoreChonDoUong"
+                        name='MTBStoreChonDoUong'
                         component={MTBStoreChonDoUong}
                         options={{ headerShown: false }}
                     />
+                    <Stack.Screen
+                    name ="ProductDetail"
+                    component={ProductDetail}
+                    options={{ headerShown: false }}
+                     />
                     <Stack.Screen
                         name="DatVeThanhToan"
                         component={DatVeThanhToan}
@@ -149,10 +159,27 @@ export default function App() {
                         options={{ headerShown: false }}
                     />
                     <Stack.Screen
-            name="Map"
-            component={Map}
-            options={{ headerShown: false }}
-          />
+                        name="Map"
+                        component={Map}
+                        options={{ headerShown: false }}
+                    />
+                    <Stack.Screen
+                        name="ThanhToan"
+                        component={ThanhToan}
+                        options={{ headerShown: false }}
+                    />
+                    <Stack.Screen
+                        name="ThanhToanQR"
+                        component={ThanhToanQR}
+                        options={{ headerShown: false }} />
+                    <Stack.Screen
+                        name="Vorcher"
+                        component={Vorcher}
+                        options={{ headerShown: false }} />
+                    <Stack.Screen
+                        name="Setting"
+                        component={Setting}
+                        options={{ headerShown: false }} />
                 </Stack.Navigator>
             </NavigationContainer>
         </UserProvider>

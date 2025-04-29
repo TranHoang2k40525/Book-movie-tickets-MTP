@@ -11,6 +11,9 @@ import {
   Alert,
   RefreshControl,
   ActivityIndicator,
+  SafeAreaView,
+  Platform,
+  StatusBar,
 } from "react-native";
 
 import { FlatList } from "react-native-gesture-handler";
@@ -144,131 +147,138 @@ export default function Home({ navigation }) {
   }
 
   return (
-    <View style={styles.container}>
-      <View style={styles.fixedHeader}>
-        <View style={styles.header}>
-          <Image
-            source={require("../../assets/images/logo.png")}
-            style={styles.logo}
-          />
-          <Text style={styles.headerText}>MTB 67CS1</Text>
-          <View style={styles.rightSection}>
+    <SafeAreaView style={styles.safeArea}>
+      <View style={styles.container}>
+        <View style={styles.fixedHeader}>
+          <View style={styles.header}>
             <Image
-              source={require("../../assets/images/icon1.png")}
-              style={styles.ticketIcon}
+              source={require("../../assets/images/logo.png")}
+              style={styles.logo}
             />
-            <Menu navigation={navigation} />
+            <Text style={styles.headerText}>MTB 67CS1</Text>
+            <View style={styles.rightSection}>
+              <Image
+                source={require("../../assets/images/icon1.png")}
+                style={styles.ticketIcon}
+              />
+              <Menu navigation={navigation} />
+            </View>
+          </View>
+
+          <View style={styles.tabContainer}>
+            {["Đang chiếu", "Đặc biệt", "Sắp chiếu"].map((tab) => (
+              <TouchableOpacity
+                key={tab}
+                onPress={() => setSelectedTab(tab)}
+                style={[styles.tab, selectedTab === tab && styles.activeTab]}
+              >
+                <Text
+                  style={[
+                    styles.tabText,
+                    selectedTab === tab && styles.activeTabText,
+                  ]}
+                >
+                  {tab}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+
+          <View style={styles.searchContainer}>
+            <TextInput
+              style={styles.searchInput}
+              placeholder="Tìm kiếm rạp gần đây..."
+              placeholderTextColor="#888"
+              value={searchText}
+              onChangeText={setSearchText}
+            />
+            <TouchableOpacity style={styles.searchButton}>
+              <Text style={styles.searchButtonText}>
+                <Icon name="search" size={24} color="black" />
+              </Text>
+            </TouchableOpacity>
           </View>
         </View>
 
-        <View style={styles.tabContainer}>
-          {["Đang chiếu", "Đặc biệt", "Sắp chiếu"].map((tab) => (
-            <TouchableOpacity
-              key={tab}
-              onPress={() => setSelectedTab(tab)}
-              style={[styles.tab, selectedTab === tab && styles.activeTab]}
-            >
-              <Text
-                style={[
-                  styles.tabText,
-                  selectedTab === tab && styles.activeTabText,
-                ]}
-              >
-                {tab}
-              </Text>
-            </TouchableOpacity>
-          ))}
-        </View>
+        <ScrollView
+          style={styles.scrollContent}
+          refreshControl={
+            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+          }
+        >
+          <View style={styles.horizontalMovieContainer}>
+            <FlatList
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              data={filterHorizontalMovies()}
+              keyExtractor={(item) => item.MovieID.toString()}
+              renderItem={renderMovieCard}
+            />
+          </View>
 
-        <View style={styles.searchContainer}>
-          <TextInput
-            style={styles.searchInput}
-            placeholder="Tìm kiếm rạp gần đây..."
-            placeholderTextColor="#888"
-            value={searchText}
-            onChangeText={setSearchText}
-          />
-          <TouchableOpacity style={styles.searchButton}>
-            <Text style={styles.searchButtonText}>
-              <Icon name="search" size={24} color="black" />
-            </Text>
-          </TouchableOpacity>
-        </View>
-      </View>
+          <View style={styles.fullMovieList}>
+            {allMovies.map((movie) => {
+              const imageSource = movie.ImageUrl
+                ? { uri: `data:image/png;base64,${movie.ImageUrl}` }
+                : { uri: "https://via.placeholder.com/100" };
 
-      <ScrollView
-        style={styles.scrollContent}
-        refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
-        }
-      >
-        <View style={styles.horizontalMovieContainer}>
-          <FlatList
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            data={filterHorizontalMovies()}
-            keyExtractor={(item) => item.MovieID.toString()}
-            renderItem={renderMovieCard}
-          />
-        </View>
-
-        <View style={styles.fullMovieList}>
-          {allMovies.map((movie) => {
-            const imageSource = movie.ImageUrl
-              ? { uri: `data:image/png;base64,${movie.ImageUrl}` }
-              : { uri: "https://via.placeholder.com/100" };
-
-            return (
-              <TouchableOpacity
-                key={movie.MovieID}
-                onPress={() => {
-                  console.log(
-                    "Navigating to MovieDetailsScreen with movieId:",
-                    movie.MovieID
-                  );
-                  navigation.navigate("MovieDetailsScreen", {
-                    movieId: movie.MovieID,
-                  });
-                }}
-              >
-                <View style={styles.fullMovieCard}>
-                  <Image source={imageSource} style={styles.fullMovieImage} />
-                  <View style={styles.movieInfo}>
-                    <Text style={styles.fullMovieTitle}>
-                      {movie.MovieTitle}
-                    </Text>
-                    {movie.MovieDirector && (
-                      <Text>Đạo diễn: {movie.MovieDirector}</Text>
-                    )}
-                    {movie.MovieGenre && (
-                      <Text>Thể loại: {movie.MovieGenre}</Text>
-                    )}
-                    <Text>
-                      Khởi chiếu:{" "}
-                      {new Date(movie.MovieReleaseDate).toLocaleDateString(
-                        "vi-VN"
+              return (
+                <TouchableOpacity
+                  key={movie.MovieID}
+                  onPress={() => {
+                    console.log(
+                      "Navigating to MovieDetailsScreen with movieId:",
+                      movie.MovieID
+                    );
+                    navigation.navigate("MovieDetailsScreen", {
+                      movieId: movie.MovieID,
+                    });
+                  }}
+                >
+                  <View style={styles.fullMovieCard}>
+                    <Image source={imageSource} style={styles.fullMovieImage} />
+                    <View style={styles.movieInfo}>
+                      <Text style={styles.fullMovieTitle}>
+                        {movie.MovieTitle}
+                      </Text>
+                      {movie.MovieDirector && (
+                        <Text>Đạo diễn: {movie.MovieDirector}</Text>
                       )}
-                    </Text>
-                    <Text>Thời lượng: {movie.MovieRuntime} phút</Text>
-                    <Text>Ngôn ngữ: {movie.MovieLanguage}</Text>
-                    <TouchableOpacity
-                      style={styles.bookButton}
-                      onPress={() => handleBookPress(movie.MovieID)}
-                    >
-                      <Text style={styles.bookButtonText}>Đặt vé</Text>
-                    </TouchableOpacity>
+                      {movie.MovieGenre && (
+                        <Text>Thể loại: {movie.MovieGenre}</Text>
+                      )}
+                      <Text>
+                        Khởi chiếu:{" "}
+                        {new Date(movie.MovieReleaseDate).toLocaleDateString(
+                          "vi-VN"
+                        )}
+                      </Text>
+                      <Text>Thời lượng: {movie.MovieRuntime} phút</Text>
+                      <Text>Ngôn ngữ: {movie.MovieLanguage}</Text>
+                      <TouchableOpacity
+                        style={styles.bookButton}
+                        onPress={() => handleBookPress(movie.MovieID)}
+                      >
+                        <Text style={styles.bookButtonText}>Đặt vé</Text>
+                      </TouchableOpacity>
+                    </View>
                   </View>
-                </View>
-              </TouchableOpacity>
-            );
-          })}
-        </View>
-      </ScrollView>
-    </View>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+        </ScrollView>
+      </View>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
+  safeArea: {
+    flex: 1,
+    backgroundColor: "white",
+    paddingTop: Platform.OS === "android" ? StatusBar.currentHeight : 0,
+  },
   loadingContainer: {
     flex: 1,
     justifyContent: "center",
@@ -301,7 +311,8 @@ const styles = StyleSheet.create({
     backgroundColor: "white",
     borderBottomWidth: 1,
     borderBottomColor: "#ddd",
-    paddingTop: 30,
+    paddingTop: Platform.OS === "android" ? 10 : 0,
+    minHeight: 60,
   },
   scrollContent: { flex: 1 },
   horizontalMovieContainer: { paddingVertical: 0 },

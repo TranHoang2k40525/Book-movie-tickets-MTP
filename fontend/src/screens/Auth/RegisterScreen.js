@@ -84,6 +84,23 @@ export default function RegisterScreen({ navigation}) {
     }
   };
 
+  // Helper to render Date Picker cross-platform
+  const renderDatePicker = () => {
+    if (!showDatePicker) return null;
+    return (
+      <DateTimePicker
+        value={customerDate}
+        mode="date"
+        display="default"
+        onChange={(event, selectedDate) => {
+          setShowDatePicker(false);
+          if (selectedDate) setCustomerDate(selectedDate);
+        }}
+        style={styles.dateTimePicker}
+      />
+    );
+  };
+
   return (
     <View style={styles.container}>
       <View style={styles.header}>
@@ -107,6 +124,7 @@ export default function RegisterScreen({ navigation}) {
         placeholder="Nhập họ và tên"
         value={customerName}
         onChangeText={setCustomerName}
+        placeholderTextColor="#999"
       />
 
       <Text style={styles.label}>
@@ -118,6 +136,7 @@ export default function RegisterScreen({ navigation}) {
         value={customerPhone}
         onChangeText={setCustomerPhone}
         keyboardType="phone-pad"
+        placeholderTextColor="#999"
       />
 
       <Text style={styles.label}>
@@ -129,6 +148,7 @@ export default function RegisterScreen({ navigation}) {
         value={customerEmail}
         onChangeText={setCustomerEmail}
         keyboardType="email-address"
+        placeholderTextColor="#999"
       />
 
       <Text style={styles.label}>
@@ -141,6 +161,7 @@ export default function RegisterScreen({ navigation}) {
           value={password}
           onChangeText={setPassword}
           secureTextEntry={!showPassword}
+          placeholderTextColor="#999"
         />
         <TouchableOpacity onPress={() => setShowPassword(!showPassword)}>
           <Icon
@@ -152,13 +173,14 @@ export default function RegisterScreen({ navigation}) {
       </View>
 
       <View style={styles.row}>
-        <View style={styles.pickerContainer}>
+        <View style={styles.pickerContainerFix}>
           <Text style={styles.label}>
             Ngày sinh <Text style={styles.required}>*</Text>
           </Text>
           <TouchableOpacity
             onPress={() => setShowDatePicker(true)}
-            style={styles.datePicker}
+            style={styles.datePickerFix}
+            activeOpacity={0.7}
           >
             <Text style={styles.dateText}>
               {customerDate.toLocaleDateString("vi-VN", {
@@ -168,28 +190,19 @@ export default function RegisterScreen({ navigation}) {
               })}
             </Text>
           </TouchableOpacity>
-          {showDatePicker && (
-            <DateTimePicker
-              value={customerDate}
-              mode="date"
-              display={Platform.OS === "ios" ? "spinner" : "default"}
-              onChange={(event, selectedDate) => {
-                setShowDatePicker(Platform.OS === "ios");
-                if (selectedDate) setCustomerDate(selectedDate);
-              }}
-            />
-          )}
+          {renderDatePicker()}
         </View>
 
-        <View style={styles.pickerContainer}>
+        <View style={styles.pickerContainerFix}>
           <Text style={styles.label}>
             Giới tính <Text style={styles.required}>*</Text>
           </Text>
-          <View style={styles.pickerWrapper}>
+          <View style={styles.pickerWrapperFix}>
             <Picker
               selectedValue={customerGender}
               onValueChange={(itemValue) => setCustomerGender(itemValue)}
-              style={styles.picker}
+              style={styles.pickerFix}
+              dropdownIconColor="#333"
             >
               <Picker.Item label="Chọn giới tính" value="" />
               <Picker.Item label="Nam" value="male" />
@@ -202,11 +215,12 @@ export default function RegisterScreen({ navigation}) {
       <Text style={styles.label}>
         Khu vực <Text style={styles.required}>*</Text>
       </Text>
-      <View style={styles.pickerWrapper}>
+      <View style={styles.pickerWrapperFix}>
         <Picker
           selectedValue={customerAddress}
           onValueChange={(itemValue) => setCustomerAddress(itemValue)}
-          style={styles.picker}
+          style={styles.pickerFix}
+          dropdownIconColor="#333"
         >
           {areas.map((area) => (
             <Picker.Item
@@ -309,9 +323,42 @@ const styles = StyleSheet.create({
     borderBottomColor: "#ccc",
     paddingVertical: 10,
   },
-  dateText: {
-    fontSize: 16,
+  // Thêm style fix cho cross-platform
+  pickerContainerFix: {
+    flex: 1,
+    marginRight: 10,
+    minWidth: 120,
+  },
+  pickerWrapperFix: {
+    borderWidth: 1,
+    borderColor: "#ccc",
+    borderRadius: 5,
+    backgroundColor: "#fff",
+    marginBottom: 10,
+    height: 48,
+    justifyContent: "center",
+    overflow: "hidden",
+  },
+  pickerFix: {
+    height: 48,
+    width: "100%",
     color: "#333",
+    fontSize: 16,
+    backgroundColor: "#fff",
+  },
+  datePickerFix: {
+    borderWidth: 1,
+    borderColor: "#ccc",
+    borderRadius: 5,
+    backgroundColor: "#fff",
+    paddingVertical: 12,
+    paddingHorizontal: 10,
+    marginBottom: 10,
+    height: 48,
+    justifyContent: "center",
+  },
+  dateTimePicker: {
+    backgroundColor: "#fff",
   },
   registerButton: {
     backgroundColor: "#E57373",

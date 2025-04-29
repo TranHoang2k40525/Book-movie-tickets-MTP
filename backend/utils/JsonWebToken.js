@@ -21,7 +21,7 @@ const generateToken = (user) => {
   };
   const payload = {
     ...user, // Bao gồm toàn bộ userData
-    exp: Math.floor(Date.now() / 1000) + 15 * 60, // 15 phút
+    exp: Math.floor(Date.now() / 1000) + 60 * 60, // 1 tiếngtiếng
   };
 
   const encodedHeader = base64url(JSON.stringify(header));

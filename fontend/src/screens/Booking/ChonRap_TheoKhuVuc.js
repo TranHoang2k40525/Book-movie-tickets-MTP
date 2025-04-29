@@ -161,6 +161,7 @@ const MovieSchedule = memo(({ selectedDate, cinemaId, cinemaName }) => {
         showDate: selectedDate.toISOString().split('T')[0],
         movieTitle,
         movieId,
+        fromScreen: 'ChonRap_TheoKhuVuc', // Truyền tham số nguồn gốc
       });
     },
     [navigation, cinemaId, cinemaName, selectedDate]

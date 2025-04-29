@@ -1,4 +1,3 @@
-// fontend/src/screens/User/MemberScreen.js
 import React, { useState, useEffect, useContext } from "react";
 import {
   View,
@@ -9,7 +8,6 @@ import {
   ScrollView,
   Modal,
   Alert,
-  Platform,
   ActivityIndicator,
 } from "react-native";
 import Icon from "react-native-vector-icons/FontAwesome";
@@ -46,9 +44,7 @@ export default function MemberScreen({ navigation }) {
     );
   }
 
-  if (!user) {
-    return null;
-  }
+  if (!user) return null;
 
   const updateAvatarInDatabase = async (imageUri) => {
     try {
@@ -58,7 +54,6 @@ export default function MemberScreen({ navigation }) {
       setAvatarSource(imageUri ? { uri: imageUri } : require("../../assets/images/transformers.jpg"));
       Alert.alert("Thành công", "Ảnh đại diện đã được cập nhật");
     } catch (error) {
-      console.error('Error updating avatar:', error);
       Alert.alert("Lỗi", "Đã có lỗi xảy ra khi cập nhật ảnh");
     } finally {
       setLoading(false);
@@ -71,18 +66,13 @@ export default function MemberScreen({ navigation }) {
       Alert.alert("Lỗi", "Vui lòng cấp quyền truy cập thư viện ảnh trong cài đặt");
       return;
     }
-
-    console.log("Opening image library...");
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ImagePicker.MediaTypeOptions.Images,
       quality: 1,
     });
-
     if (!result.canceled && result.assets && result.assets.length > 0) {
       const newAvatarUri = result.assets[0].uri;
       updateAvatarInDatabase(newAvatarUri);
-    } else if (result.canceled) {
-      console.log("User cancelled image picker");
     }
     setModalVisible(false);
   };
@@ -93,18 +83,13 @@ export default function MemberScreen({ navigation }) {
       Alert.alert("Lỗi", "Vui lòng cấp quyền truy cập camera trong cài đặt");
       return;
     }
-
-    console.log("Opening camera...");
     const result = await ImagePicker.launchCameraAsync({
       mediaTypes: ImagePicker.MediaTypeOptions.Images,
       quality: 1,
     });
-
     if (!result.canceled && result.assets && result.assets.length > 0) {
       const newAvatarUri = result.assets[0].uri;
       updateAvatarInDatabase(newAvatarUri);
-    } else if (result.canceled) {
-      console.log("User cancelled camera");
     }
     setModalVisible(false);
   };
@@ -123,7 +108,6 @@ export default function MemberScreen({ navigation }) {
         <Text style={styles.headerText}>Thành viên MTB</Text>
         <Icon name="edit" size={20} color="#000" />
       </View>
-
       <View style={styles.userInfo}>
         <TouchableOpacity onPress={() => setModalVisible(true)}>
           <Image source={avatarSource} style={styles.avatar} />
@@ -132,12 +116,9 @@ export default function MemberScreen({ navigation }) {
         <Text style={styles.userId}>mã số thành viên MTB: {user.customerID}</Text>
         <View style={styles.pointsContainer}>
           <Text style={styles.pointsText}>Tổng chi tiêu 2025</Text>
-          <Text style={styles.pointsText}>200000 đ</Text>
-          <Text style={styles.pointsText}>điểm Thưởng</Text>
-          <Text style={styles.pointsText}>0</Text>
+          <Text style={styles.pointsText}>0 đ</Text>
         </View>
       </View>
-
       <Modal
         animationType="slide"
         transparent={true}
@@ -161,7 +142,6 @@ export default function MemberScreen({ navigation }) {
           </View>
         </View>
       </Modal>
-
       <View style={styles.menuContainer}>
         <TouchableOpacity
           style={styles.menuItem}
@@ -171,7 +151,6 @@ export default function MemberScreen({ navigation }) {
           <Text style={styles.menuText}>Thông tin tài khoản</Text>
           <Icon name="chevron-right" size={16} color="#000" />
         </TouchableOpacity>
-
         <TouchableOpacity
           style={styles.menuItem}
           onPress={() => navigation.navigate("ForgotPassword", { from: "Member" })}
@@ -180,34 +159,7 @@ export default function MemberScreen({ navigation }) {
           <Text style={styles.menuText}>Thay đổi mật khẩu</Text>
           <Icon name="chevron-right" size={16} color="#000" />
         </TouchableOpacity>
-
-        <TouchableOpacity style={styles.menuItem}>
-          <Icon name="key" size={20} color="#000" />
-          <Text style={styles.menuText}>Cài đặt mật mã thanh toán</Text>
-          <Icon name="chevron-right" size={16} color="#000" />
-        </TouchableOpacity>
-
-        <TouchableOpacity style={styles.menuItem}>
-          <Icon name="credit-card" size={20} color="#000" />
-          <Text style={styles.menuText}>Thẻ thành viên</Text>
-          <Icon name="chevron-right" size={16} color="#000" />
-        </TouchableOpacity>
-
-        <TouchableOpacity style={styles.menuItem}>
-          <Icon name="gift" size={20} color="#000" />
-          <Text style={styles.menuText}>Giới thiệu bạn mới</Text>
-          <Icon name="chevron-right" size={16} color="#000" />
-        </TouchableOpacity>
       </View>
-
-      <View style={styles.pointsSection}>
-        <Text style={styles.sectionTitle}>Điểm MTB</Text>
-        <View style={styles.pointsBar}>
-          <Text style={styles.pointsValue}>1</Text>
-        </View>
-        <Text style={styles.pointsDetails}>Voucher | Coupon | MTB eGift</Text>
-      </View>
-
       <TouchableOpacity style={styles.menuItem}>
         <Text style={styles.menuText}>Lịch sử giao dịch</Text>
         <Icon name="chevron-right" size={16} color="#000" />
@@ -319,36 +271,6 @@ const styles = StyleSheet.create({
     color: "#000",
     flex: 1,
     marginLeft: 15,
-  },
-  pointsSection: {
-    paddingHorizontal: 20,
-    paddingVertical: 15,
-    backgroundColor: "#fff9e6",
-    marginVertical: 10,
-  },
-  sectionTitle: {
-    fontSize: 16,
-    fontWeight: "bold",
-    color: "#000",
-    marginBottom: 10,
-  },
-  pointsBar: {
-    backgroundColor: "#ddd",
-    height: 10,
-    borderRadius: 5,
-    marginBottom: 10,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  pointsValue: {
-    fontSize: 12,
-    color: "#000",
-    position: "absolute",
-  },
-  pointsDetails: {
-    fontSize: 14,
-    color: "#000",
-    textAlign: "center",
   },
   loadingContainer: {
     flex: 1,

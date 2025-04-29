@@ -14,7 +14,10 @@ const locationRoutes = require('./routes/locations');
 const likeRoutes = require("./routes/likes");
 const productRoutes = require("./routes/products");
 const notificationRoutes = require("./routes/notifications");
-const bookingRoutes = require("./routes/bookings");
+const voucherRoutes = require("./routes/vouchers")
+const bookingRoutes = require("./routes/booking");
+const paymentRoutes = require("./routes/payments");
+const datgheRoutes = require("./routes/datghe");
 const app = express();
 
 
@@ -83,13 +86,19 @@ app.get('/', (req, res) => {
 });
 
 // Sử dụng routes
+
 app.use('/api', authRoutes);
 app.use('/api', userRoutes);
 app.use('/api/movies', movieRoutes);
 app.use('/api', locationRoutes);
 app.use('/api', productRoutes);
 app.use('/api', notificationRoutes);
+app.use('/api', voucherRoutes);
+app.use("/api", datgheRoutes);
+app.use('/api/payments', paymentRoutes);
 app.use('/api', bookingRoutes);
+
+
 
 // Kết nối database và khởi động server
 async function startServer() {
@@ -97,7 +106,6 @@ async function startServer() {
     await connectDB();
     app.listen(port, host, () => {
       console.log(`Server running at http://${host}:${port}`);
-      console.log(`Access API from devices using your machine's IP address, like http://YOUR_IP_ADDRESS:${port}`);
     });
   } catch (err) {
     console.error('Failed to start server:', err);

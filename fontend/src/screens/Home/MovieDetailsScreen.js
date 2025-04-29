@@ -116,10 +116,8 @@ export default function MovieDetailsScreen({ route, navigation }) {
     },
   ];
 
-  const openLink = (url) => {
-    Linking.openURL(url).catch((err) =>
-      console.error("Không thể mở URL:", err)
-    );
+  const handleImagePress = () => {
+    navigation.navigate('TinMoiVaUuDai'); // Điều hướng đến TinMoiVaUuDai
   };
 
   const handleDayPress = (day) => {
@@ -452,8 +450,9 @@ export default function MovieDetailsScreen({ route, navigation }) {
             >
               <Text style={styles.infoLabel1}>Tin mới & Ưu đãi</Text>
             </TouchableOpacity>
-            <TouchableOpacity style={styles.allButton}>
-              <Text style={styles.allButtonText}>Tất Cả</Text>
+            <TouchableOpacity ><TouchableOpacity  style={styles.allButton} onPress={() => navigation.navigate("TinMoiUuDaiTatCa")}>
+              <Text style={styles.allButtonText} >Tất Cả</Text>
+            </TouchableOpacity>
             </TouchableOpacity>
           </View>
           <ScrollView
@@ -463,7 +462,7 @@ export default function MovieDetailsScreen({ route, navigation }) {
           >
             {newsData.map((item) => (
               <View key={item.id} style={styles.offerCard}>
-                <TouchableOpacity onPress={() => openLink(item.link)}>
+                <TouchableOpacity  onPress={handleImagePress}>
                   <Image
                     source={{ uri: item.image }}
                     style={styles.offerImage}

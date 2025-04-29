@@ -65,8 +65,8 @@ const Datvetheophim = ({ navigation }) => {
       const response = await getMoviesShowingToday();
       setMovies(response.data.movies);
     } catch (err) {
-      console.error("Lỗi khi lấy danh sách phim đang chiếu hôm nay:", err);
-      setError(err.message || "Không thể lấy danh sách phim đang chiếu hôm nay");
+      
+      setError("Hôm nay hiện không có phim nào đang chiếu");
     } finally {
       setLoading(false);
     }

@@ -98,11 +98,11 @@ const CGVApp = () => {
           </TouchableOpacity>
           <Text style={styles.headerTitle}>Tin mới & Ưu đãi</Text>
         </View>
+       <Menu navigation={navigation}/>
        
-        <Text><Menu navigation={navigation}/></Text>
         
       </View>
-
+ 
       <ScrollView 
         ref={scrollViewRef}
         style={styles.scrollView}
@@ -148,7 +148,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#f5f5f5',
   },
   header: {
-    marginTop: 20,
+    marginTop: 10,
     backgroundColor: 'white',
     padding: 10,
     flexDirection: 'row',
@@ -160,7 +160,7 @@ const styles = StyleSheet.create({
     right: 0,
     zIndex: 10,
     elevation: 3,
-    height: 50,
+    height: 80,
   },
   headerLeft: {
     flexDirection: 'row',
