@@ -2,7 +2,8 @@ const { v4: uuidv4 } = require('uuid');
 const sql = require('mssql');
 const db = require('../config/db');
 
-
+// Thời gian mặc định để khóa ghế (5 phút)
+const DEFAULT_LOCK_DURATION = 300; // 5 phút tính bằng giây
 
 // Giữ nguyên các hàm khác
 const getBookingStatus = async (req, res) => {
@@ -443,4 +444,4 @@ module.exports = {
   getUserBookings,
   checkExpiringBookings,
   getBookingById,
-}; 
+};
