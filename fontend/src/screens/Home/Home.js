@@ -1,4 +1,3 @@
-// frontend/Home.js
 import React, { useState, useEffect, useContext } from "react";
 import {
   View,
@@ -12,50 +11,60 @@ import {
   RefreshControl,
   ActivityIndicator,
 } from "react-native";
-
 import { FlatList } from "react-native-gesture-handler";
 import Icon from "react-native-vector-icons/FontAwesome";
 import Menu from "../../components/Menu";
 import { getMovies } from "../../Api/api";
 import { UserContext } from "../../contexts/User/UserContext";
+import * as Location from "expo-location";
 
 export default function Home({ navigation }) {
   const [selectedTab, setSelectedTab] = useState("Đang chiếu");
   const [searchText, setSearchText] = useState("");
   const [refreshing, setRefreshing] = useState(false);
-  const [horizontalMovies, setHorizontalMovies] = useState([]); // Danh sách ngang
-  const [allMovies, setAllMovies] = useState([]); // Danh sách dọc (tất cả phim)
+  const [horizontalMovies, setHorizontalMovies] = useState([]);
+  const [allMovies, setAllMovies] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [userLocation, setUserLocation] = useState(null);
   const { user } = useContext(UserContext);
 
-  useEffect(() => {
-    fetchMovies();
-  }, [selectedTab]);
+  const getUserLocation = async () => {
+    try {
+      const { status } = await Location.requestForegroundPermissionsAsync();
+      if (status !== "granted") {
+        setError("Không được cấp quyền truy cập vị trí.");
+        return;
+      }
+      const location = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.High });
+      setUserLocation({
+        latitude: location.coords.latitude,
+        longitude: location.coords.longitude,
+      });
+    } catch (err) {
+      setError("Lỗi khi lấy vị trí người dùng: " + err.message);
+    }
+  };
 
   const fetchMovies = async () => {
     try {
       setLoading(true);
       setError(null);
-
-      // Lấy danh sách phim cho danh sách ngang (theo tab)
       let filter;
       if (selectedTab === "Đang chiếu") {
         filter = "showing";
       } else if (selectedTab === "Sắp chiếu") {
         filter = "upcoming";
       } else {
-        filter = "special"; // Tab Đặc biệt: Lấy tất cả phim, lọc ở frontend
+        filter = "special";
       }
       const horizontalResponse = await getMovies({ params: { filter } });
       setHorizontalMovies(horizontalResponse.data.movies);
 
-      // Lấy tất cả phim cho danh sách dọc (không lọc)
-      const allMoviesResponse = await getMovies(); // Gọi API không có filter
+      const allMoviesResponse = await getMovies();
       setAllMovies(allMoviesResponse.data.movies);
-    } catch (error) {
-      console.error("Lỗi khi lấy danh sách phim:", error);
-      setError(error.message || "Không thể lấy danh sách phim");
+    } catch (err) {
+      setError(err.message || "Không thể lấy danh sách phim");
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -64,37 +73,51 @@ export default function Home({ navigation }) {
 
   const onRefresh = () => {
     setRefreshing(true);
-    fetchMovies();
+    getUserLocation().then(fetchMovies);
   };
+
+  useEffect(() => {
+    if (!user) {
+      Alert.alert(
+        "Yêu cầu đăng nhập",
+        "Vui lòng đăng nhập để sử dụng dịch vụ",
+        [
+          { text: "Hủy", style: "cancel", onPress: () => navigation.goBack() },
+          { text: "Đăng nhập", onPress: () => navigation.navigate("Login", { from: "Home" }) },
+        ],
+        { cancelable: false }
+      );
+    } else {
+      getUserLocation().then(fetchMovies);
+    }
+  }, [user, selectedTab]);
 
   const filterHorizontalMovies = () => {
     if (selectedTab === "Đặc biệt") {
       const specialMovieIds = [1, 4, 10, 20, 25, 15];
-      return horizontalMovies.filter((movie) =>
-        specialMovieIds.includes(movie.MovieID)
-      );
+      return horizontalMovies.filter((movie) => specialMovieIds.includes(movie.MovieID));
     }
-    return horizontalMovies; // Đang chiếu và Sắp chiếu đã được backend lọc
+    return horizontalMovies;
   };
 
   const handleBookPress = (movieId) => {
     if (!user) {
       Alert.alert(
         "Yêu cầu đăng nhập",
-        "Bạn cần đăng nhập để đặt vé. Bạn có muốn đăng nhập ngay bây giờ không?",
+        "Bạn cần đăng nhập để đặt vé.",
         [
           { text: "Hủy", style: "cancel" },
-          {
-            text: "Đăng nhập",
-            onPress: () =>
-              navigation.navigate("Login", { from: "Home", movieId }),
-          },
+          { text: "Đăng nhập", onPress: () => navigation.navigate("Login", { from: "Home", movieId }) },
         ]
       );
     } else {
       navigation.navigate("MovieBookingScreen", { movieId });
     }
   };
+
+  const filteredAllMovies = allMovies.filter((movie) =>
+    movie.MovieTitle?.toLowerCase().includes(searchText.toLowerCase())
+  );
 
   const renderMovieCard = ({ item }) => {
     const imageSource = item.ImageUrl
@@ -103,20 +126,13 @@ export default function Home({ navigation }) {
 
     return (
       <TouchableOpacity
-        onPress={() => {
-          console.log(
-            "Navigating to MovieDetailsScreen with movieId:",
-            item.MovieID
-          );
-          navigation.navigate("MovieDetailsScreen", { movieId: item.MovieID });
-        }}
+        onPress={() => navigation.navigate("MovieDetailsScreen", { movieId: item.MovieID })}
       >
         <View style={styles.movieCard}>
           <Image source={imageSource} style={styles.movieImage} />
           <Text style={styles.movieTitle}>{item.MovieTitle}</Text>
           <Text style={styles.movieDate}>
-            Khởi chiếu{" "}
-            {new Date(item.MovieReleaseDate).toLocaleDateString("vi-VN")}
+            Khởi chiếu {new Date(item.MovieReleaseDate).toLocaleDateString("vi-VN")}
           </Text>
         </View>
       </TouchableOpacity>
@@ -132,11 +148,11 @@ export default function Home({ navigation }) {
     );
   }
 
-  if (error) {
+  if (error && !horizontalMovies.length && !allMovies.length) {
     return (
       <View style={styles.errorContainer}>
         <Text>Có lỗi xảy ra: {error}</Text>
-        <TouchableOpacity onPress={fetchMovies} style={styles.retryButton}>
+        <TouchableOpacity onPress={onRefresh} style={styles.retryButton}>
           <Text style={styles.retryButtonText}>Thử lại</Text>
         </TouchableOpacity>
       </View>
@@ -147,16 +163,10 @@ export default function Home({ navigation }) {
     <View style={styles.container}>
       <View style={styles.fixedHeader}>
         <View style={styles.header}>
-          <Image
-            source={require("../../assets/images/logo.png")}
-            style={styles.logo}
-          />
+          <Image source={require("../../assets/images/logo.png")} style={styles.logo} />
           <Text style={styles.headerText}>MTB 67CS1</Text>
           <View style={styles.rightSection}>
-            <Image
-              source={require("../../assets/images/icon1.png")}
-              style={styles.ticketIcon}
-            />
+            <Image source={require("../../assets/images/icon1.png")} style={styles.ticketIcon} />
             <Menu navigation={navigation} />
           </View>
         </View>
@@ -168,12 +178,7 @@ export default function Home({ navigation }) {
               onPress={() => setSelectedTab(tab)}
               style={[styles.tab, selectedTab === tab && styles.activeTab]}
             >
-              <Text
-                style={[
-                  styles.tabText,
-                  selectedTab === tab && styles.activeTabText,
-                ]}
-              >
+              <Text style={[styles.tabText, selectedTab === tab && styles.activeTabText]}>
                 {tab}
               </Text>
             </TouchableOpacity>
@@ -183,24 +188,26 @@ export default function Home({ navigation }) {
         <View style={styles.searchContainer}>
           <TextInput
             style={styles.searchInput}
-            placeholder="Tìm kiếm rạp gần đây..."
+            placeholder="Tìm kiếm phim..."
             placeholderTextColor="#888"
             value={searchText}
             onChangeText={setSearchText}
           />
           <TouchableOpacity style={styles.searchButton}>
-            <Text style={styles.searchButtonText}>
-              <Icon name="search" size={24} color="black" />
-            </Text>
+            <Icon name="search" size={24} color="black" />
           </TouchableOpacity>
         </View>
+
+        {error && (
+          <View style={styles.warningContainer}>
+            <Text style={styles.warningText}>{error}</Text>
+          </View>
+        )}
       </View>
 
       <ScrollView
         style={styles.scrollContent}
-        refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
-        }
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
       >
         <View style={styles.horizontalMovieContainer}>
           <FlatList
@@ -213,7 +220,7 @@ export default function Home({ navigation }) {
         </View>
 
         <View style={styles.fullMovieList}>
-          {allMovies.map((movie) => {
+          {filteredAllMovies.map((movie) => {
             const imageSource = movie.ImageUrl
               ? { uri: `data:image/png;base64,${movie.ImageUrl}` }
               : { uri: "https://via.placeholder.com/100" };
@@ -221,34 +228,15 @@ export default function Home({ navigation }) {
             return (
               <TouchableOpacity
                 key={movie.MovieID}
-                onPress={() => {
-                  console.log(
-                    "Navigating to MovieDetailsScreen with movieId:",
-                    movie.MovieID
-                  );
-                  navigation.navigate("MovieDetailsScreen", {
-                    movieId: movie.MovieID,
-                  });
-                }}
+                onPress={() => navigation.navigate("MovieDetailsScreen", { movieId: movie.MovieID })}
               >
                 <View style={styles.fullMovieCard}>
                   <Image source={imageSource} style={styles.fullMovieImage} />
                   <View style={styles.movieInfo}>
-                    <Text style={styles.fullMovieTitle}>
-                      {movie.MovieTitle}
-                    </Text>
-                    {movie.MovieDirector && (
-                      <Text>Đạo diễn: {movie.MovieDirector}</Text>
-                    )}
-                    {movie.MovieGenre && (
-                      <Text>Thể loại: {movie.MovieGenre}</Text>
-                    )}
-                    <Text>
-                      Khởi chiếu:{" "}
-                      {new Date(movie.MovieReleaseDate).toLocaleDateString(
-                        "vi-VN"
-                      )}
-                    </Text>
+                    <Text style={styles.fullMovieTitle}>{movie.MovieTitle}</Text>
+                    {movie.MovieDirector && <Text>Đạo diễn: {movie.MovieDirector}</Text>}
+                    {movie.MovieGenre && <Text>Thể loại: {movie.MovieGenre}</Text>}
+                    <Text>Khởi chiếu: {new Date(movie.MovieReleaseDate).toLocaleDateString("vi-VN")}</Text>
                     <Text>Thời lượng: {movie.MovieRuntime} phút</Text>
                     <Text>Ngôn ngữ: {movie.MovieLanguage}</Text>
                     <TouchableOpacity
