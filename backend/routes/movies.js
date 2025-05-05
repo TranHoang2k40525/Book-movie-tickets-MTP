@@ -11,7 +11,7 @@ router.get('/:showId/seats', movieController.getSeatMapByShow);
 
 
 // Các route khác giữ nguyên
-router.get('/', authMiddleware,movieController.getAllMovies);
+router.get('/',movieController.getAllMovies);
 router.get('/:id', movieController.getMovieById);
 router.get('/:id/showtimes', movieController.getShowtimesByMovieId);
 router.get('/:id/cinemas', movieController.getCinemasByMovieAndDate);

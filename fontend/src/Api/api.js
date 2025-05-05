@@ -1,7 +1,7 @@
 import axios from "axios";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
-const BASE_URL = "http://192.168.134.105:3000";
+const BASE_URL = "http://192.168.1.101:3000/api";
 
 const api = axios.create({
   baseURL: BASE_URL,
@@ -38,7 +38,7 @@ api.interceptors.response.use(
       originalRequest._retry = true;
       try {
         const refreshToken = await AsyncStorage.getItem("refreshToken");
-        const response = await axios.post(`${BASE_URL}/api/refresh-token`, { refreshToken });
+        const response = await axios.post(`${BASE_URL}/refresh-token`, { refreshToken });
         const { accessToken, refreshToken: newRefreshToken } = response.data;
         await AsyncStorage.setItem("accessToken", accessToken);
         await AsyncStorage.setItem("refreshToken", newRefreshToken);
@@ -55,10 +55,40 @@ api.interceptors.response.use(
   }
 );
 
-// API cho voucher
+export const simulateMomoPayment = async (bookingId, { selectedProducts, voucherId }) => {
+  try {
+    const response = await api.post(`/payments/simulate-momo/${bookingId}`, {
+      selectedProducts,
+      voucherId,
+    });
+    return response.data;
+  } catch (error) {
+    console.error("Lỗi khi giả lập thanh toán Momo:", {
+      status: error.response?.status,
+      data: error.response?.data,
+      message: error.message,
+    });
+    throw error;
+  }
+};
+
+export const checkPaymentStatus = async (bookingId) => {
+  try {
+    const response = await api.get(`/payments/details/${bookingId}`);
+    return response.data;
+  } catch (error) {
+    console.error("Lỗi khi kiểm tra trạng thái thanh toán:", {
+      status: error.response?.status,
+      data: error.response?.data,
+      message: error.message,
+    });
+    throw error;
+  }
+};
+
 export const getVouchers = async () => {
   try {
-    const response = await api.get("/api/vouchers");
+    const response = await api.get("/vouchers");
     return response.data;
   } catch (error) {
     console.error("Error fetching vouchers:", {
@@ -70,9 +100,9 @@ export const getVouchers = async () => {
   }
 };
 
-export const useVoucher = async (voucherID) => {
+export const useVoucher = async (voucherId) => {
   try {
-    const response = await api.post("/api/use-voucher", { voucherID });
+    const response = await api.post("/use-voucher", { voucherId });
     return response.data;
   } catch (error) {
     console.error("Error using voucher:", {
@@ -84,19 +114,18 @@ export const useVoucher = async (voucherID) => {
   }
 };
 
-// Các API hiện có
-export const getMovies = () => api.get("/api/movies");
-export const getMovieById = (id) => api.get(`/api/movies/${id}`);
-export const getShowtimesByMovieId = (id) => api.get(`/api/movies/${id}/showtimes`);
+export const getMovies = () => api.get("/movies");
+export const getMovieById = (id) => api.get(`/movies/${id}`);
+export const getShowtimesByMovieId = (id) => api.get(`/movies/${id}/showtimes`);
 export const getCinemasByMovieAndDate = (id, date) =>
-  api.get(`/api/movies/${id}/cinemas`, { params: { date } });
+  api.get(`/movies/${id}/cinemas`, { params: { date } });
 export const getShowtimesByCinemaAndDate = (movieId, cinemaId, date) =>
-  api.get(`/api/movies/${movieId}/cinemas/${cinemaId}/showtimes`, { params: { date } });
-export const getMoviesShowingToday = () => api.get(`/api/movies/movies/showing-today`);
+  api.get(`/movies/${movieId}/cinemas/${cinemaId}/showtimes`, { params: { date } });
+export const getMoviesShowingToday = () => api.get(`/movies/movies/showing-today`);
 
 export const login = async (email, password) => {
   try {
-    const response = await api.post("/api/login", { email, password });
+    const response = await api.post("/login", { email, password });
     return response.data;
   } catch (error) {
     console.error("Lỗi đăng nhập:", error);
@@ -106,7 +135,7 @@ export const login = async (email, password) => {
 
 export const refreshToken = async (refreshToken) => {
   try {
-    const response = await api.post("/api/refresh-token", { refreshToken });
+    const response = await api.post("/refresh-token", { refreshToken });
     return response.data;
   } catch (error) {
     console.error("Error refreshing token:", error);
@@ -116,7 +145,7 @@ export const refreshToken = async (refreshToken) => {
 
 export const getAccount = async () => {
   try {
-    const response = await api.post("/api/get-account");
+    const response = await api.post("/get-account");
     console.log("Account API response:", response.data);
     return response;
   } catch (error) {
@@ -131,7 +160,7 @@ export const getAccount = async () => {
 
 export const getCustomer = async () => {
   try {
-    const response = await api.post("/api/get-customer");
+    const response = await api.post("/get-customer");
     console.log("Customer API response:", response.data);
     return response;
   } catch (error) {
@@ -144,13 +173,13 @@ export const getCustomer = async () => {
   }
 };
 
-export const register = (data) => api.post("/api/register", data);
-export const sendOtp = (data) => api.post("/api/send-otp", data);
-export const resetPassword = (data) => api.post("/api/reset-password", data);
+export const register = (data) => api.post("/register", data);
+export const sendOtp = (data) => api.post("/send-otp", data);
+export const resetPassword = (data) => api.post("/reset-password", data);
 export const updateAvatar = async (avatarUrl) => {
   try {
     console.log("Dữ liệu gửi đi:", { avatarUrl });
-    const response = await api.post("/api/update-avatar", { avatarUrl });
+    const response = await api.post("/update-avatar", { avatarUrl });
     return response.data;
   } catch (error) {
     console.error("Error updating avatar:", error);
@@ -158,17 +187,17 @@ export const updateAvatar = async (avatarUrl) => {
   }
 };
 
-export const updateCustomer = (data) => api.put("/api/update-customer", data);
-export const deleteAccount = () => api.delete("/api/delete-account");
-export const getCities = () => api.get("/api/cities");
-export const getCinemas = () => api.get("/api/cinemas");
-export const getCinemasByCity = (cityId) => api.get(`/api/cinemas-by-city/${cityId}`);
+export const updateCustomer = (data) => api.put("/update-customer", data);
+export const deleteAccount = () => api.delete("/delete-account");
+export const getCities = () => api.get("/cities");
+export const getCinemas = () => api.get("/cinemas");
+export const getCinemasByCity = (cityId) => api.get(`/cinemas-by-city/${cityId}`);
 export const getMoviesAndShowtimesByCinema = (cinemaId, date) =>
-  api.get(`/api/movies/cinemas/${cinemaId}/movies-and-showtimes`, { params: { date } });
+  api.get(`/movies/cinemas/${cinemaId}/movies-and-showtimes`, { params: { date } });
 
 export const likeMovie = async (movieId) => {
   try {
-    const response = await api.post("/api/like", { movieId });
+    const response = await api.post("/like", { movieId });
     return response.data;
   } catch (error) {
     console.error("Error liking movie:", error);
@@ -178,7 +207,7 @@ export const likeMovie = async (movieId) => {
 
 export const getLikeStatus = async (movieId) => {
   try {
-    const response = await api.get(`/api/like/${movieId}`);
+    const response = await api.get(`/like/${movieId}`);
     return response.data;
   } catch (error) {
     console.error("Error fetching like status:", error);
@@ -188,8 +217,10 @@ export const getLikeStatus = async (movieId) => {
 
 export const getSeatMapByShow = async (showId) => {
   try {
-    const response = await api.get(`/api/movies/${showId}/seats`);
-    return response;
+    console.log(`Fetching seat map for showId: ${showId}`);
+    const response = await api.get(`/movies/${showId}/seats`);
+    console.log("Seat map response:", response.data);
+    return response.data; // Chuẩn hóa trả về response.data
   } catch (error) {
     console.error("Error fetching seat map:", {
       status: error.response?.status,
@@ -200,9 +231,41 @@ export const getSeatMapByShow = async (showId) => {
   }
 };
 
+export const holdSeats = async (showId, seatIds) => {
+  try {
+    console.log("Holding seats:", { showId, seatIds });
+    const response = await api.post("/hold-seats", { showId, seatIds });
+    console.log("Hold seats response:", response.data);
+    return response.data;
+  } catch (error) {
+    console.error("Error holding seats:", {
+      status: error.response?.status,
+      data: error.response?.data,
+      message: error.message,
+    });
+    throw error;
+  }
+};
+
+export const cancelBooking = async (bookingId) => {
+  try {
+    console.log(`Cancelling booking: ${bookingId}`);
+    const response = await api.post("/cancel-booking", { bookingId });
+    console.log("Cancel booking response:", response.data);
+    return response.data;
+  } catch (error) {
+    console.error("Error cancelling booking:", {
+      status: error.response?.status,
+      data: error.response?.data,
+      message: error.message,
+    });
+    throw error;
+  }
+};
+
 export const getProducts = async () => {
   try {
-    const response = await api.get("/api/products");
+    const response = await api.get("/products");
     return response.data;
   } catch (error) {
     console.error("Error fetching products:", {
@@ -216,38 +279,50 @@ export const getProducts = async () => {
 
 export const getNotifications = async () => {
   try {
-    const response = await api.get("/api/notifications");
+    const response = await api.get("/notifications");
     return response.data;
   } catch (error) {
-    console.error("Error fetching notifications:", error);
+    console.error("Error fetching notifications:", {
+      status: error.response?.status,
+      data: error.response?.data,
+      message: error.message,
+    });
     throw error;
   }
 };
 
 export const markNotificationAsRead = async (notificationId) => {
   try {
-    const response = await api.put(`/api/notifications/${notificationId}/read`);
+    const response = await api.put(`/notifications/${notificationId}/read`);
     return response.data;
   } catch (error) {
-    console.error("Error marking notification as read:", error);
+    console.error("Error marking notification as read:", {
+      status: error.response?.status,
+      data: error.response?.data,
+      message: error.message,
+    });
     throw error;
   }
 };
 
 export const getNotificationById = async (notificationId) => {
   try {
-    const response = await api.get(`/api/notifications/${notificationId}`);
+    const response = await api.get(`/notifications/${notificationId}`);
     return response.data;
   } catch (error) {
-    console.error("Error fetching notification details:", error);
+    console.error("Error fetching notification details:", {
+      status: error.response?.status,
+      data: error.response?.data,
+      message: error.message,
+    });
     throw error;
   }
 };
 
 export const getBookings = async () => {
   try {
-    console.log("Calling API: /api/bookings");
-    const response = await api.get("/api/bookings/bookings");
+    console.log("Calling API: /bookings");
+    const response = await api.get("/bookings");
     console.log("API Response:", response.data);
     return response.data;
   } catch (error) {
@@ -256,37 +331,41 @@ export const getBookings = async () => {
       response: error.response?.data,
       status: error.response?.status,
     });
-    throw error;
+    return { bookings: [], message: "Bạn không có vé" };
   }
 };
 
 export const getBookingById = async (bookingId) => {
   try {
-    const response = await api.get(`/api/bookings/bookings/${bookingId}`);
+    const response = await api.get(`/bookings/${bookingId}`);
     return response.data;
   } catch (error) {
-    console.error("Error fetching booking by ID:", error);
+    console.error("Error fetching booking by ID:", {
+      status: error.response?.status,
+      data: error.response?.data,
+      message: error.message,
+    });
     throw error;
   }
 };
 
 export const checkExpiredBookings = async () => {
   try {
-    const response = await api.get("/api/bookings/bookings/check-expiration");
+    const response = await api.get("/bookings/check-expiring");
     return response.data;
   } catch (error) {
-    if (error.response && error.response.status === 404) {
-      return { message: "Không có vé sắp hết hạn", expiringTickets: 0 };
-    }
-    console.error("Error checking expired bookings:", error);
-    throw error;
+    console.error("Error checking expired bookings:", {
+      status: error.response?.status,
+      data: error.response?.data,
+      message: error.message,
+    });
+    return { message: "Không có vé sắp hết hạn", expiringTickets: 0 };
   }
 };
 
-// API Thanh toán
 export const processPayment = async (data) => {
   try {
-    const response = await api.post("/api/payments/process", data);
+    const response = await api.post("/payments/process", data);
     return response.data;
   } catch (error) {
     console.error("Lỗi khi xử lý thanh toán:", {
@@ -301,7 +380,7 @@ export const processPayment = async (data) => {
 export const getApplicableVouchers = async (customerId, amount) => {
   try {
     const response = await api.get(
-      `/api/payments/vouchers/${customerId}${amount ? `/${amount}` : ""}`
+      `/payments/vouchers/${customerId}${amount ? `?amount=${amount}` : ""}`
     );
     return response.data;
   } catch (error) {
@@ -316,7 +395,7 @@ export const getApplicableVouchers = async (customerId, amount) => {
 
 export const getPaymentDetails = async (bookingId) => {
   try {
-    const response = await api.get(`/api/payments/details/${bookingId}`);
+    const response = await api.get(`/payments/details/${bookingId}`);
     return response.data;
   } catch (error) {
     console.error("Lỗi khi lấy thông tin thanh toán:", {
@@ -329,49 +408,43 @@ export const getPaymentDetails = async (bookingId) => {
 };
 
 
-// API cho đặt vé và giữ ghế
-export const holdSeats = async (showId, seatIds) => {
-  try {
-    const response = await api.post("/api/hold-seats", { showId, seatIds });
-    return response.data;
-  } catch (error) {
-    console.error("Error holding seats:", {
-      status: error.response?.status,
-      data: error.response?.data,
-      message: error.message,
-    });
-    throw error;
-  }
-};
-export const cancelBooking = async (bookingId) => {
-  try {
-    const response = await api.post("/api/cancel-booking", { bookingId });
-    return response.data;
-  } catch (error) {
-    console.error("Error cancelling booking:", {
-      status: error.response?.status,
-      data: error.response?.data,
-      message: error.message,
-    });
-    throw error;
-  }
-};
+
+
+
 export const getBookingDetails = async (bookingId) => {
   try {
-    const response = await api.get(`/api/bookings/${bookingId}`);
+    const response = await api.get(`/bookings/${bookingId}`);
     return response.data;
   } catch (error) {
-    console.error("Error fetching booking details:", error);
+    console.error("Error fetching booking details:", {
+      status: error.response?.status,
+      data: error.response?.data,
+      message: error.message,
+    });
     throw error;
   }
 };
 
 export const confirmPayment = async (bookingId, paymentData) => {
   try {
-    const response = await api.post(`/api/payments/confirm/${bookingId}`, paymentData);
+    const response = await api.post(`/payments/confirm/${bookingId}`, paymentData);
     return response.data;
   } catch (error) {
     console.error("Error confirming payment:", {
+      status: error.response?.status,
+      data: error.response?.data,
+      message: error.message,
+    });
+    throw error;
+  }
+};
+
+export const generateQRCode = async (bookingId, data) => {
+  try {
+    const response = await api.post(`/payments/generate-qr/${bookingId}`, data);
+    return response.data;
+  } catch (error) {
+    console.error("Error generating QR code:", {
       status: error.response?.status,
       data: error.response?.data,
       message: error.message,

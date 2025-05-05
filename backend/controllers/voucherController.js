@@ -26,7 +26,7 @@ const getVouchers = async (req, res) => {
       `);
 
     if (result.recordset.length === 0) {
-      return res.status(404).json({ message: "Không có voucher nào khả dụng!" });
+      return res.status(200).json({ message: "Hiện bạn đang không có voucher!", vouchers: [] });
     }
 
     // Chuyển đổi ImageVoucher (dạng varbinary) sang base64 để hiển thị
@@ -50,7 +50,7 @@ const getVouchers = async (req, res) => {
       };
     });
 
-    res.json({ message: "Lấy danh sách voucher thành công!", vouchers });
+    res.status(200).json({ message: "Lấy danh sách voucher thành công!", vouchers });
   } catch (err) {
     console.error("Lỗi khi lấy danh sách voucher:", err);
     res.status(500).json({ message: "Lỗi server!", error: err.message });

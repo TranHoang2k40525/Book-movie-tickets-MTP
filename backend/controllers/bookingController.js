@@ -1,447 +1,418 @@
-const { v4: uuidv4 } = require('uuid');
-const sql = require('mssql');
 const db = require('../config/db');
+const sql = require('mssql');
+const { createNotification } = require('./notifications');
 
-// Thời gian mặc định để khóa ghế (5 phút)
-const DEFAULT_LOCK_DURATION = 300; // 5 phút tính bằng giây
-
-// Giữ nguyên các hàm khác
-const getBookingStatus = async (req, res) => {
-  const { bookingId } = req.params;
+// Lấy danh sách vé của người dùng
+const getUserBookings = async (req, res, next) => {
   let pool;
   try {
+    const customerId = req.user.customerID;
+    console.log('Fetching bookings for customer:', customerId);
+
     pool = await db.connectDB();
     const request = new sql.Request(pool);
 
-    const bookingOwnerCheck = await request
-      .input('BookingID', sql.NVarChar, bookingId)
-      .input('CustomerID', sql.Int, req.user.customerID)
-      .query(`
-        SELECT BookingID
-        FROM Booking
-        WHERE BookingID = @BookingID AND CustomerID = @CustomerID
-      `);
-
-    if (!bookingOwnerCheck.recordset.length) {
-      return res.status(404).json({ error: 'Không tìm thấy thông tin đặt vé' });
-    }
-
-    const bookingResult = await request
-      .input('BookingID', sql.NVarChar, bookingId)
-      .query(`
-        SELECT bs.*, chs.SeatNumber, chs.SeatType
-        FROM BookingSeat bs
-        JOIN CinemaHallSeat chs ON bs.SeatID = chs.SeatID
-        WHERE bs.BookingID = @BookingID
-      `);
-
-    if (!bookingResult.recordset.length) {
-      return res.status(404).json({ error: 'Không tìm thấy thông tin ghế' });
-    }
-
-    const seats = bookingResult.recordset.map((seat) => ({
-      seatId: seat.SeatID,
-      seatNumber: seat.SeatNumber,
-      seatType: seat.SeatType,
-      status: seat.Status,
-      price: parseFloat(seat.TicketPrice || 0),
-    }));
-
-    const firstRecord = bookingResult.recordset[0];
-
-    let remainingTime = 0;
-    if (firstRecord.Status === 'Held' && firstRecord.HoldUntil) {
-      const expiryTime = new Date(firstRecord.HoldUntil).getTime();
-      const currentTime = Date.now();
-      remainingTime = Math.max(0, Math.floor((expiryTime - currentTime) / 1000));
-    }
-
-    const showResult = await request
-      .input('ShowID', sql.Int, firstRecord.ShowID)
-      .query(`
-        SELECT s.*, m.MovieTitle, m.MovieLanguage, m.ImageUrl AS PosterUrl
-        FROM [Show] s
-        JOIN Movie m ON s.MovieID = m.MovieID
-        WHERE s.ShowID = @ShowID
-      `);
-
-    const showInfo = showResult.recordset[0] || {};
-
-    return res.status(200).json({
-      success: true,
-      data: {
-        bookingId,
-        showId: firstRecord.ShowID,
-        status: firstRecord.Status,
-        seats,
-        totalPrice: seats.reduce((sum, seat) => sum + seat.price, 0),
-        remainingTime,
-        showInfo,
-      },
-    });
-  } catch (error) {
-    console.error('Lỗi khi lấy trạng thái đặt vé:', error);
-    return res.status(500).json({
-      error: 'Không thể lấy thông tin đặt vé',
-      details: error.message,
-    });
-  } finally {
-    if (pool) await pool.close();
-  }
-};
-
-const getUserBookings = async (req, res) => {
-  const customerId = req.user.customerID;
-  let pool;
-
-  try {
-    pool = await db.connectDB();
-    const request = new sql.Request(pool);
-
-    const checkResult = await request
+    const result = await request
       .input('CustomerID', sql.Int, customerId)
       .query(`
-        SELECT COUNT(*) AS BookingCount
-        FROM Booking
-        WHERE CustomerID = @CustomerID
-      `);
-
-    if (checkResult.recordset[0].BookingCount === 0) {
-      return res.status(200).json({ bookings: [], message: 'Hiện tại bạn chưa có vé nào' });
-    }
-
-    const bookingsResult = await request
-      .input('CustomerID', sql.Int, customerId)
-      .query(`
-        SELECT
+        SELECT 
           b.BookingID,
           b.CustomerID,
           b.ShowID,
           b.TotalSeats,
-          b.TotalPrice,
-          b.Status,
-          s.MovieID,
-          s.HallID AS CinemaHallID,
+          b.Status AS BookingStatus,
+          s.ShowDate,
           s.ShowTime,
-          s.ShowDate
+          m.MovieID,
+          m.MovieTitle AS Title,
+          m.MovieDescription AS Description,
+          m.MovieRuntime AS Runtime,
+          m.ImageUrl AS PosterUrl,
+          ch.HallID,
+          ch.HallName,
+          c.CinemaID,
+          c.CinemaName,
+          c.CityAddress AS CinemaAddress,
+          p.PaymentID,
+          p.Amount,
+          p.PaymentDate,
+          p.PaymentMethod,
+          bs.HoldUntil,
+          cus.CustomerName AS FullName,
+          cus.CustomerEmail
         FROM Booking b
-        JOIN [Show] s ON b.ShowID = s.ShowID
+        JOIN Show s ON b.ShowID = s.ShowID
+        JOIN Movie m ON s.MovieID = m.MovieID
+        JOIN CinemaHall ch ON s.HallID = ch.HallID
+        JOIN Cinema c ON ch.CinemaID = c.CinemaID
+        LEFT JOIN Payment p ON b.BookingID = p.BookingID
+        JOIN Customer cus ON b.CustomerID = cus.CustomerID
+        LEFT JOIN BookingSeat bs ON b.BookingID = bs.BookingID
         WHERE b.CustomerID = @CustomerID
         ORDER BY s.ShowDate DESC, s.ShowTime DESC
       `);
 
-    const bookings = [];
+    const bookings = result.recordset.reduce((acc, row) => {
+      let booking = acc.find(b => b.BookingID === row.BookingID);
+      if (!booking) {
+        booking = {
+          BookingID: row.BookingID,
+          Customer: {
+            CustomerID: row.CustomerID,
+            FullName: row.FullName,
+            CustomerEmail: row.CustomerEmail,
+          },
+          Show: {
+            ShowID: row.ShowID,
+            ShowDate: row.ShowDate,
+            ShowTime: row.ShowTime.toString().substring(0, 5), // Format HH:mm
+          },
+          Movie: {
+            MovieID: row.MovieID,
+            Title: row.Title,
+            Description: row.Description,
+            Runtime: row.Runtime,
+            PosterUrl: row.PosterUrl ? Buffer.from(row.PosterUrl).toString('base64') : null,
+          },
+          CinemaHall: {
+            HallID: row.HallID,
+            HallName: row.HallName,
+            CinemaName: row.CinemaName,
+            CinemaAddress: row.CinemaAddress,
+          },
+          Payment: row.PaymentID ? {
+            PaymentID: row.PaymentID,
+            Amount: parseFloat(row.Amount || 0),
+            PaymentDate: row.PaymentDate,
+            PaymentMethod: row.PaymentMethod,
+          } : null,
+          TotalSeats: row.TotalSeats,
+          Status: row.BookingStatus,
+          HoldUntil: row.HoldUntil,
+          BookingSeats: [],
+        };
+        acc.push(booking);
+      }
+      if (row.SeatID) {
+        booking.BookingSeats.push({
+          SeatID: row.SeatID,
+          SeatNumber: row.SeatNumber,
+          TicketPrice: parseFloat(row.TicketPrice || 0),
+        });
+      }
+      return acc;
+    }, []);
 
-    for (const booking of bookingsResult.recordset) {
-      const movieResult = await request
-        .input('MovieID', sql.Int, booking.MovieID)
-        .query(`
-          SELECT
-            MovieID,
-            MovieTitle AS Title,
-            MovieDescription AS Description,
-            MovieRuntime AS Runtime,
-            ImageUrl AS PosterUrl
-          FROM Movie
-          WHERE MovieID = @MovieID
-        `);
-
-      const cinemaHallResult = await request
-        .input('HallID', sql.Int, booking.CinemaHallID)
-        .query(`
-          SELECT
-            ch.HallID,
-            ch.HallName AS HallName,
-            c.CinemaID,
-            c.CinemaName AS CinemaName,
-            c.CityAddress AS CinemaAddress
-          FROM CinemaHall ch
-          JOIN Cinema c ON ch.CinemaID = c.CinemaID
-          WHERE ch.HallID = @HallID
-        `);
-
-      const bookingSeatsResult = await request
-        .input('BookingID', sql.NVarChar, booking.BookingID)
-        .query(`
-          SELECT
-            bs.BookingSeatID,
-            bs.SeatID,
-            bs.Status,
-            bs.TicketPrice,
-            bs.HoldUntil,
-            chs.SeatNumber,
-            chs.SeatType
-          FROM BookingSeat bs
-          JOIN CinemaHallSeat chs ON bs.SeatID = chs.SeatID
-          WHERE bs.BookingID = @BookingID
-        `);
-
-      const paymentResult = await request
-        .input('BookingID', sql.NVarChar, booking.BookingID)
-        .query(`
-          SELECT
-            PaymentID,
-            Amount,
-            PaymentDate,
-            PaymentMethod
-          FROM Payment
-          WHERE BookingID = @BookingID
-        `);
-
-      const bookingWithDetails = {
-        BookingID: booking.BookingID,
-        CustomerID: booking.CustomerID,
-        ShowID: booking.ShowID,
-        TotalSeats: booking.TotalSeats,
-        TotalPrice: parseFloat(booking.TotalPrice || 0),
-        Status: booking.Status,
-        Show: {
-          ShowID: booking.ShowID,
-          MovieID: booking.MovieID,
-          ShowTime: booking.ShowTime,
-          ShowDate: booking.ShowDate,
-        },
-        Movie: movieResult.recordset[0] || null,
-        CinemaHall: cinemaHallResult.recordset[0] || null,
-        BookingSeats: bookingSeatsResult.recordset || [],
-        Payment: paymentResult.recordset[0] || null,
-      };
-
-      bookings.push(bookingWithDetails);
+    // Kiểm tra trạng thái hết hạn
+    const now = new Date();
+    for (const booking of bookings) {
+      if (booking.Status !== 'Expired') {
+        const showDateTime = new Date(`${booking.Show.ShowDate.toISOString().split('T')[0]}T${booking.Show.ShowTime}:00`);
+        if (booking.HoldUntil && new Date(booking.HoldUntil) < now) {
+          booking.Status = 'Expired';
+          await updateBookingStatus(booking.BookingID, 'Expired', pool);
+          await createNotification(
+            customerId,
+            `Vé của bạn cho phim "${booking.Movie.Title}" đã hết hạn.`,
+            req.headers['user-agent'],
+            req.ip
+          );
+        } else if (showDateTime < now) {
+          booking.Status = 'Expired';
+          await updateBookingStatus(booking.BookingID, 'Expired', pool);
+          await createNotification(
+            customerId,
+            `Vé của bạn cho phim "${booking.Movie.Title}" đã hết hạn do suất chiếu đã kết thúc.`,
+            req.headers['user-agent'],
+            req.ip
+          );
+        }
+      }
     }
 
-    res.status(200).json({ bookings });
-  } catch (error) {
-    console.error('Lỗi khi lấy danh sách vé:', error);
     res.status(200).json({
-      bookings: [],
-      message: 'Không thể lấy danh sách vé',
+      success: true,
+      bookings,
     });
+  } catch (error) {
+    console.error('Error fetching user bookings:', error);
+    res.status(500).json({ error: 'Lỗi khi lấy danh sách vé', details: error.message });
   } finally {
     if (pool) await pool.close();
   }
 };
 
-const checkExpiringBookings = async (req, res) => {
-  const customerId = req.user.customerID;
+// Lấy thông tin chi tiết một vé
+const getBookingById = async (req, res, next) => {
   let pool;
-
   try {
+    const { bookingId } = req.params;
+    const customerId = req.user.customerID;
+
     pool = await db.connectDB();
     const request = new sql.Request(pool);
-
-    const checkResult = await request
-      .input('CustomerID', sql.Int, customerId)
-      .query(`
-        SELECT COUNT(*) AS BookingCount
-        FROM Booking
-        WHERE CustomerID = @CustomerID
-      `);
-
-    if (checkResult.recordset[0].BookingCount === 0) {
-      return res.status(200).json({
-        message: 'Bạn chưa có vé nào',
-        expiringTickets: 0,
-      });
-    }
-
-    const tomorrow = new Date();
-    tomorrow.setDate(tomorrow.getDate() + 1);
 
     const result = await request
-      .input('CustomerID', sql.Int, customerId)
-      .input('Tomorrow', sql.DateTime, tomorrow)
-      .query(`
-        SELECT
-          b.BookingID,
-          m.MovieTitle AS MovieTitle,
-          s.ShowTime,
-          s.ShowDate
-        FROM Booking b
-        JOIN [Show] s ON b.ShowID = s.ShowID
-        JOIN Movie m ON s.MovieID = m.MovieID
-        WHERE
-          b.CustomerID = @CustomerID
-          AND b.Status = 'Confirmed'
-          AND s.ShowDate <= @Tomorrow
-          AND s.ShowDate >= GETDATE()
-          AND NOT EXISTS (
-            SELECT 1 FROM Notification n
-            WHERE
-              n.CustomerID = @CustomerID
-              AND n.Message LIKE '%' + m.MovieTitle + '%sắp hết hạn%'
-          )
-        GROUP BY b.BookingID, m.MovieTitle, s.ShowTime, s.ShowDate
-      `);
-
-    const { createNotification } = require('../routes/notifications');
-
-    for (const booking of result.recordset) {
-      const message = `Vé của bạn cho phim ${booking.MovieTitle} vào lúc ${booking.ShowTime} ngày ${booking.ShowDate.toISOString().split('T')[0]} sắp hết hạn. Vui lòng đến rạp để trải nghiệm!`;
-      await createNotification(customerId, message);
-    }
-
-    res.status(200).json({
-      message: 'Đã kiểm tra các vé sắp hết hạn',
-      expiringTickets: result.recordset.length,
-    });
-  } catch (error) {
-    console.error('Lỗi khi kiểm tra vé sắp hết hạn:', error);
-    res.status(200).json({
-      message: 'Không thể kiểm tra vé sắp hết hạn',
-      expiringTickets: 0,
-    });
-  } finally {
-    if (pool) await pool.close();
-  }
-};
-
-const getBookingById = async (req, res) => {
-  const { bookingId } = req.params;
-  const customerId = req.user.customerID;
-
-  if (!bookingId) {
-    console.error('Mã đặt vé không hợp lệ:', bookingId);
-    return res.status(400).json({
-      error: 'Mã đặt vé không hợp lệ',
-      details: 'Vui lòng cung cấp mã đặt vé',
-    });
-  }
-
-  let pool;
-  try {
-    pool = await db.connectDB();
-    const request = new sql.Request(pool);
-
-    const bookingResult = await request
-      .input('BookingID', sql.NVarChar, bookingId)
+      .input('BookingID', sql.Int, bookingId)
       .input('CustomerID', sql.Int, customerId)
       .query(`
-        SELECT
+        SELECT 
           b.BookingID,
           b.CustomerID,
           b.ShowID,
           b.TotalSeats,
-          b.TotalPrice,
-          b.Status,
-          s.MovieID,
-          s.HallID AS CinemaHallID,
+          b.Status AS BookingStatus,
+          s.ShowDate,
           s.ShowTime,
-          s.ShowDate
+          m.MovieID,
+          m.MovieTitle AS Title,
+          m.MovieDescription AS Description,
+          m.MovieRuntime AS Runtime,
+          m.ImageUrl AS PosterUrl,
+          ch.HallID,
+          ch.HallName,
+          c.CinemaID,
+          c.CinemaName,
+          c.CityAddress AS CinemaAddress,
+          p.PaymentID,
+          p.Amount,
+          p.PaymentDate,
+          p.PaymentMethod,
+          bs.SeatID,
+          bs.SeatNumber,
+          bs.TicketPrice,
+          bs.HoldUntil,
+          cus.CustomerName AS FullName,
+          cus.CustomerEmail
         FROM Booking b
-        JOIN [Show] s ON b.ShowID = s.ShowID
+        JOIN Show s ON b.ShowID = s.ShowID
+        JOIN Movie m ON s.MovieID = m.MovieID
+        JOIN CinemaHall ch ON s.HallID = ch.HallID
+        JOIN Cinema c ON ch.CinemaID = c.CinemaID
+        LEFT JOIN Payment p ON b.BookingID = p.BookingID
+        JOIN Customer cus ON b.CustomerID = cus.CustomerID
+        LEFT JOIN BookingSeat bs ON b.BookingID = bs.BookingID
         WHERE b.BookingID = @BookingID AND b.CustomerID = @CustomerID
       `);
 
-    if (!bookingResult.recordset.length) {
-      return res.status(404).json({ error: 'Không tìm thấy thông tin đặt vé' });
+    if (result.recordset.length === 0) {
+      return res.status(404).json({ error: 'Không tìm thấy vé' });
     }
 
-    const booking = bookingResult.recordset[0];
+    const booking = result.recordset.reduce((acc, row) => {
+      if (!acc.BookingID) {
+        acc = {
+          BookingID: row.BookingID,
+          Customer: {
+            CustomerID: row.CustomerID,
+            FullName: row.FullName,
+            CustomerEmail: row.CustomerEmail,
+          },
+          Show: {
+            ShowID: row.ShowID,
+            ShowDate: row.ShowDate,
+            ShowTime: row.ShowTime.toString().substring(0, 5),
+          },
+          Movie: {
+            MovieID: row.MovieID,
+            Title: row.Title,
+            Description: row.Description,
+            Runtime: row.Runtime,
+            PosterUrl: row.PosterUrl ? Buffer.from(row.PosterUrl).toString('base64') : null,
+          },
+          CinemaHall: {
+            HallID: row.HallID,
+            HallName: row.HallName,
+            CinemaName: row.CinemaName,
+            CinemaAddress: row.CinemaAddress,
+          },
+          Payment: row.PaymentID ? {
+            PaymentID: row.PaymentID,
+            Amount: parseFloat(row.Amount || 0),
+            PaymentDate: row.PaymentDate,
+            PaymentMethod: row.PaymentMethod,
+          } : null,
+          TotalSeats: row.TotalSeats,
+          Status: row.BookingStatus,
+          HoldUntil: row.HoldUntil,
+          BookingSeats: [],
+        };
+      }
+      if (row.SeatID) {
+        acc.BookingSeats.push({
+          SeatID: row.SeatID,
+          SeatNumber: row.SeatNumber,
+          TicketPrice: parseFloat(row.TicketPrice || 0),
+        });
+      }
+      return acc;
+    }, {});
 
-    const movieResult = await request
-      .input('MovieID', sql.Int, booking.MovieID)
-      .query(`
-        SELECT
-          MovieID,
-          MovieTitle AS Title,
-          MovieDescription AS Description,
-          MovieRuntime AS Runtime,
-          ImageUrl AS PosterUrl
-        FROM Movie
-        WHERE MovieID = @MovieID
-      `);
+    // Kiểm tra trạng thái hết hạn
+    const now = new Date();
+    const showDateTime = new Date(`${booking.Show.ShowDate.toISOString().split('T')[0]}T${booking.Show.ShowTime}:00`);
+    if (booking.Status !== 'Expired') {
+      if (booking.HoldUntil && new Date(booking.HoldUntil) < now) {
+        booking.Status = 'Expired';
+        await updateBookingStatus(booking.BookingID, 'Expired', pool);
+        await createNotification(
+          customerId,
+          `Vé của bạn cho phim "${booking.Movie.Title}" đã hết hạn.`,
+          req.headers['user-agent'],
+          req.ip
+        );
+      } else if (showDateTime < now) {
+        booking.Status = 'Expired';
+        await updateBookingStatus(booking.BookingID, 'Expired', pool);
+        await createNotification(
+          customerId,
+          `Vé của bạn cho phim "${booking.Movie.Title}" đã hết hạn do suất chiếu đã kết thúc.`,
+          req.headers['user-agent'],
+          req.ip
+        );
+      }
+    }
 
-    const cinemaHallResult = await request
-      .input('HallID', sql.Int, booking.CinemaHallID)
-      .query(`
-        SELECT
-          ch.HallID,
-          ch.HallName AS HallName,
-          c.CinemaID,
-          c.CinemaName AS CinemaName,
-          c.CityAddress AS CinemaAddress
-        FROM CinemaHall ch
-        JOIN Cinema c ON ch.CinemaID = c.CinemaID
-        WHERE ch.HallID = @HallID
-      `);
-
-    const bookingSeatsResult = await request
-      .input('BookingID', sql.NVarChar, booking.BookingID)
-      .query(`
-        SELECT
-          bs.BookingSeatID,
-          bs.SeatID,
-          bs.Status,
-          bs.TicketPrice,
-          bs.HoldUntil,
-          chs.SeatNumber,
-          chs.SeatType
-        FROM BookingSeat bs
-        JOIN CinemaHallSeat chs ON bs.SeatID = chs.SeatID
-        WHERE bs.BookingID = @BookingID
-      `);
-
-    const paymentResult = await request
-      .input('BookingID', sql.NVarChar, booking.BookingID)
-      .query(`
-        SELECT
-          PaymentID,
-          Amount,
-          PaymentDate,
-          PaymentMethod
-        FROM Payment
-        WHERE BookingID = @BookingID
-      `);
-
-    const customerResult = await request
-      .input('CustomerID', sql.Int, booking.CustomerID)
-      .query(`
-        SELECT
-          CustomerID,
-          CustomerName AS FullName,
-          CustomerEmail AS Email,
-          CustomerPhone AS Phone
-        FROM Customer
-        WHERE CustomerID = @CustomerID
-      `);
-
-    const bookingWithDetails = {
-      BookingID: booking.BookingID,
-      CustomerID: booking.CustomerID,
-      ShowID: booking.ShowID,
-      TotalSeats: booking.TotalSeats,
-      TotalPrice: parseFloat(booking.TotalPrice || 0),
-      Status: booking.Status,
-      Show: {
-        ShowID: booking.ShowID,
-        MovieID: booking.MovieID,
-        ShowTime: booking.ShowTime,
-        ShowDate: booking.ShowDate,
-      },
-      Movie: movieResult.recordset[0] || null,
-      CinemaHall: cinemaHallResult.recordset[0] || null,
-      BookingSeats: bookingSeatsResult.recordset || [],
-      Payment: paymentResult.recordset[0] || null,
-      Customer: customerResult.recordset[0] || null,
-    };
-
-    res.status(200).json({ booking: bookingWithDetails });
-  } catch (error) {
-    console.error('Lỗi khi lấy thông tin đặt vé:', error);
-    res.status(500).json({
-      error: 'Không thể lấy thông tin đặt vé',
-      details: error.message,
+    res.status(200).json({
+      success: true,
+      booking,
     });
+  } catch (error) {
+    console.error('Error fetching booking by ID:', error);
+    res.status(500).json({ error: 'Lỗi khi lấy thông tin vé', details: error.message });
+  } finally {
+    if (pool) await pool.close();
+  }
+};
+
+// Kiểm tra vé sắp hết hạn
+const checkExpiringBookings = async (req, res, next) => {
+  let pool;
+  try {
+    const customerId = req.user.customerID;
+    pool = await db.connectDB();
+    const request = new sql.Request(pool);
+
+    const result = await request
+      .input('CustomerID', sql.Int, customerId)
+      .query(`
+        SELECT 
+          b.BookingID,
+          b.Status AS BookingStatus,
+          s.ShowDate,
+          s.ShowTime,
+          m.MovieTitle AS Title,
+          bs.HoldUntil
+        FROM Booking b
+        JOIN Show s ON b.ShowID = s.ShowID
+        JOIN Movie m ON s.MovieID = m.MovieID
+        LEFT JOIN BookingSeat bs ON b.BookingID = bs.BookingID
+        WHERE b.CustomerID = @CustomerID AND b.Status != 'Expired'
+      `);
+
+    const now = new Date();
+    let expiringTickets = 0;
+
+    for (const row of result.recordset) {
+      const showDateTime = new Date(`${row.ShowDate.toISOString().split('T')[0]}T${row.ShowTime.toString().substring(0, 5)}:00`);
+      if (row.HoldUntil && new Date(row.HoldUntil) < now) {
+        await updateBookingStatus(row.BookingID, 'Expired', pool);
+        await createNotification(
+          customerId,
+          `Vé của bạn cho phim "${row.Title}" đã hết hạn.`,
+          req.headers['user-agent'],
+          req.ip
+        );
+        expiringTickets++;
+      } else if (showDateTime < now) {
+        await updateBookingStatus(row.BookingID, 'Expired', pool);
+        await createNotification(
+          customerId,
+          `Vé của bạn cho phim "${row.Title}" đã hết hạn do suất chiếu đã kết thúc.`,
+          req.headers['user-agent'],
+          req.ip
+        );
+        expiringTickets++;
+      } else if (row.HoldUntil) {
+        const timeDiff = new Date(row.HoldUntil) - now;
+        if (timeDiff <= 24 * 60 * 60 * 1000) { // Sắp hết hạn trong 24 giờ
+          await createNotification(
+            customerId,
+            `Vé của bạn cho phim "${row.Title}" sẽ hết hạn vào ${new Date(row.HoldUntil).toLocaleString('vi-VN')}.`,
+            req.headers['user-agent'],
+            req.ip
+          );
+          expiringTickets++;
+        }
+      }
+    }
+
+    res.status(200).json({
+      success: true,
+      message: expiringTickets > 0 ? `Có ${expiringTickets} vé sắp hết hạn hoặc đã hết hạn.` : 'Không có vé sắp hết hạn.',
+      expiringTickets,
+    });
+  } catch (error) {
+    console.error('Error checking expiring bookings:', error);
+    res.status(500).json({ error: 'Lỗi khi kiểm tra vé hết hạn', details: error.message });
+  } finally {
+    if (pool) await pool.close();
+  }
+};
+
+// Hàm hỗ trợ: Cập nhật trạng thái đặt vé
+const updateBookingStatus = async (bookingId, status, pool) => {
+  const request = new sql.Request(pool);
+  await request
+    .input('BookingID', sql.Int, bookingId)
+    .input('Status', sql.VarChar(20), status)
+    .query(`
+      UPDATE Booking
+      SET Status = @Status
+      WHERE BookingID = @BookingID
+    `);
+};
+
+// Lấy trạng thái đặt vé
+const getBookingStatus = async (req, res, next) => {
+  let pool;
+  try {
+    const { bookingId } = req.params;
+    const customerId = req.user.customerID;
+
+    pool = await db.connectDB();
+    const request = new sql.Request(pool);
+
+    const result = await request
+      .input('BookingID', sql.Int, bookingId)
+      .input('CustomerID', sql.Int, customerId)
+      .query(`
+        SELECT Status, HoldUntil
+        FROM Booking b
+        WHERE b.BookingID = @BookingID AND b.CustomerID = @CustomerID
+      `);
+
+    if (result.recordset.length === 0) {
+      return res.status(404).json({ error: 'Không tìm thấy vé' });
+    }
+
+    const { Status, HoldUntil } = result.recordset[0];
+    res.status(200).json({
+      success: true,
+      status: Status,
+      holdUntil: HoldUntil,
+    });
+  } catch (error) {
+    console.error('Error fetching booking status:', error);
+    res.status(500).json({ error: 'Lỗi khi lấy trạng thái vé', details: error.message });
   } finally {
     if (pool) await pool.close();
   }
 };
 
 module.exports = {
- 
-  getBookingStatus,
   getUserBookings,
-  checkExpiringBookings,
   getBookingById,
+  checkExpiringBookings,
+  getBookingStatus,
 };

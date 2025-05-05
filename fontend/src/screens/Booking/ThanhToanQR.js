@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import {
   StyleSheet,
   View,
@@ -14,12 +14,12 @@ import {
 } from "react-native";
 import { Ionicons, MaterialIcons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { confirmPayment, cancelBooking } from "../../Api/api";
+import { confirmPayment, cancelBooking, generateQRCode, simulateMomoPayment, checkPaymentStatus } from "../../Api/api";
 
 export default function ThanhToanQR({ navigation, route }) {
   const {
     bookingId,
-    totalPrice,
+    totalPrice: ticketPrice, // Renamed to clarify it's only ticket price
     expirationTime,
     selectedSeats,
     selectedProducts,
@@ -34,13 +34,41 @@ export default function ThanhToanQR({ navigation, route }) {
     MovieLanguage,
     selectedVoucherId,
     fromScreen,
+    paymentMethod = "Momo",
   } = route.params;
 
   const [countdown, setCountdown] = useState(0);
   const [modalVisible, setModalVisible] = useState(false);
-  const [isCancelling, setIsCancelling] = useState(false); // Thêm trạng thái isCancelling
+  const [isCancelled, setIsCancelled] = useState(false);
+  const [qrCodeImage, setQrCodeImage] = useState(null);
+  const [transactionInfo, setTransactionInfo] = useState(null);
+  const [isSimulating, setIsSimulating] = useState(false);
+  const [finalAmount, setFinalAmount] = useState(ticketPrice); // State for final amount
+  const timerRef = useRef(null);
 
-  // Xử lý đếm ngược và hủy khi hết thời gian
+  useEffect(() => {
+    const fetchQRCode = async () => {
+      try {
+        // Pass selectedProducts and selectedVoucherId to generateQRCode
+        const response = await generateQRCode(bookingId, {
+          paymentMethod,
+          selectedProducts,
+          selectedVoucherId,
+        });
+        if (response.success) {
+          setQrCodeImage(response.qrCode);
+          setTransactionInfo(response.transactionInfo);
+          setFinalAmount(response.totalPrice); // Update final amount from backend
+        } else {
+          Alert.alert("Lỗi", response.message || "Không thể tạo mã QR");
+        }
+      } catch (error) {
+        Alert.alert("Lỗi", "Không thể tạo mã QR. Vui lòng thử lại.");
+      }
+    };
+    fetchQRCode();
+  }, [bookingId, paymentMethod, selectedProducts, selectedVoucherId]);
+
   useEffect(() => {
     const updateCountdown = () => {
       const now = new Date().getTime();
@@ -50,88 +78,87 @@ export default function ThanhToanQR({ navigation, route }) {
     };
 
     setCountdown(updateCountdown());
-    const timer = setInterval(() => {
+    timerRef.current = setInterval(() => {
       setCountdown((prev) => {
-        if (prev <= 0) {
-          clearInterval(timer);
-          handleCancelBooking().finally(() => {
-            Alert.alert("Hết thời gian", "Thời gian thanh toán đã hết.", [
-              {
-                text: "OK",
-                onPress: () => {
-                  if (fromScreen === "MovieBookingScreen") {
-                    navigation.navigate("MovieBookingScreen", { movieId });
-                  } else if (fromScreen === "ChonRap_TheoKhuVuc") {
-                    navigation.navigate("ChonRap_TheoKhuVuc", { cinemaId, cinemaName });
-                  } else {
-                    navigation.navigate("SoDoGheNgoi1", { showId });
-                  }
+        if (prev <= 0 || isCancelled) {
+          clearInterval(timerRef.current);
+          if (!isCancelled) {
+            handleCancelBooking().catch(() => {
+              Alert.alert("Lỗi", "Không thể hủy giao dịch khi hết thời gian.");
+            }).finally(() => {
+              Alert.alert("Hết thời gian", "Thời gian thanh toán đã hết.", [
+                {
+                  text: "OK",
+                  onPress: () => navigateBack(),
                 },
-              },
-            ]);
-          });
+              ]);
+            });
+          }
           return 0;
         }
         return updateCountdown();
       });
     }, 1000);
 
-    return () => clearInterval(timer);
-  }, [expirationTime, navigation, showId, fromScreen, movieId, cinemaId, cinemaName]);
+    return () => clearInterval(timerRef.current);
+  }, [expirationTime, isCancelled]);
 
-  // Xử lý hủy đặt vé
+  const navigateBack = () => {
+    if (fromScreen === "MovieBookingScreen") {
+      navigation.navigate("MovieBookingScreen", { movieId });
+    } else if (fromScreen === "ChonRap_TheoKhuVuc") {
+      navigation.navigate("ChonRap_TheoKhuVuc", { cinemaId, cinemaName });
+    } else {
+      navigation.navigate("SoDoGheNgoi1", { showId });
+    }
+  };
+
   const handleCancelBooking = async () => {
-    if (!bookingId || isCancelling) return;
-    setIsCancelling(true);
+    if (!bookingId || isCancelled) return;
+    setIsCancelled(true);
+    clearInterval(timerRef.current);
     try {
       await cancelBooking(bookingId);
       console.log("Đã hủy đặt vé:", bookingId);
     } catch (error) {
       const errorMessage = error.response?.data?.message || "Không thể hủy đặt vé";
       const status = error.response?.status;
-      console.error("Lỗi khi hủy đặt vé:", error);
       if (
         errorMessage === "Đặt vé đã được hủy trước đó" ||
-        status === 403 || // Không có quyền
-        status === 410 // Đặt vé đã hết hạn (nếu backend trả về)
+        status === 403 ||
+        status === 410
       ) {
         console.log(`Bỏ qua lỗi: ${errorMessage}`);
       } else {
-        Alert.alert("Lỗi", errorMessage);
+        throw new Error(errorMessage);
       }
-    } finally {
-      setIsCancelling(false);
     }
   };
 
-  // Gộp logic quay lại và hủy
   const handleGoBack = () => {
-    if (isCancelling) return;
+    if (isCancelled) return;
     Alert.alert(
       "Hủy giao dịch",
       "Bạn có muốn hủy quá trình thanh toán không? Ghế đã giữ sẽ được giải phóng.",
       [
+        { text: "Tiếp tục", style: "cancel" },
         {
           text: "Hủy",
           onPress: async () => {
-            await handleCancelBooking();
-            if (fromScreen === "MovieBookingScreen") {
-              navigation.navigate("MovieBookingScreen", { movieId });
-            } else if (fromScreen === "ChonRap_TheoKhuVuc") {
-              navigation.navigate("ChonRap_TheoKhuVuc", { cinemaId, cinemaName });
-            } else {
-              navigation.navigate("SoDoGheNgoi1", { showId });
+            try {
+              await handleCancelBooking();
+              navigateBack();
+            } catch (error) {
+              Alert.alert("Lỗi", error.message || "Không thể hủy giao dịch.");
             }
           },
           style: "destructive",
         },
-        { text: "Tiếp tục", style: "cancel" },
       ],
       { cancelable: false }
     );
   };
 
-  // Xử lý BackHandler
   useEffect(() => {
     const backAction = () => {
       handleGoBack();
@@ -139,37 +166,32 @@ export default function ThanhToanQR({ navigation, route }) {
     };
 
     const backHandler = BackHandler.addEventListener("hardwareBackPress", backAction);
-
     return () => backHandler.remove();
-  }, [handleGoBack, isCancelling]);
+  }, [handleGoBack, isCancelled]);
 
-  // Xử lý thanh toán thành công
-  const handlePaymentSuccess = async () => {
-    if (isCancelling) return;
+  const handleSimulatePayment = async () => {
+    if (isCancelled || isSimulating) return;
+    setIsSimulating(true);
     try {
-      const paymentData = {
-        paymentMethod: "QR",
-        amount: totalPrice,
-        selectedProducts,
-        voucherId: selectedVoucherId,
-      };
-      const response = await confirmPayment(bookingId, paymentData);
+      const response = await simulateMomoPayment(bookingId, { selectedProducts, selectedVoucherId });
       if (response.success) {
-        // Cập nhật trạng thái ghế thành booked
-        await fetch("http://your-api-url/api/update-seats-booked", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${await AsyncStorage.getItem("accessToken")}`,
-          },
-          body: JSON.stringify({ bookingId }),
-        });
-        Alert.alert("Thành công", "Thanh toán thành công!", [
-          { text: "OK", onPress: () => navigation.navigate("Home") },
-        ]);
+        const paymentStatus = await checkPaymentStatus(bookingId);
+        if (paymentStatus.data.booking.Status === "Confirmed") {
+          setIsCancelled(true);
+          clearInterval(timerRef.current);
+          Alert.alert("Thành công", "Thanh toán giả lập thành công!", [
+            { text: "OK", onPress: () => navigation.navigate("Home") },
+          ]);
+        } else {
+          Alert.alert("Lỗi", "Thanh toán chưa được xác nhận. Vui lòng thử lại.");
+        }
+      } else {
+        Alert.alert("Lỗi", response.message || "Giả lập thanh toán thất bại.");
       }
     } catch (error) {
-      Alert.alert("Lỗi", error.response?.data?.message || "Thanh toán thất bại. Vui lòng thử lại.");
+      Alert.alert("Lỗi", error.response?.data?.message || "Giả lập thanh toán thất bại.");
+    } finally {
+      setIsSimulating(false);
     }
   };
 
@@ -187,18 +209,18 @@ export default function ThanhToanQR({ navigation, route }) {
         <TouchableOpacity
           style={styles.backButton}
           onPress={handleGoBack}
-          disabled={isCancelling}
+          disabled={isCancelled}
         >
-          <Ionicons name="arrow-back" size={24} color={isCancelling ? "grey" : "#c33"} />
+          <Ionicons name="arrow-back" size={24} color={isCancelled ? "grey" : "#c33"} />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Thanh toán</Text>
+        <Text style={styles.headerTitle}>Thanh toán qua Momo</Text>
       </View>
 
       <ScrollView style={styles.scrollView}>
         <View style={styles.paymentHeader}>
           <View style={styles.logoContainer}>
             <Image
-              source={require("../../assets/images/giaohangchoma.jpg")}
+              source={require("../../assets/images/momo.png")}
               style={styles.logo}
               resizeMode="contain"
             />
@@ -207,9 +229,10 @@ export default function ThanhToanQR({ navigation, route }) {
             <Text style={styles.amountLabel}>Số tiền thanh toán</Text>
             <TouchableOpacity
               style={styles.amountRow}
-              onPress={() => setModalVisible(true)}
+              onPress={() => !isCancelled && setModalVisible(true)}
+              disabled={isCancelled}
             >
-              <Text style={styles.amount}>{totalPrice.toLocaleString()} VND</Text>
+              <Text style={styles.amount}>{finalAmount.toLocaleString()} VND</Text>
               <MaterialIcons name="keyboard-arrow-down" size={24} color="#0088CC" />
             </TouchableOpacity>
 
@@ -235,6 +258,16 @@ export default function ThanhToanQR({ navigation, route }) {
                   <Text style={styles.modalCompany}>{cinemaName || "CJ MTB VIETNAM"}</Text>
                   <Text style={styles.modalLabel}>Mã đơn hàng</Text>
                   <Text style={styles.modalOrderId}>{bookingId || "N/A"}</Text>
+                  {transactionInfo && (
+                    <>
+                      <Text style={styles.modalLabel}>Thông tin chuyển khoản</Text>
+                      <Text style={styles.modalText}>Ngân hàng: {transactionInfo.bankName}</Text>
+                      <Text style={styles.modalText}>Số tài khoản: {transactionInfo.accountNumber}</Text>
+                      <Text style={styles.modalText}>Tên tài khoản: {transactionInfo.accountName}</Text>
+                      <Text style={styles.modalText}>Số tiền: {transactionInfo.amount.toLocaleString()} VND</Text>
+                      <Text style={styles.modalText}>Nội dung: {transactionInfo.content}</Text>
+                    </>
+                  )}
                 </View>
               </TouchableOpacity>
             </Modal>
@@ -245,12 +278,11 @@ export default function ThanhToanQR({ navigation, route }) {
 
         <View style={styles.infoContainer}>
           <View style={styles.instructionContainer}>
-            <Text style={styles.paymentMethodText}>Vui lòng quét mã sau:</Text>
+            <Text style={styles.paymentMethodText}>Vui lòng quét mã QR:</Text>
             <View style={styles.atmBadge}>
-              <Text style={styles.atmText}>QR</Text>
+              <Text style={styles.atmText}>Momo QR</Text>
             </View>
           </View>
-
           <View style={styles.timeContainer}>
             <Ionicons name="time-outline" size={20} color="#000" />
             <Text style={styles.timeText}>{formatTime(countdown)}</Text>
@@ -258,28 +290,43 @@ export default function ThanhToanQR({ navigation, route }) {
         </View>
 
         <View style={styles.paymentImageContainer}>
-          <Image
-            source={require("../../assets/QR.jpg")}
-            style={styles.paymentImage}
-            resizeMode="contain"
-          />
+          {qrCodeImage ? (
+            <Image
+              source={{ uri: qrCodeImage }}
+              style={styles.paymentImage}
+              resizeMode="contain"
+            />
+          ) : (
+            <Text>Đang tải mã QR...</Text>
+          )}
         </View>
+
+        {transactionInfo && (
+          <View style={styles.transactionInfoContainer}>
+            <Text style={styles.transactionInfoTitle}>Thông tin chuyển khoản</Text>
+            <Text style={styles.transactionInfoText}>Ngân hàng: {transactionInfo.bankName}</Text>
+            <Text style={styles.transactionInfoText}>Số tài khoản: {transactionInfo.accountNumber}</Text>
+            <Text style={styles.transactionInfoText}>Tên tài khoản: {transactionInfo.accountName}</Text>
+            <Text style={styles.transactionInfoText}>Số tiền: {transactionInfo.amount.toLocaleString()} VND</Text>
+            <Text style={styles.transactionInfoText}>Nội dung: {transactionInfo.content}</Text>
+          </View>
+        )}
 
         <View style={styles.actionContainer}>
           <TouchableOpacity
-            style={[styles.confirmButton, isCancelling && styles.disabledButton]}
-            onPress={handlePaymentSuccess}
-            disabled={isCancelling}
+            style={[styles.confirmButton, (isCancelled || isSimulating) && styles.disabledButton]}
+            onPress={handleSimulatePayment}
+            disabled={isCancelled || isSimulating}
           >
-            <Text style={styles.confirmButtonText}>Xác nhận thanh toán</Text>
+            <Text style={styles.confirmButtonText}>Giả lập thanh toán thành công</Text>
           </TouchableOpacity>
 
           <TouchableOpacity
             style={styles.cancelContainer}
             onPress={handleGoBack}
-            disabled={isCancelling}
+            disabled={isCancelled}
           >
-            <Text style={[styles.cancelText, isCancelling && { color: "grey" }]}>✕ Hủy giao dịch</Text>
+            <Text style={[styles.cancelText, isCancelled && { color: "grey" }]}>✕ Hủy giao dịch</Text>
           </TouchableOpacity>
         </View>
 
@@ -411,6 +458,23 @@ const styles = StyleSheet.create({
     height: 400,
     borderRadius: 5,
   },
+  transactionInfoContainer: {
+    marginHorizontal: 15,
+    marginVertical: 10,
+    padding: 15,
+    backgroundColor: "#f9f9f9",
+    borderRadius: 5,
+  },
+  transactionInfoTitle: {
+    fontSize: 16,
+    fontWeight: "bold",
+    marginBottom: 10,
+  },
+  transactionInfoText: {
+    fontSize: 14,
+    color: "#333",
+    marginBottom: 5,
+  },
   actionContainer: {
     alignItems: "center",
     paddingVertical: 15,
@@ -512,5 +576,10 @@ const styles = StyleSheet.create({
   modalOrderId: {
     fontSize: 16,
     fontWeight: "bold",
+  },
+  modalText: {
+    fontSize: 14,
+    color: "#333",
+    marginBottom: 5,
   },
 });

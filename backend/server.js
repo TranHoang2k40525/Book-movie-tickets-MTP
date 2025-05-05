@@ -15,7 +15,7 @@ const likeRoutes = require("./routes/likes");
 const productRoutes = require("./routes/products");
 const notificationRoutes = require("./routes/notifications");
 const voucherRoutes = require("./routes/vouchers")
-const bookingRoutes = require("./routes/booking");
+
 const paymentRoutes = require("./routes/payments");
 const datgheRoutes = require("./routes/datghe");
 const app = express();
@@ -96,7 +96,7 @@ app.use('/api', notificationRoutes);
 app.use('/api', voucherRoutes);
 app.use("/api", datgheRoutes);
 app.use('/api/payments', paymentRoutes);
-app.use('/api', bookingRoutes);
+
 
 
 

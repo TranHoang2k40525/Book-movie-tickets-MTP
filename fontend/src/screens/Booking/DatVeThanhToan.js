@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import {
   StyleSheet,
   Text,
@@ -10,12 +10,11 @@ import {
   StatusBar,
   ActivityIndicator,
   Alert,
-  BackHandler,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { getProducts, cancelBooking } from "../../Api/api";
-import Menu from "../../components/Menu";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { useFocusEffect } from '@react-navigation/native';
 
 const getFallbackImage = (productName) => {
   const name = productName.toLowerCase();
@@ -43,7 +42,7 @@ export default function DatVeThanhToan({ navigation, route }) {
     ImageUrl,
     moviePoster,
     MovieLanguage,
-    fromScreen, // Thêm tham số nguồn gốc
+    fromScreen,
   } = route.params || {};
 
   const [products, setProducts] = useState([]);
@@ -52,102 +51,36 @@ export default function DatVeThanhToan({ navigation, route }) {
   const [quantities, setQuantities] = useState({});
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [totalPrice, setTotalPrice] = useState(seatTotalPrice);
+  const [isCancelled, setIsCancelled] = useState(false);
   const [countdown, setCountdown] = useState(0);
+  const timerRef = useRef(null);
 
-  // Thêm state isCancelling
-  const [isCancelling, setIsCancelling] = useState(false);
   useEffect(() => {
     checkAuthStatus();
     fetchProducts();
-
-    const updateCountdown = () => {
-      const now = new Date().getTime();
-      const expiration = new Date(expirationTime).getTime();
-      const diff = Math.floor((expiration - now) / 1000);
-      return diff > 0 ? diff : 0;
-    };
-
-    setCountdown(updateCountdown());
-    const timer = setInterval(() => {
-      setCountdown((prev) => {
-        if (prev <= 0) {
-          clearInterval(timer);
-          handleCancelBooking();
-          Alert.alert("Hết thời gian", "Thời gian giữ ghế đã hết.", [
-            {
-              text: "OK",
-              onPress: () => {
-                if (fromScreen === 'MovieBookingScreen') {
-                  navigation.navigate('MovieBookingScreen', { movieId });
-                } else if (fromScreen === 'ChonRap_TheoKhuVuc') {
-                  navigation.navigate('ChonRap_TheoKhuVuc', { cinemaId, cinemaName });
-                } else {
-                  navigation.navigate("SoDoGheNgoi1", { showId });
-                }
-              },
-            },
-          ]);
-          return 0;
-        }
-        return updateCountdown();
-      });
-    }, 1000);
-
-    return () => clearInterval(timer);
-  }, [expirationTime, navigation, showId, fromScreen, ImageUrl, movieId, cinemaId, cinemaName]);
-
-  // Xử lý sự kiện quay lại
-  useEffect(() => {
-    const backAction = () => {
-      Alert.alert(
-        'Hủy giao dịch',
-        'Bạn có muốn hủy quá trình đặt vé không? Ghế đã giữ sẽ được giải phóng.',
-        [
-          {
-            text: 'Hủy',
-            onPress: () => {
-              handleCancelBooking();
-              if (fromScreen === 'MovieBookingScreen') {
-                navigation.navigate('MovieBookingScreen', { movieId });
-              } else if (fromScreen === 'ChonRap_TheoKhuVuc') {
-                navigation.navigate('ChonRap_TheoKhuVuc', { cinemaId, cinemaName });
-              } else {
-                navigation.goBack();
-              }
-            },
-            style: 'cancel',
-          },
-          { text: 'Tiếp tục', style: 'cancel' },
-        ],
-        { cancelable: false }
-      );
-      return true;
-    };
-
-    const backHandler = BackHandler.addEventListener('hardwareBackPress', backAction);
-
-    return () => backHandler.remove();
-  }, [navigation, bookingId, fromScreen, movieId, cinemaId, cinemaName]);
+  }, []);
 
   const checkAuthStatus = async () => {
     try {
       const token = await AsyncStorage.getItem("accessToken");
-      if (token) {
-        setIsLoggedIn(true);
-      } else {
+      setIsLoggedIn(!!token);
+      if (!token) {
         Alert.alert(
           "Yêu cầu đăng nhập",
           "Bạn cần đăng nhập để đặt vé và thanh toán",
           [
             {
               text: "Đăng nhập ngay",
-              onPress: () =>
-                navigation.navigate("Login", {
-                  returnScreen: "DatVeThanhToan",
-                  returnParams: route.params,
-                }),
+              onPress: () => navigation.navigate("Login", {
+                returnScreen: "DatVeThanhToan",
+                returnParams: route.params,
+              }),
             },
-            { text: "Quay lại", onPress: () => navigation.goBack(), style: "cancel" },
+            {
+              text: "Quay lại",
+              onPress: () => navigation.goBack(),
+              style: "cancel",
+            },
           ]
         );
       }
@@ -185,70 +118,134 @@ export default function DatVeThanhToan({ navigation, route }) {
     }
   };
 
-  // Cập nhật handleCancelBooking
-  const handleCancelBooking = async () => {
-    if (!bookingId || isCancelling) return;
-    setIsCancelling(true);
+  const checkBookingStatus = async (bookingId) => {
     try {
+      return true; // Mocked for now
+    } catch (error) {
+      console.error('Lỗi kiểm tra trạng thái đặt vé:', error);
+      return false;
+    }
+  };
+
+  const handleCancelBooking = async () => {
+    if (!bookingId || isCancelled) return;
+    setIsCancelled(true);
+    if (timerRef.current) clearInterval(timerRef.current);
+    try {
+      const isBookingActive = await checkBookingStatus(bookingId);
+      if (!isBookingActive) {
+        console.log('Đặt vé đã hết hạn hoặc đã hủy, bỏ qua.');
+        return;
+      }
       await cancelBooking(bookingId);
       console.log("Đã hủy đặt vé:", bookingId);
     } catch (error) {
-      const errorMessage = error.response?.data?.message || 'Không thể hủy đặt vé';
+      const errorMessage = error.response?.data?.message || "Không thể hủy đặt vé";
+      const status = error.response?.status;
       console.error("Lỗi khi hủy đặt vé:", error);
-      if (errorMessage === 'Đặt vé đã được hủy trước đó') {
-        console.log('Giao dịch đã được hủy trước đó, bỏ qua.');
+      if (
+        errorMessage === "Đặt vé đã được hủy trước đó" ||
+        status === 400 ||
+        status === 403 ||
+        status === 410
+      ) {
+        console.log(`Bỏ qua lỗi: ${errorMessage} (Status: ${status})`);
       } else {
-        Alert.alert('Lỗi', errorMessage);
+        Alert.alert("Lỗi", errorMessage);
       }
-    } finally {
-      setIsCancelling(false);
     }
   };
-  // Thêm handleGoBack
+
   const handleGoBack = () => {
-    if (isCancelling) return;
+    if (isCancelled) return;
     Alert.alert(
-      'Hủy giao dịch',
-      'Bạn có muốn hủy quá trình đặt vé không? Ghế đã giữ sẽ được giải phóng.',
+      "Hủy giao dịch",
+      "Bạn có muốn hủy quá trình đặt vé không? Ghế đã giữ sẽ được giải phóng.",
       [
         {
-          text: 'Hủy',
+          text: "Tiếp tục",
+          style: "cancel",
+        },
+        {
+          text: "Hủy",
           onPress: async () => {
+            if (timerRef.current) clearInterval(timerRef.current);
             await handleCancelBooking();
-            if (fromScreen === 'MovieBookingScreen') {
-              navigation.navigate('MovieBookingScreen', { movieId });
-            } else if (fromScreen === 'ChonRap_TheoKhuVuc') {
-              navigation.navigate('ChonRap_TheoKhuVuc', { cinemaId, cinemaName });
+            if (fromScreen === "MovieBookingScreen") {
+              navigation.navigate("MovieBookingScreen", { movieId });
+            } else if (fromScreen === "ChonRap_TheoKhuVuc") {
+              navigation.navigate("ChonRap_TheoKhuVuc", { cinemaId, cinemaName });
             } else {
               navigation.goBack();
             }
           },
-          style: 'destructive',
+          style: "destructive",
         },
-        { text: 'Tiếp tục', style: 'cancel' },
       ],
       { cancelable: false }
     );
   };
 
-  // Cập nhật BackHandler
-  useEffect(() => {
-    const backAction = () => {
-      handleGoBack();
-      return true;
-    };
-
-    const backHandler = BackHandler.addEventListener('hardwareBackPress', backAction);
-
-    return () => backHandler.remove();
-  }, [handleGoBack, isCancelling]);
-
   const updateQuantity = (productId, change) => {
+    if (isCancelled) return;
     setQuantities((prev) => ({
       ...prev,
       [productId]: Math.max(0, (prev[productId] || 0) + change),
     }));
   };
+
+  useEffect(() => {
+    const productTotal = Object.keys(quantities).reduce((sum, productId) => {
+      const product = products.find((p) => p.ProductID.toString() === productId);
+      return sum + (quantities[productId] || 0) * (product?.ProductPrice || 0);
+    }, 0);
+    setTotalPrice(seatTotalPrice + productTotal);
+  }, [quantities, products, seatTotalPrice]);
+
+  const startCountdown = () => {
+    const updateCountdown = () => {
+      const now = new Date().getTime();
+      const expiration = new Date(expirationTime).getTime();
+      const diff = Math.floor((expiration - now) / 1000);
+      return diff > 0 ? diff : 0;
+    };
+
+    setCountdown(updateCountdown());
+    timerRef.current = setInterval(() => {
+      setCountdown((prev) => {
+        if (prev <= 0 && !isCancelled) {
+          clearInterval(timerRef.current);
+          handleCancelBooking().finally(() => {
+            Alert.alert("Hết thời gian", "Thời gian giữ ghế đã hết.", [
+              {
+                text: "OK",
+                onPress: () => {
+                  if (fromScreen === "MovieBookingScreen") {
+                    navigation.navigate("MovieBookingScreen", { movieId });
+                  } else if (fromScreen === "ChonRap_TheoKhuVuc") {
+                    navigation.navigate("ChonRap_TheoKhuVuc", { cinemaId, cinemaName });
+                  } else {
+                    navigation.navigate("SoDoGheNgoi1", { showId });
+                  }
+                },
+              },
+            ]);
+          });
+          return 0;
+        }
+        return updateCountdown();
+      });
+    }, 1000);
+  };
+
+  useFocusEffect(
+    React.useCallback(() => {
+      startCountdown();
+      return () => {
+        if (timerRef.current) clearInterval(timerRef.current);
+      };
+    }, [expirationTime, isCancelled])
+  );
 
   const formatPrice = (price) => price.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ".");
 
@@ -273,59 +270,48 @@ export default function DatVeThanhToan({ navigation, route }) {
   };
 
   const handlePayment = async () => {
-    if (!isLoggedIn) {
-      Alert.alert(
-        "Yêu cầu đăng nhập",
-        "Bạn cần đăng nhập để tiếp tục thanh toán",
-        [
-          {
-            text: "Đăng nhập ngay",
-            onPress: () =>
-              navigation.navigate("Login", {
-                returnScreen: "DatVeThanhToan",
-                returnParams: route.params,
-              }),
-          },
-          { text: "Đóng", style: "cancel" },
-        ]
-      );
-      return;
-    }
-
-    try {
-      const productsToProcess = Object.keys(quantities)
-        .filter((productId) => quantities[productId] > 0)
-        .map((productId) => {
-          const product = products.find((p) => p.ProductID.toString() === productId);
-          return {
-            productId: product.ProductID,
-            quantity: quantities[productId],
-            price: product.ProductPrice,
-          };
-        });
-
-      navigation.navigate("ThanhToan", {
-        bookingId,
-        expirationTime,
-        selectedSeats,
-        selectedProducts: productsToProcess,
-        totalPrice,
-        showId,
-        cinemaId,
-        cinemaName,
-        showDate,
-        showTime,
-        movieTitle,
-        ImageUrl,
-        movieId,
-        moviePoster,
-        MovieLanguage,
-        fromScreen, // Truyền tham số nguồn gốc
+    if (isCancelled || !isLoggedIn) return;
+    if (timerRef.current) clearInterval(timerRef.current);
+    const productsToProcess = Object.keys(quantities)
+      .filter((productId) => quantities[productId] > 0)
+      .map((productId) => {
+        const product = products.find((p) => p.ProductID.toString() === productId);
+        return {
+          productId: product.ProductID,
+          quantity: quantities[productId],
+          price: product.ProductPrice,
+        };
       });
-    } catch (error) {
-      console.error("Lỗi khi chuyển sang trang thanh toán:", error);
-      Alert.alert("Lỗi", "Không thể chuyển sang trang thanh toán. Vui lòng thử lại.");
-    }
+
+    const productTotal = Object.keys(quantities).reduce((sum, productId) => {
+      const product = products.find((p) => p.ProductID.toString() === productId);
+      return sum + (quantities[productId] || 0) * (product?.ProductPrice || 0);
+    }, 0);
+
+    const now = new Date().getTime();
+    const expiration = new Date(expirationTime).getTime();
+    const remainingTime = Math.max(0, expiration - now);
+
+    navigation.navigate("ThanhToan", {
+      bookingId,
+      expirationTime,
+      remainingTime,
+      selectedSeats,
+      selectedProducts: productsToProcess,
+      seatTotalPrice, // Truyền seatTotalPrice thay vì totalPrice
+      productTotal,   // Truyền productTotal riêng
+      showId,
+      cinemaId,
+      cinemaName,
+      showDate,
+      showTime,
+      movieTitle,
+      ImageUrl,
+      movieId,
+      moviePoster,
+      MovieLanguage,
+      fromScreen,
+    });
   };
 
   if (loading) {
@@ -345,9 +331,9 @@ export default function DatVeThanhToan({ navigation, route }) {
           <TouchableOpacity
             style={styles.backButton}
             onPress={handleGoBack}
-            disabled={isCancelling}
+            disabled={isCancelled}
           >
-            <Ionicons name="arrow-back" size={24} color={isCancelling ? 'grey' : '#fff'} />
+            <Ionicons name="arrow-back" size={24} color={isCancelled ? "grey" : "#fff"} />
           </TouchableOpacity>
           <View style={styles.headerTextContainer}>
             <Text style={styles.headerTitle}>{cinemaName || "MTB Cinema"}</Text>
@@ -355,7 +341,6 @@ export default function DatVeThanhToan({ navigation, route }) {
               {showDate} {showTime}
             </Text>
           </View>
-          <Menu navigation={navigation} />
         </View>
       </View>
 
@@ -391,7 +376,9 @@ export default function DatVeThanhToan({ navigation, route }) {
       <ScrollView style={styles.scrollView}>
         {products.map((product) => (
           <View key={product.ProductID} style={styles.comboItem}>
-            <View style={styles.comboImageContainer}>{renderProductImage(product)}</View>
+            <View style={styles.comboImageContainer}>
+              {renderProductImage(product)}
+            </View>
             <View style={styles.comboDetails}>
               <Text style={styles.comboTitle}>
                 {product.ProductName} - {formatPrice(product.ProductPrice)} đ
@@ -407,6 +394,7 @@ export default function DatVeThanhToan({ navigation, route }) {
                 <TouchableOpacity
                   style={styles.quantityButton}
                   onPress={() => updateQuantity(product.ProductID, -1)}
+                  disabled={isCancelled}
                 >
                   <Text style={styles.quantityButtonText}>-</Text>
                 </TouchableOpacity>
@@ -416,6 +404,7 @@ export default function DatVeThanhToan({ navigation, route }) {
                 <TouchableOpacity
                   style={styles.quantityButton}
                   onPress={() => updateQuantity(product.ProductID, 1)}
+                  disabled={isCancelled}
                 >
                   <Text style={styles.quantityButtonText}>+</Text>
                 </TouchableOpacity>
@@ -431,8 +420,8 @@ export default function DatVeThanhToan({ navigation, route }) {
           <Text style={styles.totalPriceValue}>{formatPrice(totalPrice)} đ</Text>
         </View>
         <TouchableOpacity
-          style={[styles.paymentButton, !isLoggedIn && styles.paymentButtonDisabled]}
-          disabled={!isLoggedIn}
+          style={[styles.paymentButton, (!isLoggedIn || isCancelled) && styles.paymentButtonDisabled]}
+          disabled={!isLoggedIn || isCancelled}
           onPress={handlePayment}
         >
           <Text style={styles.paymentButtonText}>Tiếp tục</Text>
@@ -441,6 +430,7 @@ export default function DatVeThanhToan({ navigation, route }) {
     </SafeAreaView>
   );
 }
+
 const styles = StyleSheet.create({
   container: {
     flex: 1,
@@ -534,9 +524,9 @@ const styles = StyleSheet.create({
     marginVertical: 5,
   },
   countdownText: {
-    color: "#e71a0f",
+    color: "#fff",
     fontSize: 14,
-    marginTop: 2,
+    fontWeight: "bold",
   },
   scrollView: {
     flex: 1,

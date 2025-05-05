@@ -3,26 +3,28 @@ import { View, Text, Image, TouchableOpacity, StyleSheet, FlatList, ActivityIndi
 import { Ionicons } from '@expo/vector-icons';
 import { getBookings, getBookingById, checkExpiredBookings } from '../../Api/api';
 import { UserContext } from '../../contexts/User/UserContext';
-import  Menu from '../../components/Menu';
+import Menu from '../../components/Menu';
+
 const VeCuaToi = ({ navigation }) => {
   const [activeTab, setActiveTab] = useState('morning');
   const [bookings, setBookings] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [selectedBooking, setSelectedBooking] = useState(null);
-  const [noBookingsMessage, setNoBookingsMessage] = useState('Bạn chưa đặt vé nào. Hãy đặt vé để xem phim bạn yêu thích!');
+  const [noBookingsMessage, setNoBookingsMessage] = useState('Bạn không có vé');
   const { user } = useContext(UserContext);
 
   useEffect(() => {
     fetchBookings();
-    // Kiểm tra vé sắp hết hạn mỗi khi màn hình được hiển thị
     checkExpiringBookings();
   }, []);
 
   const checkExpiringBookings = async () => {
     try {
       const response = await checkExpiredBookings();
-      // Backend sẽ tự động gửi thông báo nếu có vé sắp hết hạn
+      if (response.expiringTickets > 0) {
+        Alert.alert('Thông báo', response.message);
+      }
     } catch (error) {
       console.error('Lỗi khi kiểm tra vé sắp hết hạn:', error);
     }
@@ -34,9 +36,8 @@ const VeCuaToi = ({ navigation }) => {
       console.log('Fetching bookings...');
       const response = await getBookings();
       setBookings(response.bookings || []);
-      // Sửa đổi: Cập nhật thông báo từ backend nếu có, hoặc giữ mặc định
       if (response.bookings.length === 0) {
-        setNoBookingsMessage(response.message || 'Hiện tại bạn chưa có vé nào');
+        setNoBookingsMessage(response.message || 'Bạn không có vé');
       }
     } catch (error) {
       console.error('Lỗi khi lấy danh sách vé:', {
@@ -45,8 +46,7 @@ const VeCuaToi = ({ navigation }) => {
         status: error.response?.status,
       });
       setBookings([]);
-      // Sửa đổi: Hiển thị thông báo lỗi thay vì Alert.alert
-      setNoBookingsMessage('Không thể tải danh sách vé. Vui lòng thử lại sau.');
+      setNoBookingsMessage('Bạn không có vé');
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -72,13 +72,13 @@ const VeCuaToi = ({ navigation }) => {
   };
 
   const renderBookingCard = ({ item }) => {
-    // Kiểm tra vé đã xem hay sắp xem dựa trên ngày chiếu và ngày hiện tại
-    const isUpcoming = new Date(item.MovieDateTime) > new Date();
+    const isUpcoming = new Date(item.Show.ShowDate) > new Date();
     
-    // Chỉ hiển thị vé phù hợp với tab đang chọn
     if ((activeTab === 'morning' && !isUpcoming) || (activeTab === 'afternoon' && isUpcoming)) {
       return null;
     }
+
+    const holdUntil = item.HoldUntil ? new Date(item.HoldUntil).toLocaleString('vi-VN') : 'N/A';
     
     return (
       <TouchableOpacity 
@@ -86,16 +86,18 @@ const VeCuaToi = ({ navigation }) => {
         onPress={() => handleBookingPress(item.BookingID)}
       >
         <Image 
-          source={{ uri: item.MovieImageUrl || 'https://via.placeholder.com/150' }} 
+          source={{ uri: item.Movie?.PosterUrl || 'https://via.placeholder.com/150' }} 
           style={styles.moviePoster} 
         />
         <View style={styles.bookingInfo}>
-          <Text style={styles.movieTitle}>{item.MovieTitle}</Text>
-          <Text style={styles.bookingDetail}>Ngày chiếu: {new Date(item.MovieDateTime).toLocaleDateString('vi-VN')}</Text>
-          <Text style={styles.bookingDetail}>Giờ chiếu: {new Date(item.MovieDateTime).toLocaleTimeString('vi-VN')}</Text>
-          <Text style={styles.bookingDetail}>Rạp: {item.CinemaName}</Text>
-          <Text style={styles.bookingDetail}>Phòng: {item.RoomName}</Text>
-          <Text style={styles.bookingDetail}>Ghế: {item.SeatNumbers}</Text>
+          <Text style={styles.movieTitle}>{item.Movie?.Title}</Text>
+          <Text style={styles.bookingDetail}>Ngày chiếu: {new Date(item.Show.ShowDate).toLocaleDateString('vi-VN')}</Text>
+          <Text style={styles.bookingDetail}>Giờ chiếu: {item.Show.ShowTime}</Text>
+          <Text style={styles.bookingDetail}>Rạp: {item.CinemaHall?.CinemaName}</Text>
+          <Text style={styles.bookingDetail}>Phòng: {item.CinemaHall?.HallName}</Text>
+          <Text style={styles.bookingDetail}>Ghế: {item.BookingSeats.map(seat => seat.SeatNumber).join(', ')}</Text>
+          <Text style={styles.bookingDetail}>Giá vé: {item.Payment?.Amount.toLocaleString('vi-VN')} VNĐ</Text>
+          <Text style={styles.bookingDetail}>Hết hạn: {holdUntil}</Text>
           <View style={[
             styles.statusBadge, 
             {backgroundColor: item.Status === 'Confirmed' ? '#4CAF50' : item.Status === 'Expired' ? '#F44336' : '#FFC107'}
@@ -114,6 +116,8 @@ const VeCuaToi = ({ navigation }) => {
   const renderBookingDetail = () => {
     if (!selectedBooking) return null;
     
+    const holdUntil = selectedBooking.HoldUntil ? new Date(selectedBooking.HoldUntil).toLocaleString('vi-VN') : 'N/A';
+    
     return (
       <View style={styles.detailOverlay}>
         <View style={styles.detailContainer}>
@@ -125,56 +129,66 @@ const VeCuaToi = ({ navigation }) => {
           </TouchableOpacity>
           
           <Image 
-            source={{ uri: selectedBooking.MovieImageUrl || 'https://via.placeholder.com/150' }} 
+            source={{ uri: selectedBooking.Movie?.PosterUrl || 'https://via.placeholder.com/150' }} 
             style={styles.detailPoster} 
           />
           
-          <Text style={styles.detailTitle}>{selectedBooking.MovieTitle}</Text>
-          <Text style={styles.detailDescription}>{selectedBooking.MovieDescription}</Text>
+          <Text style={styles.detailTitle}>{selectedBooking.Movie?.Title}</Text>
+          <Text style={styles.detailDescription}>{selectedBooking.Movie?.Description}</Text>
           
           <View style={styles.detailRow}>
             <Text style={styles.detailLabel}>Thời lượng:</Text>
-            <Text style={styles.detailValue}>{selectedBooking.MovieRuntime} phút</Text>
+            <Text style={styles.detailValue}>{selectedBooking.Movie?.Runtime} phút</Text>
           </View>
           
           <View style={styles.detailRow}>
             <Text style={styles.detailLabel}>Ngày chiếu:</Text>
-            <Text style={styles.detailValue}>{new Date(selectedBooking.MovieDateTime).toLocaleDateString('vi-VN')}</Text>
+            <Text style={styles.detailValue}>{new Date(selectedBooking.Show?.ShowDate).toLocaleDateString('vi-VN')}</Text>
           </View>
           
           <View style={styles.detailRow}>
             <Text style={styles.detailLabel}>Giờ chiếu:</Text>
-            <Text style={styles.detailValue}>{new Date(selectedBooking.MovieDateTime).toLocaleTimeString('vi-VN')}</Text>
+            <Text style={styles.detailValue}>{selectedBooking.Show?.ShowTime}</Text>
           </View>
           
           <View style={styles.detailRow}>
             <Text style={styles.detailLabel}>Rạp:</Text>
-            <Text style={styles.detailValue}>{selectedBooking.CinemaName}</Text>
+            <Text style={styles.detailValue}>{selectedBooking.CinemaHall?.CinemaName}</Text>
           </View>
           
           <View style={styles.detailRow}>
             <Text style={styles.detailLabel}>Địa chỉ:</Text>
-            <Text style={styles.detailValue}>{selectedBooking.CinemaAddress}</Text>
+            <Text style={styles.detailValue}>{selectedBooking.CinemaHall?.CinemaAddress}</Text>
           </View>
           
           <View style={styles.detailRow}>
             <Text style={styles.detailLabel}>Phòng:</Text>
-            <Text style={styles.detailValue}>{selectedBooking.RoomName}</Text>
+            <Text style={styles.detailValue}>{selectedBooking.CinemaHall?.HallName}</Text>
           </View>
           
           <View style={styles.detailRow}>
             <Text style={styles.detailLabel}>Ghế:</Text>
-            <Text style={styles.detailValue}>{selectedBooking.SeatNumbers}</Text>
+            <Text style={styles.detailValue}>{selectedBooking.BookingSeats.map(seat => seat.SeatNumber).join(', ')}</Text>
           </View>
           
           <View style={styles.detailRow}>
             <Text style={styles.detailLabel}>Giá vé:</Text>
-            <Text style={styles.detailValue}>{selectedBooking.TicketPrice.toLocaleString('vi-VN')} VNĐ</Text>
+            <Text style={styles.detailValue}>{selectedBooking.Payment?.Amount.toLocaleString('vi-VN')} VNĐ</Text>
           </View>
           
           <View style={styles.detailRow}>
             <Text style={styles.detailLabel}>Người đặt:</Text>
-            <Text style={styles.detailValue}>{selectedBooking.CustomerName}</Text>
+            <Text style={styles.detailValue}>{selectedBooking.Customer?.FullName}</Text>
+          </View>
+          
+          <View style={styles.detailRow}>
+            <Text style={styles.detailLabel}>Email:</Text>
+            <Text style={styles.detailValue}>{selectedBooking.Customer?.CustomerEmail}</Text>
+          </View>
+          
+          <View style={styles.detailRow}>
+            <Text style={styles.detailLabel}>Hết hạn:</Text>
+            <Text style={styles.detailValue}>{holdUntil}</Text>
           </View>
           
           <View style={styles.detailRow}>
@@ -213,8 +227,8 @@ const VeCuaToi = ({ navigation }) => {
             style={styles.logoImage}
             resizeMode="cover"
           />
-          <Text style={styles.noDataText}>Không có vé</Text>
-          <Text style={styles.instructionText}>Bạn chưa đặt vé nào. Hãy đặt vé để xem phim bạn yêu thích!</Text>
+          <Text style={styles.noDataText}>{noBookingsMessage}</Text>
+          <Text style={styles.instructionText}>Hãy đặt vé để xem phim bạn yêu thích!</Text>
           <TouchableOpacity 
             style={styles.bookNowButton}
             onPress={() => navigation.navigate('Datvetheophim')}
@@ -265,8 +279,6 @@ const VeCuaToi = ({ navigation }) => {
 
       {renderContent()}
       {selectedBooking && renderBookingDetail()}
-
-    
     </View>
   );
 };

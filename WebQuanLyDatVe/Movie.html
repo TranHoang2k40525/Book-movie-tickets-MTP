@@ -1,0 +1,961 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hệ Thống Quản Lý Đặt Vé Xem Phim</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="Giaodien.css">
+</head>
+<body>
+    <!-- Header -->
+    <header>
+        <div class="container header-container">
+            <div class="logo">
+                <i class="fas fa-film"></i>
+                <h1>MTB 67CS1</h1>
+            </div>
+            <div class="user-panel">
+                <div class="user-info">
+                    <span>Xin chào, Admin</span>
+                </div>
+                <button class="btn btn-primary">
+                    <i class="fas fa-sign-out-alt"></i> Đăng xuất
+                </button>
+            </div>
+        </div>
+    </header>
+    
+    <!-- Navigation -->
+    <nav>
+        <div class="container">
+            <ul class="nav-list">
+                <li><a href="#" class="active" id="homeLink"><i class="fas fa-home"></i> Trang chủ</a></li>
+                <li><a href="#" id="movieManagementLink"><i class="fas fa-film"></i> Quản lý phim</a></li>
+                <li><a href="#" id="screeningsLink"><i class="fas fa-calendar-alt"></i> Lịch chiếu</a></li>
+                <li><a href="#" id="bookingLink"><i class="fas fa-ticket-alt"></i> Đặt vé</a></li>
+                <li><a href="#" id="customerLink"><i class="fas fa-users"></i> Khách hàng</a></li>
+                <li><a href="#" id="reportLink"><i class="fas fa-chart-bar"></i> Báo cáo</a></li>
+                <li><a href="#" id="settingsLink"><i class="fas fa-cog"></i> Cài đặt</a></li>
+            </ul>
+        </div>
+    </nav>
+    
+    <!-- Dashboard Overview -->
+    <section class="dashboard" id="dashboardSection">
+        <div class="container">
+            <h2 class="dashboard-title">Tổng quan</h2>
+            
+            <div class="stats-container">
+                <div class="stat-card revenue">
+                    <div class="stat-icon">
+                        <i class="fas fa-money-bill-wave"></i>
+                    </div>
+                    <div class="stat-value">12.500.000₫</div>
+                    <div class="stat-label">Doanh thu hôm nay</div>
+                </div>
+                
+                <div class="stat-card tickets">
+                    <div class="stat-icon">
+                        <i class="fas fa-ticket-alt"></i>
+                    </div>
+                    <div class="stat-value">285</div>
+                    <div class="stat-label">Vé đã bán hôm nay</div>
+                </div>
+                
+                <div class="stat-card movies">
+                    <div class="stat-icon">
+                        <i class="fas fa-film"></i>
+                    </div>
+                    <div class="stat-value">15</div>
+                    <div class="stat-label">Phim đang chiếu</div>
+                </div>
+                
+                <div class="stat-card users">
+                    <div class="stat-icon">
+                        <i class="fas fa-users"></i>
+                    </div>
+                    <div class="stat-value">1,245</div>
+                    <div class="stat-label">Khách hàng thành viên</div>
+                </div>
+            </div>
+            
+            <!-- Movie Management (Dashboard) -->
+            <div class="content-section">
+                <div class="section-header">
+                    <h3 class="section-title">Phim hiện đang quản lý</h3>
+                    <button class="btn btn-primary" id="addMovieBtn">
+                        <i class="fas fa-plus"></i> Thêm phim mới
+                    </button>
+                </div>
+                
+                <div class="movie-grid" id="dashboardMovieGrid">
+                    <div class="movie-card">
+                        <div class="movie-poster" style="background-image: url('/api/placeholder/250/350')">
+                            <div class="movie-status status-now-showing">Đang chiếu</div>
+                        </div>
+                        <div class="movie-details">
+                            <h4 class="movie-title">Avengers: Endgame</h4>
+                            <div class="movie-meta">
+                                <span><i class="fas fa-clock"></i> 181 phút</span> | 
+                                <span><i class="fas fa-star"></i> 9.2/10</span>
+                            </div>
+                            <button class="btn btn-primary">
+                                <i class="fas fa-edit"></i> Chỉnh sửa
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <div class="movie-card">
+                        <div class="movie-poster" style="background-image: url('/api/placeholder/250/350')">
+                            <div class="movie-status status-now-showing">Đang chiếu</div>
+                        </div>
+                        <div class="movie-details">
+                            <h4 class="movie-title">Black Widow</h4>
+                            <div class="movie-meta">
+                                <span><i class="fas fa-clock"></i> 134 phút</span> | 
+                                <span><i class="fas fa-star"></i> 8.5/10</span>
+                            </div>
+                            <button class="btn btn-primary">
+                                <i class="fas fa-edit"></i> Chỉnh sửa
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <div class="movie-card">
+                        <div class="movie-poster" style="background-image: url('/api/placeholder/250/350')">
+                            <div class="movie-status status-coming-soon">Sắp chiếu</div>
+                        </div>
+                        <div class="movie-details">
+                            <h4 class="movie-title">Spider-Man: No Way Home</h4>
+                            <div class="movie-meta">
+                                <span><i class="fas fa-clock"></i> 148 phút</span> | 
+                                <span><i class="fas fa-star"></i> 9.0/10</span>
+                            </div>
+                            <button class="btn btn-primary">
+                                <i class="fas fa-edit"></i> Chỉnh sửa
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <div class="movie-card">
+                        <div class="movie-poster" style="background-image: url('/api/placeholder/250/350')">
+                            <div class="movie-status status-now-showing">Đang chiếu</div>
+                        </div>
+                        <div class="movie-details">
+                            <h4 class="movie-title">Doctor Strange 2</h4>
+                            <div class="movie-meta">
+                                <span><i class="fas fa-clock"></i> 126 phút</span> | 
+                                <span><i class="fas fa-star"></i> 8.7/10</span>
+                            </div>
+                            <button class="btn btn-primary">
+                                <i class="fas fa-edit"></i> Chỉnh sửa
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Screenings Table (Today's) -->
+            <div class="content-section">
+                <div class="section-header">
+                    <h3 class="section-title">Các suất chiếu hôm nay</h3>
+                    <button class="btn btn-primary" id="addScreeningBtn">
+                        <i class="fas fa-plus"></i> Thêm suất chiếu
+                    </button>
+                </div>
+                
+                <table class="screenings-table">
+                    <thead>
+                        <tr>
+                            <th>Phim</th>
+                            <th>Phòng chiếu</th>
+                            <th>Thời gian</th>
+                            <th>Trạng thái</th>
+                            <th>Giá vé</th>
+                            <th>Thao tác</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td>Avengers: Endgame</td>
+                            <td>Phòng 1</td>
+                            <td>10:00 - 13:00</td>
+                            <td><span class="status-badge status-almost-full">Sắp đầy</span></td>
+                            <td>90.000₫</td>
+                            <td>
+                                <button class="btn btn-primary action-btn">Đặt vé</button>
+                                <button class="btn btn-secondary action-btn">Chi tiết</button>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td>Black Widow</td>
+                            <td>Phòng 2</td>
+                            <td>10:30 - 12:45</td>
+                            <td><span class="status-badge status-available">Còn chỗ</span></td>
+                            <td>85.000₫</td>
+                            <td>
+                                <button class="btn btn-primary action-btn">Đặt vé</button>
+                                <button class="btn btn-secondary action-btn">Chi tiết</button>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td>Doctor Strange 2</td>
+                            <td>Phòng 3</td>
+                            <td>13:00 - 15:00</td>
+                            <td><span class="status-badge status-full">Đầy</span></td>
+                            <td>90.000₫</td>
+                            <td>
+                                <button class="btn btn-secondary action-btn">Chi tiết</button>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td>Black Widow</td>
+                            <td>Phòng 2</td>
+                            <td>15:30 - 17:45</td>
+                            <td><span class="status-badge status-available">Còn chỗ</span></td>
+                            <td>95.000₫</td>
+                            <td>
+                                <button class="btn btn-primary action-btn">Đặt vé</button>
+                                <button class="btn btn-secondary action-btn">Chi tiết</button>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td>Avengers: Endgame</td>
+                            <td>Phòng 1</td>
+                            <td>19:00 - 22:00</td>
+                            <td><span class="status-badge status-available">Còn chỗ</span></td>
+                            <td>110.000₫</td>
+                            <td>
+                                <button class="btn btn-primary action-btn">Đặt vé</button>
+                                <button class="btn btn-secondary action-btn">Chi tiết</button>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+            
+            <!-- Quick Actions -->
+            <div class="content-section">
+                <div class="section-header">
+                    <h3 class="section-title">Thao tác nhanh</h3>
+                </div>
+                
+                <div class="quick-actions">
+                    <div class="action-card">
+                        <div class="action-icon">
+                            <i class="fas fa-ticket-alt"></i>
+                        </div>
+                        <h4 class="action-title">Đặt vé nhanh</h4>
+                        <p class="action-desc">Đặt vé nhanh chóng cho khách hàng tại quầy</p>
+                        <button class="btn btn-primary">Đặt ngay</button>
+                    </div>
+                    
+                    <div class="action-card">
+                        <div class="action-icon">
+                            <i class="fas fa-film"></i>
+                        </div>
+                        <h4 class="action-title">Quản lý phim</h4>
+                        <p class="action-desc">Thêm, sửa, xóa thông tin phim</p>
+                        <button class="btn btn-primary">Truy cập</button>
+                    </div>
+                    
+                    <div class="action-card">
+                        <div class="action-icon">
+                            <i class="fas fa-chart-line"></i>
+                        </div>
+                        <h4 class="action-title">Báo cáo doanh thu</h4>
+                        <p class="action-desc">Xem báo cáo doanh thu theo thời gian</p>
+                        <button class="btn btn-primary">Xem báo cáo</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+    
+    <!-- Movie Management Section -->
+    <section class="movie-management" id="movieManagementSection" style="display: none;">
+        <div class="container">
+            <h2 class="dashboard-title">Quản lý phim</h2>
+            
+            <div class="content-section">
+                <div class="section-header">
+                    <h3 class="section-title">Danh sách phim</h3>
+                    <button class="btn btn-primary" id="addMovieBtnManagement">
+                        <i class="fas fa-plus"></i> Thêm phim mới
+                    </button>
+                </div>
+                
+                <div class="movie-grid" id="movieManagementGrid">
+                    <!-- Movies will be dynamically populated by JavaScript -->
+                </div>
+            </div>
+        </div>
+    </section>
+    
+    <!-- Screenings Section -->
+    <section class="screenings" id="screeningsSection" style="display: none;">
+        <div class="container">
+            <h2 class="dashboard-title">Lịch chiếu</h2>
+            
+            <div class="content-section">
+                <div class="section-header">
+                    <h3 class="section-title">Danh sách suất chiếu năm 2025</h3>
+                    <button class="btn btn-primary" id="addScreeningBtnManagement">
+                        <i class="fas fa-plus"></i> Thêm suất chiếu
+                    </button>
+                </div>
+                
+                <div class="filter-section" style="margin-bottom: 20px;">
+                    <div style="display: flex; gap: 20px;">
+                        <div class="form-group" style="flex: 1;">
+                            <label class="form-label" for="filterMovie">Lọc theo phim</label>
+                            <select class="form-control" id="filterMovie">
+                                <option value="">Tất cả phim</option>
+                                <option value="1">Avengers: Endgame</option>
+                                <option value="2">Black Widow</option>
+                                <option value="3">Doctor Strange 2</option>
+                                <option value="4">Spider-Man: No Way Home</option>
+                            </select>
+                        </div>
+                        <div class="form-group" style="flex: 1;">
+                            <label class="form-label" for="filterDate">Lọc theo ngày</label>
+                            <input type="date" class="form-control" id="filterDate">
+                        </div>
+                    </div>
+                </div>
+                
+                <table class="screenings-table" id="screeningsTable">
+                    <thead>
+                        <tr>
+                            <th>Phim</th>
+                            <th>Phòng chiếu</th>
+                            <th>Ngày chiếu</th>
+                            <th>Thời gian</th>
+                            <th>Trạng thái</th>
+                            <th>Giá vé</th>
+                            <th>Thao tác</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <!-- Screenings will be dynamically populated by JavaScript -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </section>
+    
+    <!-- Ticket Booking Section -->
+    <section class="ticket-booking" id="bookingSection" style="display: none;">
+        <div class="container">
+            <h2 class="dashboard-title">Quản lý đặt vé</h2>
+            
+            <div class="content-section">
+                <div class="section-header">
+                    <h3 class="section-title">Danh sách vé đã đặt</h3>
+                    <button class="btn btn-primary" id="addBookingBtn">
+                        <i class="fas fa-plus"></i> Đặt vé mới
+                    </button>
+                </div>
+                
+                <div class="filter-section" style="margin-bottom: 20px;">
+                    <div style="display: flex; gap: 20px;">
+                        <div class="form-group" style="flex: 1;">
+                            <label class="form-label" for="filterBookingMovie">Lọc theo phim</label>
+                            <select class="form-control" id="filterBookingMovie">
+                                <option value="">Tất cả phim</option>
+                                <option value="1">Avengers: Endgame</option>
+                                <option value="2">Black Widow</option>
+                                <option value="3">Doctor Strange 2</option>
+                                <option value="4">Spider-Man: No Way Home</option>
+                            </select>
+                        </div>
+                        <div class="form-group" style="flex: 1;">
+                            <label class="form-label" for="filterBookingDate">Lọc theo ngày chiếu</label>
+                            <input type="date" class="form-control" id="filterBookingDate">
+                        </div>
+                    </div>
+                </div>
+                
+                <table class="bookings-table" id="bookingsTable">
+                    <thead>
+                        <tr>
+                            <th>Phim</th>
+                            <th>Suất chiếu</th>
+                            <th>Khách hàng</th>
+                            <th>Số điện thoại</th>
+                            <th>Ghế</th>
+                            <th>Số lượng vé</th>
+                            <th>Tổng tiền</th>
+                            <th>Thao tác</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <!-- Bookings will be dynamically populated by JavaScript -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </section>
+    
+    <!-- Customer Management Section -->
+    <section class="customer-management" id="customerSection" style="display: none;">
+        <div class="container">
+            <h2 class="dashboard-title">Quản lý khách hàng</h2>
+            
+            <div class="content-section">
+                <div class="section-header">
+                    <h3 class="section-title">Danh sách khách hàng</h3>
+                    <button class="btn btn-primary" id="addCustomerBtn">
+                        <i class="fas fa-plus"></i> Thêm khách hàng mới
+                    </button>
+                </div>
+                
+                <div class="filter-section" style="margin-bottom: 20px;">
+                    <div style="display: flex; gap: 20px;">
+                        <div class="form-group" style="flex: 1;">
+                            <label class="form-label" for="filterCustomerName">Lọc theo tên</label>
+                            <input type="text" class="form-control" id="filterCustomerName" placeholder="Nhập tên khách hàng">
+                        </div>
+                        <div class="form-group" style="flex: 1;">
+                            <label class="form-label" for="filterCustomerStatus">Lọc theo trạng thái</label>
+                            <select class="form-control" id="filterCustomerStatus">
+                                <option value="">Tất cả</option>
+                                <option value="member">Thành viên</option>
+                                <option value="potential">Tiềm năng</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+                
+                <table class="customers-table" id="customersTable">
+                    <thead>
+                        <tr>
+                            <th>Tên khách hàng</th>
+                            <th>Số điện thoại</th>
+                            <th>Email</th>
+                            <th>Trạng thái</th>
+                            <th>Số vé đã mua</th>
+                            <th>Tổng chi tiêu</th>
+                            <th>Thao tác</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <!-- Customers will be dynamically populated by JavaScript -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </section>
+    
+    <!-- Reports Section -->
+    <section class="reports" id="reportSection" style="display: none;">
+        <div class="container">
+            <h2 class="dashboard-title">Báo cáo doanh thu</h2>
+            
+            <!-- Revenue by Movie Type -->
+            <div class="content-section">
+                <div class="section-header">
+                    <h3 class="section-title">Doanh thu theo thể loại phim</h3>
+                </div>
+                
+                <div class="filter-section" style="margin-bottom: 20px;">
+                    <div style="display: flex; gap: 20px;">
+                        <div class="form-group" style="flex: 1;">
+                            <label class="form-label" for="filterRevenuePeriod">Thời gian</label>
+                            <select class="form-control" id="filterRevenuePeriod">
+                                <option value="daily">Hàng ngày</option>
+                                <option value="monthly">Hàng tháng</option>
+                                <option value="yearly">Hàng năm</option>
+                            </select>
+                        </div>
+                        <div class="form-group" style="flex: 1;">
+                            <label class="form-label" for="filterRevenueGenre">Thể loại</label>
+                            <select class="form-control" id="filterRevenueGenre">
+                                <option value="">Tất cả thể loại</option>
+                                <option value="Action">Hành động</option>
+                                <option value="Sci-Fi">Khoa học viễn tưởng</option>
+                                <option value="Adventure">Phiêu lưu</option>
+                                <option value="Fantasy">Giả tưởng</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+                
+                <table class="reports-table" id="revenueTable">
+                    <thead>
+                        <tr>
+                            <th>Thể loại</th>
+                            <th>Số vé bán ra</th>
+                            <th>Doanh thu</th>
+                            <th>Tỷ lệ (%)</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <!-- Revenue data will be dynamically populated by JavaScript -->
+                    </tbody>
+                </table>
+                
+                <div class="chart-container" style="margin-top: 20px;">
+                    <canvas id="revenueChart"></canvas>
+                </div>
+            </div>
+            
+            <!-- Aggregated Sales by Month/Year -->
+            <div class="content-section">
+                <div class="section-header">
+                    <h3 class="section-title">Doanh số tổng hợp năm 2025</h3>
+                </div>
+                
+                <table class="reports-table" id="salesTable">
+                    <thead>
+                        <tr>
+                            <th>Tháng</th>
+                            <th>Số vé bán ra</th>
+                            <th>Doanh thu</th>
+                            <th>Tăng trưởng (%)</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <!-- Sales data will be dynamically populated by JavaScript -->
+                    </tbody>
+                </table>
+                
+                <div class="chart-container" style="margin-top: 20px;">
+                    <canvas id="salesChart"></canvas>
+                </div>
+            </div>
+        </div>
+    </section>
+    
+    <!-- Settings Section -->
+    <section class="settings" id="settingsSection" style="display: none;">
+        <div class="container">
+            <h2 class="dashboard-title">Cài đặt hệ thống</h2>
+            
+            <!-- Admin Account Settings -->
+            <div class="content-section">
+                <div class="section-header">
+                    <h3 class="section-title">Cài đặt tài khoản quản lý</h3>
+                </div>
+                <form id="adminAccountForm">
+                    <div class="form-group">
+                        <label class="form-label" for="adminUsername">Tên người dùng</label>
+                        <input type="text" class="form-control" id="adminUsername" required>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label" for="adminEmail">Email</label>
+                        <input type="email" class="form-control" id="adminEmail" required>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label" for="currentPassword">Mật khẩu hiện tại</label>
+                        <input type="password" class="form-control" id="currentPassword">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label" for="newPassword">Mật khẩu mới</label>
+                        <input type="password" class="form-control" id="newPassword">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label" for="confirmNewPassword">Xác nhận mật khẩu mới</label>
+                        <input type="password" class="form-control" id="confirmNewPassword">
+                    </div>
+                    <div class="btn-container">
+                        <button type="button" class="btn btn-secondary" id="cancelAdminAccountBtn">Hủy</button>
+                        <button type="submit" class="btn btn-primary">Lưu thay đổi</button>
+                    </div>
+                </form>
+            </div>
+            
+            <!-- System Settings -->
+            <div class="content-section">
+                <div class="section-header">
+                    <h3 class="section-title">Cài đặt hệ thống</h3>
+                </div>
+                <form id="systemSettingsForm">
+                    <div class="form-group">
+                        <label class="form-label" for="cinemaName">Tên rạp chiếu phim</label>
+                        <input type="text" class="form-control" id="cinemaName" required>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label" for="cinemaAddress">Địa chỉ</label>
+                        <input type="text" class="form-control" id="cinemaAddress" required>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label" for="cinemaPhone">Số điện thoại liên hệ</label>
+                        <input type="tel" class="form-control" id="cinemaPhone" required>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label" for="cinemaEmail">Email liên hệ</label>
+                        <input type="email" class="form-control" id="cinemaEmail" required>
+                    </div>
+                    <div class="btn-container">
+                        <button type="button" class="btn btn-secondary" id="cancelSystemSettingsBtn">Hủy</button>
+                        <button type="submit" class="btn btn-primary">Lưu thay đổi</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </section>
+    
+    <!-- Footer -->
+    <footer>
+        <div class="container">
+            <div class="footer-content">
+                <div class="footer-section">
+                    <h3>Về chúng tôi</h3>
+                    <p>Hệ thống quản lý đặt vé xem phim hiện đại nhất Việt Nam, cung cấp công cụ quản lý hiệu quả cho các rạp chiếu phim.</p>
+                </div>
+                
+                <div class="footer-section">
+                    <h3>Liên kết nhanh</h3>
+                    <ul>
+                        <li><a href="#">Trang chủ</a></li>
+                        <li><a href="#">Quản lý phim</a></li>
+                        <li><a href="#">Lịch chiếu</a></li>
+                        <li><a href="#">Báo cáo</a></li>
+                    </ul>
+                </div>
+                
+                <div class="footer-section">
+                    <h3>Hỗ trợ</h3>
+                    <ul>
+                        <li><a href="#">Trung tâm trợ giúp</a></li>
+                        <li><a href="#">Hướng dẫn sử dụng</a></li>
+                        <li><a href="#">FAQ</a></li>
+                        <li><a href="#">Liên hệ</a></li>
+                    </ul>
+                </div>
+                
+                <div class="footer-section">
+                    <h3>Liên hệ</h3>
+                    <p><i class="fas fa-map-marker-alt"></i> 123 Đường ABC, Quận 1, TP.HCM</p>
+                    <p><i class="fas fa-phone"></i> (84) 28 1234 5678</p>
+                    <p><i class="fas fa-envelope"></i> support@cinemaadmin.com</p>
+                </div>
+            </div>
+            
+            <div class="copyright">
+                © 2025 CinemaAdmin. Mọi quyền được bảo lưu.
+            </div>
+        </div>
+    </footer>
+    
+    <!-- Add Movie Modal -->
+    <div class="modal" id="addMovieModal">
+        <div class="modal-content">
+            <span class="close-btn" id="closeMovieModal">×</span>
+            <h3 class="modal-title" id="movieModalTitle">Thêm phim mới</h3>
+            
+            <form id="addMovieForm">
+                <input type="hidden" id="movieId">
+                <div class="form-group">
+                    <label class="form-label" for="movieTitle">Tên phim</label>
+                    <input type="text" class="form-control" id="movieTitle" required>
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label" for="movieDuration">Thời lượng (phút)</label>
+                    <input type="number" class="form-control" id="movieDuration" required>
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label" for="movieDirector">Đạo diễn</label>
+                    <input type="text" class="form-control" id="movieDirector" required>
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label" for="movieActors">Diễn viên</label>
+                    <input type="text" class="form-control" id="movieActors" placeholder="Ngăn cách bằng dấu phẩy">
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label" for="movieGenre">Thể loại</label>
+                    <input type="text" class="form-control" id="movieGenre" placeholder="Ngăn cách bằng dấu phẩy">
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label" for="movieReleaseDate">Ngày khởi chiếu</label>
+                    <input type="date" class="form-control" id="movieReleaseDate" required>
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label" for="movieStatus">Trạng thái</label>
+                    <select class="form-control" id="movieStatus" required>
+                        <option value="">-- Chọn trạng thái --</option>
+                        <option value="nowShowing">Đang chiếu</option>
+                        <option value="comingSoon">Sắp chiếu</option>
+                        <option value="ended">Đã kết thúc</option>
+                    </select>
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label" for="moviePoster">Poster phim</label>
+                    <input type="file" class="form-control" id="moviePoster" accept="image/*">
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label" for="movieDescription">Mô tả phim</label>
+                    <textarea class="form-control" id="movieDescription" rows="4"></textarea>
+                </div>
+                
+                <div class="btn-container">
+                    <button type="button" class="btn btn-secondary" id="cancelMovieBtn">Hủy</button>
+                    <button type="submit" class="btn btn-primary" id="saveMovieBtn">Lưu phim</button>
+                </div>
+            </form>
+        </div>
+    </div>
+    
+    <!-- Add Screening Modal -->
+    <div class="modal" id="addScreeningModal">
+        <div class="modal-content">
+            <span class="close-btn" id="closeScreeningModal">×</span>
+            <h3 class="modal-title" id="screeningModalTitle">Thêm suất chiếu mới</h3>
+            
+            <form id="addScreeningForm">
+                <input type="hidden" id="screeningId">
+                <div class="form-group">
+                    <label class="form-label" for="screeningMovie">Phim</label>
+                    <select class="form-control" id="screeningMovie" required>
+                        <option value="">-- Chọn phim --</option>
+                        <option value="1">Avengers: Endgame</option>
+                        <option value="2">Black Widow</option>
+                        <option value="3">Doctor Strange 2</option>
+                        <option value="4">Spider-Man: No Way Home</option>
+                    </select>
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label" for="screeningRoom">Phòng chiếu</label>
+                    <select class="form-control" id="screeningRoom" required>
+                        <option value="">-- Chọn phòng --</option>
+                        <option value="1">Phòng 1</option>
+                        <option value="2">Phòng 2</option>
+                        <option value="3">Phòng 3</option>
+                        <option value="4">Phòng 4</option>
+                        <option value="5">Phòng 5</option>
+                    </select>
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label" for="screeningDate">Ngày chiếu</label>
+                    <input type="date" class="form-control" id="screeningDate" required>
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label" for="screeningStartTime">Giờ bắt đầu</label>
+                    <input type="time" class="form-control" id="screeningStartTime" required>
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label" for="screeningEndTime">Giờ kết thúc</label>
+                    <input type="time" class="form-control" id="screeningEndTime" required>
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label" for="screeningPrice">Giá vé (VNĐ)</label>
+                    <input type="number" class="form-control" id="screeningPrice" required>
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label" for="screeningStatus">Trạng thái</label>
+                    <select class="form-control" id="screeningStatus" required>
+                        <option value="">-- Chọn trạng thái --</option>
+                        <option value="available">Còn chỗ</option>
+                        <option value="almostFull">Sắp đầy</option>
+                        <option value="full">Đầy</option>
+                    </select>
+                </div>
+                
+                <div class="btn-container">
+                    <button type="button" class="btn btn-secondary" id="cancelScreeningBtn">Hủy</button>
+                    <button type="submit" class="btn btn-primary" id="saveScreeningBtn">Lưu suất chiếu</button>
+                </div>
+            </form>
+        </div>
+    </div>
+    
+    <!-- Quick Ticket Booking Modal -->
+    <div class="modal" id="quickBookingModal">
+        <div class="modal-content">
+            <span class="close-btn" id="closeBookingModal">×</span>
+            <h3 class="modal-title" id="bookingModalTitle">Đặt vé nhanh</h3>
+            
+            <form id="quickBookingForm">
+                <input type="hidden" id="bookingId">
+                <div class="form-group">
+                    <label class="form-label" for="bookingMovie">Phim</label>
+                    <select class="form-control" id="bookingMovie" required>
+                        <option value="">-- Chọn phim --</option>
+                        <option value="1">Avengers: Endgame</option>
+                        <option value="2">Black Widow</option>
+                        <option value="3">Doctor Strange 2</option>
+                        <option value="4">Spider-Man: No Way Home</option>
+                    </select>
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label" for="bookingScreening">Suất chiếu</label>
+                    <select class="form-control" id="bookingScreening" required disabled>
+                        <option value="">-- Chọn phim trước --</option>
+                    </select>
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label" for="customerName">Tên khách hàng</label>
+                    <input type="text" class="form-control" id="customerName">
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label" for="customerPhone">Số điện thoại</label>
+                    <input type="tel" class="form-control" id="customerPhone">
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label">Số lượng vé</label>
+                    <div style="display: flex; gap: 10px;">
+                        <div style="flex: 1;">
+                            <label class="form-label" for="adultTickets">Người lớn</label>
+                            <input type="number" class="form-control" id="adultTickets" value="1" min="0">
+                        </div>
+                        <div style="flex: 1;">
+                            <label class="form-label" for="childTickets">Trẻ em</label>
+                            <input type="number" class="form-control" id="childTickets" value="0" min="0">
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label">Chọn ghế</label>
+                    <div class="seat-layout" style="text-align: center; margin-top: 10px; margin-bottom: 20px;">
+                        <div style="margin-bottom: 20px; background-color: #ddd; padding: 5px; border-radius: 5px;">
+                            Màn hình
+                        </div>
+                        
+                        <div style="display: grid; grid-template-columns: repeat(10, 1fr); gap: 5px;">
+                            <!-- Row A -->
+                            <div class="seat" data-seat="A1" style="padding: 5px; border: 1px solid #ddd; cursor: pointer; border-radius: 3px;">A1</div>
+                            <div class="seat" data-seat="A2" style="padding: 5px; border: 1px solid #ddd; cursor: pointer; border-radius: 3px;">A2</div>
+                            <div class="seat" data-seat="A3" style="padding: 5px; border: 1px solid #ddd; cursor: pointer; border-radius: 3px;">A3</div>
+                            <div class="seat" data-seat="A4" style="padding: 5px; border: 1px solid #ddd; cursor: pointer; border-radius: 3px;">A4</div>
+                            <div class="seat" data-seat="A5" style="padding: 5px; border: 1px solid #ddd; cursor: pointer; border-radius: 3px;">A5</div>
+                            <div class="seat" data-seat="A6" style="padding: 5px; border: 1px solid #ddd; cursor: pointer; border-radius: 3px;">A6</div>
+                            <div class="seat" data-seat="A7" style="padding: 5px; border: 1px solid #ddd; cursor: pointer; border-radius: 3px;">A7</div>
+                            <div class="seat" data-seat="A8" style="padding: 5px; border: 1px solid #ddd; cursor: pointer; border-radius: 3px;">A8</div>
+                            <div class="seat" data-seat="A9" style="padding: 5px; border: 1px solid #ddd; cursor: pointer; border-radius: 3px;">A9</div>
+                            <div class="seat" data-seat="A10" style="padding: 5px; border: 1px solid #ddd; cursor: pointer; border-radius: 3px;">A10</div>
+                            
+                            <!-- Row B -->
+                            <div class="seat" data-seat="B1" style="padding: 5px; border: 1px solid #ddd; cursor: pointer; border-radius: 3px;">B1</div>
+                            <div class="seat" data-seat="B2" style="padding: 5px; border: 1px solid #ddd; cursor: pointer; border-radius: 3px;">B2</div>
+                            <div class="seat" data-seat="B3" style="padding: 5px; border: 1px solid #ddd; cursor: pointer; border-radius: 3px;">B3</div>
+                            <div class="seat" data-seat="B4" style="padding: 5px; border: 1px solid #ddd; cursor: pointer; border-radius: 3px;">B4</div>
+                            <div class="seat" data-seat="B5" style="padding: 5px; border: 1px solid #ddd; cursor: pointer; border-radius: 3px;">B5</div>
+                            <div class="seat" data-seat="B6" style="padding: 5px; border: 1px solid #ddd; cursor: pointer; border-radius: 3px;">B6</div>
+                            <div class="seat" data-seat="B7" style="padding: 5px; border: 1px solid #ddd; cursor: pointer; border-radius: 3px;">B7</div>
+                            <div class="seat" data-seat="B8" style="padding: 5px; border: 1px solid #ddd; cursor: pointer; border-radius: 3px;">B8</div>
+                            <div class="seat" data-seat="B9" style="padding: 5px; border: 1px solid #ddd; cursor: pointer; border-radius: 3px;">B9</div>
+                            <div class="seat" data-seat="B10" style="padding: 5px; border: 1px solid #ddd; cursor: pointer; border-radius: 3px;">B10</div>
+                            
+                            <!-- Row C -->
+                            <div class="seat" data-seat="C1" style="padding: 5px; border: 1px solid #ddd; cursor: pointer; border-radius: 3px;">C1</div>
+                            <div class="seat" data-seat="C2" style="padding: 5px; border: 1px solid #ddd; cursor: pointer; border-radius: 3px;">C2</div>
+                            <div class="seat booked" data-seat="C3" style="padding: 5px; border: 1px solid #ddd; cursor: not-allowed; border-radius: 3px; background-color: #e74c3c; color: white;">C3</div>
+                            <div class="seat booked" data-seat="C4" style="padding: 5px; border: 1px solid #ddd; cursor: not-allowed; border-radius: 3px; background-color: #e74c3c; color: white;">C4</div>
+                            <div class="seat" data-seat="C5" style="padding: 5px; border: 1px solid #ddd; cursor: pointer; border-radius: 3px;">C5</div>
+                            <div class="seat" data-seat="C6" style="padding: 5px; border: 1px solid #ddd; cursor: pointer; border-radius: 3px;">C6</div>
+                            <div class="seat booked" data-seat="C7" style="padding: 5px; border: 1px solid #ddd; cursor: not-allowed; border-radius: 3px; background-color: #e74c3c; color: white;">C7</div>
+                            <div class="seat" data-seat="C8" style="padding: 5px; border: 1px solid #ddd; cursor: pointer; border-radius: 3px;">C8</div>
+                            <div class="seat" data-seat="C9" style="padding: 5px; border: 1px solid #ddd; cursor: pointer; border-radius: 3px;">C9</div>
+                            <div class="seat" data-seat="C10" style="padding: 5px; border: 1px solid #ddd; cursor: pointer; border-radius: 3px;">C10</div>
+                        </div>
+                        
+                        <div style="margin-top: 15px; display: flex; justify-content: center; gap: 20px;">
+                            <div style="display: flex; align-items: center; gap: 5px;">
+                                <div style="width: 15px; height: 15px; background-color: #fff; border: 1px solid #ddd; border-radius: 3px;"></div>
+                                <span>Còn trống</span>
+                            </div>
+                            <div style="display: flex; align-items: center; gap: 5px;">
+                                <div style="width: 15px; height: 15px; background-color: #2ecc71; border: 1px solid #ddd; border-radius: 3px;"></div>
+                                <span>Đã chọn</span>
+                            </div>
+                            <div style="display: flex; align-items: center; gap: 5px;">
+                                <div style="width: 15px; height: 15px; background-color: #e74c3c; border: 1px solid #ddd; border-radius: 3px;"></div>
+                                <span>Đã đặt</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label" for="selectedSeats">Ghế đã chọn</label>
+                    <input type="text" class="form-control" id="selectedSeats" readonly value="B5, B6">
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label" for="totalPrice">Tổng tiền</label>
+                    <input type="text" class="form-control" id="totalPrice" readonly value="190.000₫">
+                </div>
+                
+                <div class="btn-container">
+                    <button type="button" class="btn btn-secondary" id="cancelBookingBtn">Hủy</button>
+                    <button type="submit" class="btn btn-primary" id="saveBookingBtn">Hoàn tất đặt vé</button>
+                </div>
+            </form>
+        </div>
+    </div>
+    
+    <!-- Add Customer Modal -->
+    <div class="modal" id="addCustomerModal">
+        <div class="modal-content">
+            <span class="close-btn" id="closeCustomerModal">×</span>
+            <h3 class="modal-title" id="customerModalTitle">Thêm khách hàng mới</h3>
+            
+            <form id="addCustomerForm">
+                <input type="hidden" id="customerId">
+                <div class="form-group">
+                    <label class="form-label" for="customerName">Tên khách hàng</label>
+                    <input type="text" class="form-control" id="customerName" required>
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label" for="customerPhone">Số điện thoại</label>
+                    <input type="tel" class="form-control" id="customerPhone" required>
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label" for="customerEmail">Email</label>
+                    <input type="email" class="form-control" id="customerEmail" required>
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label" for="customerStatus">Trạng thái</label>
+                    <select class="form-control" id="customerStatus" required>
+                        <option value="">-- Chọn trạng thái --</option>
+                        <option value="member">Thành viên</option>
+                        <option value="potential">Tiềm năng</option>
+                    </select>
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label" for="customerTickets">Số vé đã mua</label>
+                    <input type="number" class="form-control" id="customerTickets" min="0" value="0">
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label" for="customerSpending">Tổng chi tiêu (VNĐ)</label>
+                    <input type="number" class="form-control" id="customerSpending" min="0" value="0">
+                </div>
+                
+                <div class="btn-container">
+                    <button type="button" class="btn btn-secondary" id="cancelCustomerBtn">Hủy</button>
+                    <button type="submit" class="btn btn-primary" id="saveCustomerBtn">Lưu khách hàng</button>
+                </div>
+            </form>
+        </div>
+    </div>
+    
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="TT.js"></script>
+</body>
+</html>

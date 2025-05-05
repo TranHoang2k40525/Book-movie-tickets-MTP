@@ -351,7 +351,7 @@ const getShowtimesByCinemaAndDate = async (req, res) => {
 };
 
 const getSeatMapByShow = async (req, res) => {
-  let pool = null; // Khởi tạo pool với giá trị null
+  let pool = null;
   try {
     const { showId } = req.params;
     // Kiểm tra showId
@@ -379,7 +379,7 @@ const getSeatMapByShow = async (req, res) => {
 
     const hall = hallResult.recordset[0];
 
-    // Truy vấn danh sách ghế và trạng thái
+    // Truy vấn danh sách ghế và trạng thái, kiểm tra từ cả CinemaHallSeat và BookingSeat
     const seatsQuery = `
       SELECT 
         chs.SeatID,
@@ -387,16 +387,20 @@ const getSeatMapByShow = async (req, res) => {
         chs.SeatType,
         chs.SeatPrice,
         CASE 
+          WHEN bs.Status = 'Reserved' AND bs.HoldUntil > GETDATE() THEN 'reserved'
+          WHEN chs.Status = 'Reserved' THEN 'reserved'
           WHEN chs.Status = 'Locked' THEN 'locked'
           WHEN chs.Status = 'Booked' THEN 'booked'
           WHEN chs.Status IS NULL OR chs.Status = 'Available' THEN 'available'
         END AS SeatStatus
       FROM CinemaHallSeat chs
+      LEFT JOIN BookingSeat bs ON chs.SeatID = bs.SeatID AND bs.ShowID = @showId
       WHERE chs.HallID = @hallId
       ORDER BY chs.SeatNumber
     `;
     const seatsResult = await pool.request()
       .input('hallId', sql.Int, hall.HallID)
+      .input('showId', sql.Int, showId)
       .query(seatsQuery);
 
     // Xử lý dữ liệu ghế thành định dạng sơ đồ

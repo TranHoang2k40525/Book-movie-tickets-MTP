@@ -216,6 +216,7 @@ const MovieBookingScreen = ({ navigation, route }) => {
   const { user } = useContext(UserContext);
   const [movieTitle, setMovieTitle] = useState('');
   const [cinemas, setCinemas] = useState([]);
+  
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [loadingMovie, setLoadingMovie] = useState(true);
   const [loadingCinemas, setLoadingCinemas] = useState(true);

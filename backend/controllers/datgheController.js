@@ -36,7 +36,7 @@ const releaseExpiredSeats = async (transaction) => {
 // Hàm giữ ghế
 const holdSeats = async (req, res) => {
   console.log("Running updated holdSeats version - 2025-05-03");
-  const { showId, seatIds } = req.body;
+  const { showId, seatIds ,selectedProducts} = req.body;
   const customerId = req.user?.customerID;
 
   if (!customerId) {
@@ -138,8 +138,24 @@ const holdSeats = async (req, res) => {
            VALUES (@bookingId, @showId, @seatId, @status, @ticketPrice, @holdUntil)`
         );
       console.log("Đã tạo BookingSeat cho ghế:", seatId);
+      
     }
-
+// Lưu sản phẩm vào BookingProduct
+if (selectedProducts && selectedProducts.length > 0) {
+  for (const product of selectedProducts) {
+    await transaction
+      .request()
+      .input("bookingProductId", sql.Int, Math.floor(Math.random() * 1000000))
+      .input("bookingId", sql.Int, bookingId)
+      .input("productId", sql.Int, product.productId)
+      .input("quantity", sql.Int, product.quantity)
+      .input("totalPrice", sql.Decimal(10, 2), product.price * product.quantity)
+      .query(
+        `INSERT INTO BookingProduct (BookingProductID, BookingID, ProductID, Quantity, TotalPriceBookingProduct)
+         VALUES (@bookingProductId, @bookingId, @productId, @quantity, @totalPrice)`
+      );
+  }
+}
     // Cập nhật CinemaHallSeat
     let updateQuery = `UPDATE CinemaHallSeat SET Status = 'Reserved' WHERE SeatID IN (`;
     updateQuery += seatParams.join(",");

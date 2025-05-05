@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useContext } from "react";
+import React, { useState, useEffect, useContext, useRef } from "react";
 import {
   StyleSheet,
   Text,
@@ -14,7 +14,6 @@ import {
 } from "react-native";
 import { Ionicons, MaterialIcons } from "@expo/vector-icons";
 import { getVouchers, useVoucher, getProducts, cancelBooking } from "../../Api/api";
-import Menu from "../../components/Menu";
 import { UserContext } from "../../contexts/User/UserContext";
 
 export default function ThanhToan({ navigation, route }) {
@@ -23,7 +22,8 @@ export default function ThanhToan({ navigation, route }) {
     expirationTime,
     selectedSeats = [],
     selectedProducts = [],
-    totalPrice: initialTotalPrice = 0,
+    seatTotalPrice = 0,
+    productTotal = 0,
     showId,
     cinemaId,
     cinemaName,
@@ -47,9 +47,10 @@ export default function ThanhToan({ navigation, route }) {
   const [products, setProducts] = useState([]);
   const [productQuantities, setProductQuantities] = useState({});
   const [countdown, setCountdown] = useState(0);
-  const [totalPrice, setTotalPrice] = useState(initialTotalPrice);
+  const [totalPrice, setTotalPrice] = useState(seatTotalPrice + productTotal);
   const [discount, setDiscount] = useState(0);
-  const [isCancelling, setIsCancelling] = useState(false);
+  const [isCancelled, setIsCancelled] = useState(false);
+  const timerRef = useRef(null);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -70,8 +71,12 @@ export default function ThanhToan({ navigation, route }) {
           }
         }
 
-        const voucherResponse = await getVouchers();
-        setVouchers(voucherResponse.vouchers || []);
+        try {
+          const voucherResponse = await getVouchers();
+          setVouchers(voucherResponse.vouchers || []);
+        } catch (error) {
+          setVouchers([]);
+        }
 
         const productResponse = await getProducts();
         setProducts(productResponse || []);
@@ -103,11 +108,13 @@ export default function ThanhToan({ navigation, route }) {
     };
 
     setCountdown(updateCountdown());
-    const timer = setInterval(() => {
+    timerRef.current = setInterval(() => {
       setCountdown((prev) => {
-        if (prev <= 0) {
-          clearInterval(timer);
-          handleCancelBooking().finally(() => {
+        if (prev <= 0 && !isCancelled) {
+          clearInterval(timerRef.current);
+          handleCancelBooking().catch((error) => {
+            console.error("Lỗi khi hủy tự động:", error);
+          }).finally(() => {
             Alert.alert("Hết thời gian", "Thời gian giữ ghế đã hết.", [
               {
                 text: "OK",
@@ -129,7 +136,7 @@ export default function ThanhToan({ navigation, route }) {
       });
     }, 1000);
 
-    return () => clearInterval(timer);
+    return () => clearInterval(timerRef.current);
   }, [
     expirationTime,
     navigation,
@@ -143,6 +150,7 @@ export default function ThanhToan({ navigation, route }) {
     movieId,
     cinemaId,
     cinemaName,
+    isCancelled,
   ]);
 
   useEffect(() => {
@@ -154,39 +162,41 @@ export default function ThanhToan({ navigation, route }) {
     const backHandler = BackHandler.addEventListener("hardwareBackPress", backAction);
 
     return () => backHandler.remove();
-  }, [handleGoBack, isCancelling]);
+  }, [isCancelled]);
 
   const handleCancelBooking = async () => {
-    if (!bookingId || isCancelling) return;
-    setIsCancelling(true);
+    if (!bookingId || isCancelled) return;
+    setIsCancelled(true);
+    clearInterval(timerRef.current);
     try {
       await cancelBooking(bookingId);
       console.log("Đã hủy đặt vé:", bookingId);
     } catch (error) {
       const errorMessage = error.response?.data?.message || "Không thể hủy đặt vé";
-      const status = error.response?.status;
       console.error("Lỗi khi hủy đặt vé:", error);
-      // Bỏ qua các lỗi không cần hiển thị cho người dùng
       if (
         errorMessage === "Đặt vé đã được hủy trước đó" ||
-        status === 403 || // Không có quyền
-        status === 410 // Đặt vé đã hết hạn (nếu backend trả về)
+        error.response?.status === 400 ||
+        error.response?.status === 403 ||
+        error.response?.status === 410
       ) {
         console.log(`Bỏ qua lỗi: ${errorMessage}`);
       } else {
         Alert.alert("Lỗi", errorMessage);
       }
-    } finally {
-      setIsCancelling(false);
     }
   };
 
   const handleGoBack = () => {
-    if (isCancelling) return;
+    if (isCancelled) return;
     Alert.alert(
       "Hủy giao dịch",
       "Bạn có muốn hủy quá trình đặt vé không? Ghế đã giữ sẽ được giải phóng.",
       [
+        {
+          text: "Tiếp tục",
+          style: "cancel",
+        },
         {
           text: "Hủy",
           onPress: async () => {
@@ -201,98 +211,102 @@ export default function ThanhToan({ navigation, route }) {
           },
           style: "destructive",
         },
-        { text: "Tiếp tục", style: "cancel" },
       ],
       { cancelable: false }
     );
   };
 
   useEffect(() => {
-    let productTotal = 0;
+    let currentProductTotal = 0;
     products.forEach((product) => {
       const quantity = productQuantities[product.ProductID] || 0;
-      productTotal += quantity * product.ProductPrice;
+      currentProductTotal += quantity * product.ProductPrice;
     });
 
-    let newDiscount = 0;
-    if (selectedVoucherId) {
-      const selectedVoucher = vouchers.find(
-        (v) => v.VoucherID.toString() === selectedVoucherId.toString()
-      );
-      if (selectedVoucher) {
-        newDiscount = selectedVoucher.DiscountValue || 0;
-      }
-    }
+    const newDiscount = selectedVoucherId
+      ? (vouchers.find((v) => v.VoucherID.toString() === selectedVoucherId.toString())?.DiscountValue || 0)
+      : 0;
 
     setDiscount(newDiscount);
-    setTotalPrice(initialTotalPrice + productTotal - newDiscount);
-  }, [productQuantities, selectedVoucherId, products, vouchers, initialTotalPrice]);
+    setTotalPrice(Math.max(0, seatTotalPrice + currentProductTotal - newDiscount));
+  }, [productQuantities, selectedVoucherId, products, vouchers, seatTotalPrice]);
 
   const handleAddProduct = (productId) => {
+    if (isCancelled) return;
     setProductQuantities((prev) => ({
       ...prev,
       [productId]: (prev[productId] || 0) + 1,
     }));
   };
 
+  const handleRemoveProduct = (productId, removeAll = false) => {
+    if (isCancelled) return;
+    setProductQuantities((prev) => {
+      const newQuantities = { ...prev };
+      if (removeAll) {
+        newQuantities[productId] = 0;
+      } else {
+        newQuantities[productId] = Math.max(0, (prev[productId] || 0) - 1);
+      }
+      return newQuantities;
+    });
+  };
+
   const formatPrice = (price) =>
     price ? price.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ".") : "0";
 
   const handleApplyVoucher = async () => {
-    if (selectedVoucherId) {
-      try {
-        await useVoucher(selectedVoucherId);
-        setVoucherModalVisible(false);
-        Alert.alert("Thành công", "Voucher đã được áp dụng!");
-      } catch (error) {
-        console.error("Lỗi khi áp dụng voucher:", {
-          status: error.response?.status,
-          data: error.response?.data,
-          message: error.message,
-        });
-        Alert.alert("Lỗi", error.response?.data?.message || "Không thể áp dụng voucher.");
-      }
+    if (isCancelled || !selectedVoucherId) return;
+    try {
+      await useVoucher(selectedVoucherId);
+      setVoucherModalVisible(false);
+      Alert.alert("Thành công", "Voucher đã được áp dụng!");
+    } catch (error) {
+      Alert.alert("Lỗi", error.response?.data?.message || "Không thể áp dụng voucher.");
     }
   };
 
   const handleContinue = () => {
-    if (selectedPayment === "QR" && termsChecked) {
-      const updatedSelectedProducts = Object.keys(productQuantities)
-        .filter((productId) => productQuantities[productId] > 0)
-        .map((productId) => {
-          const product = products.find((p) => p.ProductID.toString() === productId);
-          return {
-            productId: product.ProductID,
-            quantity: productQuantities[productId],
-            price: product.ProductPrice,
-          };
-        });
-
-      navigation.navigate("ThanhToanQR", {
-        bookingId,
-        totalPrice,
-        expirationTime,
-        selectedSeats,
-        selectedProducts: updatedSelectedProducts,
-        showId,
-        cinemaId,
-        cinemaName,
-        showDate,
-        showTime,
-        movieTitle,
-        movieId,
-        ImageUrl,
-        moviePoster,
-        MovieLanguage,
-        selectedVoucherId,
-        fromScreen,
-      });
-    } else {
+    if (isCancelled || !(selectedPayment === "QR" && termsChecked)) {
       Alert.alert(
         "Lỗi",
         "Vui lòng chọn phương thức thanh toán QR và đồng ý với điều khoản."
       );
+      return;
     }
+
+    clearInterval(timerRef.current);
+
+    const updatedSelectedProducts = Object.keys(productQuantities)
+      .filter((productId) => productQuantities[productId] > 0)
+      .map((productId) => {
+        const product = products.find((p) => p.ProductID.toString() === productId);
+        return {
+          productId: product.ProductID,
+          quantity: productQuantities[productId],
+          price: product.ProductPrice,
+        };
+      });
+
+    navigation.navigate("ThanhToanQR", {
+      bookingId,
+      totalPrice,
+      expirationTime,
+      selectedSeats,
+      selectedProducts: updatedSelectedProducts,
+      showId,
+      cinemaId,
+      cinemaName,
+      showDate,
+      showTime,
+      movieTitle,
+      movieId,
+      ImageUrl,
+      moviePoster,
+      MovieLanguage,
+      selectedVoucherId,
+      fromScreen,
+    });
   };
 
   const renderComboItem = ({ item }) => (
@@ -313,23 +327,54 @@ export default function ThanhToan({ navigation, route }) {
       <TouchableOpacity
         style={styles.addButton}
         onPress={() => handleAddProduct(item.ProductID)}
+        disabled={isCancelled}
       >
         <Text style={styles.addButtonText}>+</Text>
       </TouchableOpacity>
     </View>
   );
 
+  const renderSelectedComboItem = ({ item }) => {
+    const product = products.find((p) => p.ProductID.toString() === item.productId.toString());
+    if (!product || item.quantity === 0) return null;
+    return (
+      <View style={styles.selectedComboItem}>
+        <Text style={styles.selectedComboName}>{product.ProductName}</Text>
+        <Text style={styles.selectedComboPrice}>
+          {formatPrice(product.ProductPrice * item.quantity)} đ
+        </Text>
+        <View style={styles.quantitySelector}>
+          <TouchableOpacity
+            style={styles.quantityButton}
+            onPress={() => handleRemoveProduct(product.ProductID)}
+            disabled={isCancelled}
+          >
+            <Text style={styles.quantityButtonText}>-</Text>
+          </TouchableOpacity>
+          <Text style={styles.quantityText}>{item.quantity}</Text>
+          <TouchableOpacity
+            style={styles.quantityButton}
+            onPress={() => handleAddProduct(product.ProductID)}
+            disabled={isCancelled}
+          >
+            <Text style={styles.quantityButtonText}>+</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.removeButton}
+            onPress={() => handleRemoveProduct(product.ProductID, true)}
+            disabled={isCancelled}
+          >
+            <Text style={styles.removeButtonText}>Hủy</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+    );
+  };
+
   const renderVoucherItem = ({ item }) => {
-    // Xử lý dữ liệu an toàn
-    const code = item.Code && typeof item.Code === "string" ? item.Code : "Không có mã";
-    const description =
-      item.Description && typeof item.Description === "string"
-        ? item.Description
-        : "Không có mô tả";
-    const endDate = item.EndDate ? new Date(item.EndDate) : null;
-    const expiryText = endDate && !isNaN(endDate)
-      ? `HSD: ${endDate.toLocaleDateString("vi-VN")}`
-      : "HSD: Không xác định";
+    const code = item.Code || "Không có mã";
+    const description = item.Description || "Không có mô tả";
+    const endDate = item.EndDate ? new Date(item.EndDate).toLocaleDateString("vi-VN") : "Không xác định";
 
     return (
       <View style={[styles.couponCard, { flexDirection: "row", alignItems: "center" }]}>
@@ -344,24 +389,23 @@ export default function ThanhToan({ navigation, route }) {
         <View style={{ flex: 1 }}>
           <Text style={styles.couponCardTitle}>{code}</Text>
           <Text style={styles.couponCardId}>{description}</Text>
-          <Text style={styles.couponCardExpiry}>{expiryText}</Text>
+          <Text style={styles.couponCardExpiry}>HSD: {endDate}</Text>
         </View>
         <TouchableOpacity
           style={{
-            backgroundColor:
-              selectedVoucherId === item.VoucherID ? "#8e0000" : "#eee",
+            backgroundColor: selectedVoucherId === item.VoucherID ? "#8e0000" : "#eee",
             borderRadius: 20,
             paddingHorizontal: 16,
             paddingVertical: 8,
             marginLeft: 10,
           }}
           onPress={() => {
-            if (selectedVoucherId === item.VoucherID) {
-              setSelectedVoucherId(null);
-            } else {
-              setSelectedVoucherId(item.VoucherID);
-            }
+            if (isCancelled) return;
+            setSelectedVoucherId(
+              selectedVoucherId === item.VoucherID ? null : item.VoucherID
+            );
           }}
+          disabled={isCancelled}
         >
           <Text
             style={{
@@ -376,14 +420,20 @@ export default function ThanhToan({ navigation, route }) {
     );
   };
 
+  const selectedCombos = Object.keys(productQuantities)
+    .filter((productId) => productQuantities[productId] > 0)
+    .map((productId) => ({
+      productId,
+      quantity: productQuantities[productId],
+    }));
+
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.navigationHeader}>
-        <TouchableOpacity onPress={handleGoBack} disabled={isCancelling}>
-          <Ionicons name="arrow-back" size={24} color={isCancelling ? "grey" : "#8e0000"} />
+        <TouchableOpacity onPress={handleGoBack} disabled={isCancelled}>
+          <Ionicons name="arrow-back" size={24} color={isCancelled ? "grey" : "#8e0000"} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Thanh toán</Text>
-        <Menu navigation={navigation} />
       </View>
 
       <ScrollView style={styles.scrollView}>
@@ -427,13 +477,13 @@ export default function ThanhToan({ navigation, route }) {
 
         <View style={styles.quantitySection}>
           <View style={styles.rowItem}>
-            <Text style={styles.rowLabel}>Số lượng</Text>
+            <Text style={styles.rowLabel}>Số lượng vé</Text>
             <Text style={styles.rowValue}>{selectedSeats.length}</Text>
           </View>
           <View style={styles.separator} />
           <View style={styles.rowItem}>
-            <Text style={styles.rowLabel}>Tổng</Text>
-            <Text style={styles.rowValue}>{formatPrice(initialTotalPrice)} đ</Text>
+            <Text style={styles.rowLabel}>Tổng giá vé</Text>
+            <Text style={styles.rowValue}>{formatPrice(seatTotalPrice)} đ</Text>
           </View>
         </View>
 
@@ -449,11 +499,21 @@ export default function ThanhToan({ navigation, route }) {
           />
         </View>
 
+        {selectedCombos.length > 0 && (
+          <View style={styles.selectedCombosSection}>
+            <Text style={styles.sectionTitle}>Combo đã chọn:</Text>
+            {selectedCombos.map((item) => (
+              <View key={item.productId}>{renderSelectedComboItem({ item })}</View>
+            ))}
+          </View>
+        )}
+
         <View style={styles.discountSection}>
           <Text style={styles.sectionTitle}>PHƯƠNG THỨC GIẢM GIÁ</Text>
           <TouchableOpacity
             style={styles.discountItem}
-            onPress={() => setVoucherModalVisible(true)}
+            onPress={() => !isCancelled && setVoucherModalVisible(true)}
+            disabled={isCancelled}
           >
             <Text style={styles.discountLabel}>MTB Voucher</Text>
             <MaterialIcons name="keyboard-arrow-right" size={24} color="#777" />
@@ -464,10 +524,24 @@ export default function ThanhToan({ navigation, route }) {
         <View style={styles.summarySection}>
           <Text style={styles.sectionTitle}>TỔNG KẾT</Text>
           <View style={styles.summaryItem}>
+            <Text style={styles.summaryLabel}>Giá vé</Text>
+            <Text style={styles.summaryValue}>{formatPrice(seatTotalPrice)} đ</Text>
+          </View>
+          {selectedCombos.map((combo) => {
+            const product = products.find((p) => p.ProductID.toString() === combo.productId.toString());
+            return product ? (
+              <View key={combo.productId} style={styles.summaryItem}>
+                <Text style={styles.summaryLabel}>{product.ProductName} (x{combo.quantity})</Text>
+                <Text style={styles.summaryValue}>{formatPrice(product.ProductPrice * combo.quantity)} đ</Text>
+              </View>
+            ) : null;
+          })}
+          <View style={styles.separator} />
+          <View style={styles.summaryItem}>
             <Text style={styles.summaryLabel}>Tổng cộng bao gồm VAT</Text>
             <Text style={styles.summaryValue}>
               {formatPrice(
-                initialTotalPrice +
+                seatTotalPrice +
                   Object.keys(productQuantities).reduce(
                     (sum, productId) =>
                       sum +
@@ -494,7 +568,8 @@ export default function ThanhToan({ navigation, route }) {
           <Text style={styles.sectionTitle}>THANH TOÁN</Text>
           <TouchableOpacity
             style={styles.paymentMethod}
-            onPress={() => setSelectedPayment("QR")}
+            onPress={() => !isCancelled && setSelectedPayment("QR")}
+            disabled={isCancelled}
           >
             <View style={styles.paymentMethodLeft}>
               <Image
@@ -512,7 +587,8 @@ export default function ThanhToan({ navigation, route }) {
           <View style={styles.termsRow}>
             <TouchableOpacity
               style={styles.checkbox}
-              onPress={() => setTermsChecked(!termsChecked)}
+              onPress={() => !isCancelled && setTermsChecked(!termsChecked)}
+              disabled={isCancelled}
             >
               {termsChecked && <Ionicons name="checkmark" size={18} color="red" />}
             </TouchableOpacity>
@@ -528,7 +604,7 @@ export default function ThanhToan({ navigation, route }) {
               !(selectedPayment === "QR" && termsChecked) && styles.confirmButtonDisabled,
             ]}
             onPress={handleContinue}
-            disabled={!(selectedPayment === "QR" && termsChecked) || isCancelling}
+            disabled={!(selectedPayment === "QR" && termsChecked) || isCancelled}
           >
             <Text style={styles.confirmButtonText}>TÔI ĐỒNG Ý VÀ TIẾP TỤC</Text>
           </TouchableOpacity>
@@ -547,17 +623,20 @@ export default function ThanhToan({ navigation, route }) {
             </View>
             <View style={styles.modalContent}>
               <Text style={styles.voucherSectionTitle}>Danh sách Voucher của bạn</Text>
-              <FlatList
-                data={vouchers}
-                renderItem={renderVoucherItem}
-                keyExtractor={(item) => item.VoucherID.toString()}
-                style={{ marginBottom: 20 }}
-              />
+              <ScrollView style={{ marginBottom: 20 }}>
+                {vouchers.length === 0 ? (
+                  <Text style={styles.noVoucherText}>Bạn không có voucher nào khả dụng.</Text>
+                ) : (
+                  vouchers.map((item) => (
+                    <View key={item.VoucherID.toString()}>{renderVoucherItem({ item })}</View>
+                  ))
+                )}
+              </ScrollView>
               {selectedVoucherId && (
                 <TouchableOpacity
                   style={[styles.registerButton, { marginTop: 0 }]}
                   onPress={handleApplyVoucher}
-                  disabled={isCancelling}
+                  disabled={isCancelled}
                 >
                   <Text style={styles.registerButtonText}>Áp dụng voucher</Text>
                 </TouchableOpacity>
@@ -690,6 +769,62 @@ const styles = StyleSheet.create({
     backgroundColor: "white",
     marginTop: 10,
     padding: 15,
+  },
+  selectedCombosSection: {
+    backgroundColor: "white",
+    marginTop: 10,
+    padding: 15,
+  },
+  selectedComboItem: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    paddingVertical: 8,
+  },
+  selectedComboName: {
+    fontSize: 14,
+    color: "#333",
+    flex: 1,
+  },
+  selectedComboPrice: {
+    fontSize: 14,
+    color: "#333",
+    fontWeight: "bold",
+    marginRight: 10,
+  },
+  quantitySelector: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  quantityButton: {
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    backgroundColor: "#8e0000",
+    justifyContent: "center",
+    alignItems: "center",
+    marginHorizontal: 5,
+  },
+  quantityButtonText: {
+    color: "white",
+    fontSize: 18,
+    fontWeight: "bold",
+  },
+  quantityText: {
+    fontSize: 14,
+    color: "#333",
+    marginHorizontal: 5,
+  },
+  removeButton: {
+    backgroundColor: "#ccc",
+    borderRadius: 5,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    marginLeft: 10,
+  },
+  removeButtonText: {
+    color: "#333",
+    fontSize: 12,
   },
   sectionTitle: {
     fontSize: 16,
@@ -886,6 +1021,12 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: "bold",
     marginBottom: 20,
+  },
+  noVoucherText: {
+    fontSize: 16,
+    color: "#777",
+    textAlign: "center",
+    marginTop: 20,
   },
   registerButton: {
     backgroundColor: "#d91f28",

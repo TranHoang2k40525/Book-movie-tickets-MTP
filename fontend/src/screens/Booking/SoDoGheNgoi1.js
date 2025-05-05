@@ -147,8 +147,7 @@ export default function SeatSelection() {
   const [viewportPosition, setViewportPosition] = useState({ x: 0.5, y: 0.5, width: 1, height: 1 });
   const [refreshing, setRefreshing] = useState(false);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
-  const [bookingId, setBookingId] = useState(null); // Thêm state để lưu bookingId
-  // Thêm state để kiểm soát trạng thái hủy
+  const [bookingId, setBookingId] = useState(null);
   const [isCancelling, setIsCancelling] = useState(false);
   const scale = useRef(new Animated.Value(1)).current;
   const translateX = useRef(new Animated.Value(0)).current;
@@ -159,8 +158,8 @@ export default function SeatSelection() {
   const lastScale = useRef(1);
   const lastTranslateX = useRef(0);
   const lastTranslateY = useRef(0);
+  const timerRef = useRef(null);
 
-  // Kiểm tra trạng thái đăng nhập
   useEffect(() => {
     checkAuthStatus();
   }, []);
@@ -197,13 +196,12 @@ export default function SeatSelection() {
     }
   };
 
-  // Lấy dữ liệu sơ đồ ghế
   const fetchSeatMap = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
       const response = await getSeatMapByShow(showId);
-      const rawLayout = response.seatLayout || response.data.seatLayout; // Điều chỉnh theo cấu trúc API
+      const rawLayout = response.seatLayout || response.data.seatLayout;
 
       const optimizedLayout = rawLayout.map((row, rowIndex) => {
         const isLastRow = rowIndex === rawLayout.length - 1;
@@ -235,20 +233,42 @@ export default function SeatSelection() {
     fetchSeatMap();
   }, [fetchSeatMap]);
 
-  // Xử lý hủy giao dịch
-  // Cập nhật handleCancelBooking
+  // Check booking status before cancellation (mocked, replace with actual API)
+  const checkBookingStatus = async (bookingId) => {
+    try {
+      // Replace with actual API call to check booking status
+      // const response = await api.get(`/bookings/${bookingId}/status`);
+      // return response.data.status === 'active';
+      return true; // Mocked for now
+    } catch (error) {
+      console.error('Lỗi kiểm tra trạng thái đặt vé:', error);
+      return false;
+    }
+  };
+
   const handleCancelBooking = useCallback(async () => {
     if (!bookingId || isCancelling) return;
     setIsCancelling(true);
     try {
+      const isBookingActive = await checkBookingStatus(bookingId);
+      if (!isBookingActive) {
+        console.log('Đặt vé đã hết hạn hoặc đã hủy, bỏ qua.');
+        return;
+      }
       await cancelBooking(bookingId);
       console.log('Đã hủy đặt vé:', bookingId);
       setBookingId(null);
     } catch (error) {
       const errorMessage = error.response?.data?.message || 'Không thể hủy đặt vé';
+      const status = error.response?.status;
       console.error('Lỗi khi hủy đặt vé:', error);
-      if (errorMessage === 'Đặt vé đã được hủy trước đó') {
-        console.log('Giao dịch đã được hủy trước đó, bỏ qua.');
+      if (
+        errorMessage === 'Đặt vé đã được hủy trước đó' ||
+        status === 400 ||
+        status === 403 ||
+        status === 410
+      ) {
+        console.log(`Bỏ qua lỗi: ${errorMessage} (Status: ${status})`);
       } else {
         Alert.alert('Lỗi', errorMessage);
       }
@@ -257,7 +277,6 @@ export default function SeatSelection() {
     }
   }, [bookingId, isCancelling]);
 
-  // Gộp logic điều hướng quay lại
   const handleGoBack = useCallback(async () => {
     if (isCancelling) return;
     Alert.alert(
@@ -267,6 +286,7 @@ export default function SeatSelection() {
         {
           text: 'Hủy',
           onPress: async () => {
+            if (timerRef.current) clearInterval(timerRef.current);
             await handleCancelBooking();
             if (fromScreen === 'MovieBookingScreen') {
               navigation.navigate('MovieBookingScreen', { movieId });
@@ -284,7 +304,6 @@ export default function SeatSelection() {
     );
   }, [handleCancelBooking, fromScreen, movieId, cinemaId, cinemaName, isCancelling]);
 
-  // Cập nhật BackHandler và nút quay lại
   useEffect(() => {
     const backAction = () => {
       handleGoBack();
@@ -292,13 +311,9 @@ export default function SeatSelection() {
     };
 
     const backHandler = BackHandler.addEventListener('hardwareBackPress', backAction);
-
     return () => backHandler.remove();
   }, [handleGoBack]);
 
-
-
-  // Cập nhật vị trí viewport cho mini-map
   const updateViewportPosition = useCallback(() => {
     const currentScaleValue = lastScale.current;
     const visibleWidth = 1 / currentScaleValue;
@@ -318,7 +333,6 @@ export default function SeatSelection() {
     updateViewportPosition();
   }, [lastTranslateX.current, lastTranslateY.current, lastScale.current, updateViewportPosition]);
 
-  // Xử lý phóng to/thu nhỏ
   const onPinchGestureEvent = Animated.event(
     [{ nativeEvent: { scale } }],
     {
@@ -355,7 +369,6 @@ export default function SeatSelection() {
     [updateViewportPosition]
   );
 
-  // Xử lý kéo sơ đồ ghế
   const onPanGestureEvent = Animated.event(
     [{ nativeEvent: { translationX: translateX, translationY: translateY } }],
     {
@@ -394,7 +407,6 @@ export default function SeatSelection() {
     [updateViewportPosition]
   );
 
-  // Xử lý nhấn vào mini-map
   const handleMiniMapPress = useCallback(
     (event) => {
       const { locationX, locationY } = event.nativeEvent;
@@ -426,7 +438,6 @@ export default function SeatSelection() {
     []
   );
 
-  // Xử lý chọn ghế
   const handleSeatPress = (seat) => {
     if (!isLoggedIn) {
       Alert.alert(
@@ -494,7 +505,6 @@ export default function SeatSelection() {
     });
   };
 
-  // Xử lý đặt vé
   const handleContinue = async () => {
     if (!isLoggedIn) {
       Alert.alert(
@@ -526,10 +536,8 @@ export default function SeatSelection() {
       const response = await holdSeats(showId, seatIds);
       const { bookingId, expirationTime } = response;
 
-      // Lưu bookingId
       setBookingId(bookingId);
 
-      // Cập nhật trạng thái ghế trên giao diện
       setSeatLayout((prevLayout) =>
         prevLayout.map((row) => ({
           ...row,
@@ -538,6 +546,8 @@ export default function SeatSelection() {
           ),
         }))
       );
+
+      if (timerRef.current) clearInterval(timerRef.current); // Stop timer before navigating
 
       navigation.navigate('DatVeThanhToan', {
         bookingId,
@@ -557,14 +567,16 @@ export default function SeatSelection() {
         fromScreen,
       });
     } catch (error) {
-      Alert.alert('Lỗi', error.response?.data?.message || 'Không thể giữ ghế. Vui lòng thử lại.');
+      const errorMessage = error.response?.data?.message || 'Không thể giữ ghế. Vui lòng thử lại.';
+      if (errorMessage !== 'Đặt vé đã được hủy trước đó') {
+        Alert.alert('Lỗi', errorMessage);
+      }
       console.error('Lỗi khi đặt vé:', error);
     } finally {
       setRefreshing(false);
     }
   };
 
-  // Thông báo yêu cầu đăng nhập
   const renderLoginMessage = () => {
     if (!isLoggedIn) {
       return (
@@ -722,7 +734,7 @@ export default function SeatSelection() {
                 </View>
                 <View style={styles.legendItem}>
                   <Text style={{ color: seatTypes.reserved }}>■ </Text>
-                  <Text>Ghế đã giữ</Text>
+                  <Text>Ghế đang giữ</Text>
                 </View>
               </View>
             </View>
