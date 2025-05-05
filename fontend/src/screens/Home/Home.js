@@ -17,6 +17,7 @@ import Menu from "../../components/Menu";
 import { getMovies } from "../../Api/api";
 import { UserContext } from "../../contexts/User/UserContext";
 import * as Location from "expo-location";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 
 export default function Home({ navigation }) {
   const [selectedTab, setSelectedTab] = useState("Đang chiếu");
@@ -27,7 +28,46 @@ export default function Home({ navigation }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [userLocation, setUserLocation] = useState(null);
-  const { user } = useContext(UserContext);
+  const { user, setUser } = useContext(UserContext);
+
+  // Thêm biến kiểm tra đã kiểm tra đăng nhập chưa
+  const [checkedLogin, setCheckedLogin] = useState(false);
+
+  // Kiểm tra đăng nhập khi load trang, lấy user từ AsyncStorage nếu chưa có
+  useEffect(() => {
+    const checkLogin = async () => {
+      if (!user) {
+        // Thử lấy user từ AsyncStorage
+        const userData = await AsyncStorage.getItem("user");
+        if (userData) {
+          setUser(JSON.parse(userData)); // cập nhật lại context
+          setCheckedLogin(true);
+        } else {
+          Alert.alert(
+            "Yêu cầu đăng nhập",
+            "Vui lòng đăng nhập để sử dụng dịch vụ",
+            [
+              { text: "Hủy", style: "cancel", onPress: () => navigation.goBack() },
+              { text: "Đăng nhập", onPress: () => navigation.navigate("Login", { from: "Home" }) },
+            ],
+            { cancelable: false }
+          );
+        }
+      } else {
+        setCheckedLogin(true);
+      }
+    };
+    checkLogin();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Khi đã xác nhận đăng nhập, hoặc khi đổi tab, thì chỉ lấy vị trí và phim
+  useEffect(() => {
+    if (user && checkedLogin) {
+      getUserLocation().then(fetchMovies);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedTab, user, checkedLogin]);
 
   const getUserLocation = async () => {
     try {
@@ -76,22 +116,6 @@ export default function Home({ navigation }) {
     getUserLocation().then(fetchMovies);
   };
 
-  useEffect(() => {
-    if (!user) {
-      Alert.alert(
-        "Yêu cầu đăng nhập",
-        "Vui lòng đăng nhập để sử dụng dịch vụ",
-        [
-          { text: "Hủy", style: "cancel", onPress: () => navigation.goBack() },
-          { text: "Đăng nhập", onPress: () => navigation.navigate("Login", { from: "Home" }) },
-        ],
-        { cancelable: false }
-      );
-    } else {
-      getUserLocation().then(fetchMovies);
-    }
-  }, [user, selectedTab]);
-
   const filterHorizontalMovies = () => {
     if (selectedTab === "Đặc biệt") {
       const specialMovieIds = [1, 4, 10, 20, 25, 15];
@@ -138,6 +162,11 @@ export default function Home({ navigation }) {
       </TouchableOpacity>
     );
   };
+
+  if (!checkedLogin) {
+    // Chưa kiểm tra đăng nhập xong thì không render gì cả
+    return null;
+  }
 
   if (loading) {
     return (
