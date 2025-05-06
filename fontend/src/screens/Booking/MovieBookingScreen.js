@@ -8,11 +8,14 @@ import {
   SafeAreaView,
   Dimensions,
   ActivityIndicator,
+  Alert,
+  RefreshControl,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { UserContext } from '../../contexts/User/UserContext';
 import Menu from '../../components/Menu';
 import { getMovieById, getCinemasByMovieAndDate, getShowtimesByCinemaAndDate } from '../../Api/api';
+import * as Location from 'expo-location';
 
 const cache = new Map();
 
@@ -98,14 +101,20 @@ const DateSelector = memo(({ selectedDate, onDateChange }) => {
   );
 });
 
-const TheaterLocations = memo(({ navigation, movieId, selectedDate, cinemas, movieTitle, moviePoster, MovieLanguage }) => {
+const TheaterLocations = memo(({ navigation, movieId, selectedDate, cinemas, movieTitle, userLocation }) => {
   const { user } = useContext(UserContext);
   const [expandedTheater, setExpandedTheater] = useState(null);
   const [localCinemas, setLocalCinemas] = useState([]);
   const [showtimes, setShowtimes] = useState({});
 
+  // Sắp xếp rạp theo khoảng cách (treat 'N/A' as Infinity)
   useEffect(() => {
-    setLocalCinemas(cinemas);
+    const sortedCinemas = [...cinemas].sort((a, b) => {
+      const distanceA = a.distance === 'N/A' ? Infinity : parseFloat(a.distance.replace('Km', '')) || Infinity;
+      const distanceB = b.distance === 'N/A' ? Infinity : parseFloat(b.distance.replace('Km', '')) || Infinity;
+      return distanceA - distanceB;
+    });
+    setLocalCinemas(sortedCinemas);
   }, [cinemas]);
 
   const fetchShowtimes = useCallback(
@@ -128,19 +137,6 @@ const TheaterLocations = memo(({ navigation, movieId, selectedDate, cinemas, mov
     [movieId, selectedDate]
   );
 
-  const calculateDistance = useCallback((lat, lon) => {
-    const userLat = 21.0285;
-    const userLon = 105.8542;
-    const R = 6371;
-    const dLat = (lat - userLat) * (Math.PI / 180);
-    const dLon = (lon - userLon) * (Math.PI / 180);
-    const a =
-      Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-      Math.cos(userLat * (Math.PI / 180)) * Math.cos(lat * (Math.PI / 180)) * Math.sin(dLon / 2) * Math.sin(dLon / 2);
-    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-    return `${(R * c).toFixed(2)}Km`;
-  }, []);
-
   const handleShowtimePress = useCallback(
     (show, theater) => {
       if (!user) {
@@ -155,10 +151,7 @@ const TheaterLocations = memo(({ navigation, movieId, selectedDate, cinemas, mov
         showDate: selectedDate.toISOString().split('T')[0],
         showTime: show.ShowTime,
         movieTitle,
-      movieId,
-      moviePoster,
-      MovieLanguage,
-      fromScreen: 'MovieBookingScreen',
+        movieId,
       });
     },
     [user, navigation, movieId, selectedDate, movieTitle]
@@ -216,30 +209,63 @@ const MovieBookingScreen = ({ navigation, route }) => {
   const { user } = useContext(UserContext);
   const [movieTitle, setMovieTitle] = useState('');
   const [cinemas, setCinemas] = useState([]);
-  
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [loadingMovie, setLoadingMovie] = useState(true);
   const [loadingCinemas, setLoadingCinemas] = useState(true);
   const [errorMovie, setErrorMovie] = useState(null);
   const [errorCinemas, setErrorCinemas] = useState(null);
+  const [userLocation, setUserLocation] = useState(null);
+  const [refreshing, setRefreshing] = useState(false);
 
-  const calculateDistance = useCallback((lat, lon) => {
-    const userLat = 21.0285;
-    const userLon = 105.8542;
-    const R = 6371;
-    const dLat = (lat - userLat) * (Math.PI / 180);
-    const dLon = (lon - userLon) * (Math.PI / 180);
-    const a =
-      Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-      Math.cos(userLat * (Math.PI / 180)) * Math.cos(lat * (Math.PI / 180)) * Math.sin(dLon / 2) * Math.sin(dLon / 2);
-    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-    return `${(R * c).toFixed(2)}Km`;
+  // Yêu cầu bật vị trí khi vào màn booking
+  useEffect(() => {
+    const getLocation = async () => {
+      try {
+        let { status } = await Location.requestForegroundPermissionsAsync();
+        if (status !== 'granted') {
+          Alert.alert(
+            'Yêu cầu vị trí',
+            'Vui lòng bật định vị để xem các rạp gần bạn.',
+            [{ text: 'OK' }]
+          );
+          setUserLocation(null);
+          return;
+        }
+        let location = await Location.getCurrentPositionAsync({});
+        setUserLocation({
+          latitude: location.coords.latitude,
+          longitude: location.coords.longitude,
+        });
+      } catch (error) {
+        setUserLocation(null);
+        Alert.alert('Lỗi', 'Không thể lấy vị trí của bạn.');
+      }
+    };
+    getLocation();
   }, []);
 
+  // Tính khoảng cách giữa user và rạp
+  const calculateDistance = useCallback(
+    (lat, lon) => {
+      if (!userLocation) return 'N/A';
+      const { latitude: userLat, longitude: userLon } = userLocation;
+      const R = 6371;
+      const dLat = (lat - userLat) * (Math.PI / 180);
+      const dLon = (lon - userLon) * (Math.PI / 180);
+      const a =
+        Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+        Math.cos(userLat * (Math.PI / 180)) * Math.cos(lat * (Math.PI / 180)) * Math.sin(dLon / 2) * Math.sin(dLon / 2);
+      const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+      return `${(R * c).toFixed(2)}Km`;
+    },
+    [userLocation]
+  );
+
+  // Lấy thông tin phim
   const fetchMovieData = useCallback(
     async (retries = 3, delay = 1000) => {
       const movieCacheKey = `movie-${movieId}`;
-      if (cache.has(movieCacheKey)) {
+      if (cache.has(movieCacheKey) && !refreshing) {
         setMovieTitle(cache.get(movieCacheKey));
         setLoadingMovie(false);
         return;
@@ -270,13 +296,14 @@ const MovieBookingScreen = ({ navigation, route }) => {
         }
       }
     },
-    [movieId]
+    [movieId, refreshing]
   );
 
+  // Lấy danh sách rạp và tính khoảng cách
   const fetchCinemasData = useCallback(
     async (retries = 3, delay = 1000) => {
       const cinemasCacheKey = `cinemas-${movieId}-${selectedDate.toISOString().split('T')[0]}`;
-      if (cache.has(cinemasCacheKey)) {
+      if (cache.has(cinemasCacheKey) && !refreshing) {
         setCinemas(cache.get(cinemasCacheKey));
         setLoadingCinemas(false);
         return;
@@ -293,6 +320,8 @@ const MovieBookingScreen = ({ navigation, route }) => {
             name: cinema.CinemaName,
             distance: calculateDistance(cinema.latitude, cinema.longitude),
             suggested: true,
+            latitude: cinema.latitude,
+            longitude: cinema.longitude,
           }));
           const filteredCinemas = fetchedCinemas.filter((c) => c.suggested);
           setCinemas(filteredCinemas);
@@ -309,8 +338,16 @@ const MovieBookingScreen = ({ navigation, route }) => {
         }
       }
     },
-    [movieId, selectedDate, calculateDistance]
+    [movieId, selectedDate, calculateDistance, refreshing]
   );
+
+  // Handle pull-to-refresh
+  const onRefresh = useCallback(() => {
+    setRefreshing(true);
+    Promise.all([fetchMovieData(), fetchCinemasData()]).finally(() => {
+      setRefreshing(false);
+    });
+  }, [fetchMovieData, fetchCinemasData]);
 
   useEffect(() => {
     if (movieId && user) {
@@ -322,7 +359,7 @@ const MovieBookingScreen = ({ navigation, route }) => {
     if (movieId && user) {
       fetchCinemasData();
     }
-  }, [movieId, user, selectedDate, fetchCinemasData]);
+  }, [movieId, user, selectedDate, fetchCinemasData, userLocation]);
 
   if (!user) {
     navigation.navigate('Login', { from: 'MovieBookingScreen', movieId });
@@ -366,7 +403,18 @@ const MovieBookingScreen = ({ navigation, route }) => {
         </View>
       </View>
 
-      <ScrollView style={styles.scrollContainer} stickyHeaderIndices={[0]}>
+      <ScrollView
+        style={styles.scrollContainer}
+        stickyHeaderIndices={[0]}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            tintColor="#ff4d6d"
+            colors={['#ff4d6d']}
+          />
+        }
+      >
         <DateSelector selectedDate={selectedDate} onDateChange={setSelectedDate} />
         {loadingCinemas ? (
           <View style={styles.loadingContainer}>
@@ -384,6 +432,7 @@ const MovieBookingScreen = ({ navigation, route }) => {
             selectedDate={selectedDate}
             cinemas={cinemas}
             movieTitle={movieTitle}
+            userLocation={userLocation}
           />
         )}
       </ScrollView>
@@ -391,7 +440,6 @@ const MovieBookingScreen = ({ navigation, route }) => {
   );
 };
 
-// Styles không thay đổi
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: 'white' },
   header: {
@@ -404,15 +452,15 @@ const styles = StyleSheet.create({
     borderBottomColor: '#e0e0e0',
     backgroundColor: '#fff',
     zIndex: 1,
+    marginTop: 30,
   },
   backButton: { padding: 5 },
-  headerTitle: { fontSize: 18, fontWeight: 'bold', color: 'black', left: 'auto' },
+  headerTitle: { fontSize: 12, fontWeight: 'bold', color: 'black', left: 'auto' },
   headerIcons: { flexDirection: 'row', alignItems: 'center' },
   iconButton: { marginLeft: 15 },
   scrollContainer: { flex: 1 },
   dateContainer: { padding: 15, backgroundColor: '#f5f5f5', borderBottomWidth: 1, borderBottomColor: '#e0e0e0' },
   currentDateText: { fontSize: 14, color: '#666', marginBottom: 10 },
-  
   dateBox: {
     width: 50,
     height: 70,
