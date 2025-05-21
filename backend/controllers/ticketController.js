@@ -276,7 +276,7 @@ const checkExpiredBookings = async (req, res) => {
       request.input('customerId', sql.Int, customerId);
   
       const result = await request.query(`
-        SELECT 
+        SELECT      
           b.BookingID,
           MIN(bs.HoldUntil) AS HoldUntil
         FROM Booking b
