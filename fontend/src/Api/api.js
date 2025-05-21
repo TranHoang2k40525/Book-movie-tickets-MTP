@@ -2,6 +2,7 @@ import axios from "axios";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
 const BASE_URL = "http://192.168.1.101:3000/api";
+const WS_URL = "ws://192.168.1.101:3000"; // Địa chỉ WebSocket
 
 const api = axios.create({
   baseURL: BASE_URL,
@@ -11,6 +12,14 @@ const api = axios.create({
   },
 });
 
+// Quản lý kết nối WebSocket
+let ws = null;
+let wsCallbacks = { onSeatUpdate: null, onError: null, onClose: null };
+let reconnectAttempts = 0;
+const MAX_RECONNECT_ATTEMPTS = 5;
+const RECONNECT_INTERVAL = 5000; // 5 giây
+
+// Interceptor cho yêu cầu HTTP
 api.interceptors.request.use(
   async (config) => {
     const token = await AsyncStorage.getItem("accessToken");
@@ -26,6 +35,7 @@ api.interceptors.request.use(
   (error) => Promise.reject(error)
 );
 
+// Interceptor cho phản hồi HTTP
 api.interceptors.response.use(
   (response) => response,
   async (error) => {
@@ -38,6 +48,9 @@ api.interceptors.response.use(
       originalRequest._retry = true;
       try {
         const refreshToken = await AsyncStorage.getItem("refreshToken");
+        if (!refreshToken) {
+          throw new Error("No refresh token available");
+        }
         const response = await axios.post(`${BASE_URL}/refresh-token`, { refreshToken });
         const { accessToken, refreshToken: newRefreshToken } = response.data;
         await AsyncStorage.setItem("accessToken", accessToken);
@@ -55,12 +68,101 @@ api.interceptors.response.use(
   }
 );
 
-export const simulateMomoPayment = async (bookingId, { selectedProducts, voucherId }) => {
+// Hàm thiết lập kết nối WebSocket
+export const setupWebSocket = async (showId, { onSeatUpdate, onError, onClose }) => {
   try {
-    const response = await api.post(`/payments/simulate-momo/${bookingId}`, {
-      selectedProducts,
-      voucherId,
-    });
+    const token = await AsyncStorage.getItem("accessToken");
+    if (!token) {
+      throw new Error("No access token found for WebSocket connection");
+    }
+
+    // Đóng kết nối WebSocket hiện tại nếu tồn tại
+    if (ws) {
+      ws.close();
+      ws = null;
+    }
+
+    // Tạo kết nối WebSocket mới
+    ws = new WebSocket(`${WS_URL}?showId=${showId}&token=${encodeURIComponent(token)}`);
+
+    // Lưu các callback
+    wsCallbacks = { onSeatUpdate, onError, onClose };
+
+    ws.onopen = () => {
+      console.log(`WebSocket connected for showId: ${showId}`);
+      reconnectAttempts = 0; // Reset số lần thử kết nối lại
+    };
+
+    ws.onmessage = (event) => {
+      try {
+        const data = JSON.parse(event.data);
+        if (data.type === "SEAT_UPDATE" && wsCallbacks.onSeatUpdate) {
+          console.log("Received seat update:", data.seatLayout);
+          wsCallbacks.onSeatUpdate(data.seatLayout);
+        }
+      } catch (err) {
+        console.error("Error processing WebSocket message:", err);
+        if (wsCallbacks.onError) {
+          wsCallbacks.onError(err);
+        }
+      }
+    };
+
+    ws.onclose = (event) => {
+      console.log(`WebSocket disconnected: ${event.reason || "No reason provided"}`);
+      ws = null;
+      if (wsCallbacks.onClose) {
+        wsCallbacks.onClose(event);
+      }
+      // Thử kết nối lại nếu chưa vượt quá số lần tối đa
+      if (reconnectAttempts < MAX_RECONNECT_ATTEMPTS) {
+        setTimeout(() => {
+          reconnectAttempts++;
+          console.log(`Reconnecting WebSocket, attempt ${reconnectAttempts}...`);
+          setupWebSocket(showId, wsCallbacks);
+        }, RECONNECT_INTERVAL);
+      } else {
+        console.error("Max reconnect attempts reached");
+        if (wsCallbacks.onError) {
+          wsCallbacks.onError(new Error("Failed to reconnect WebSocket"));
+        }
+      }
+    };
+
+    ws.onerror = (error) => {
+      console.error("WebSocket error:", error);
+      if (wsCallbacks.onError) {
+        wsCallbacks.onError(error);
+      }
+    };
+
+    return ws;
+  } catch (error) {
+    console.error("Error setting up WebSocket:", error);
+    if (wsCallbacks.onError) {
+      wsCallbacks.onError(error);
+    }
+    throw error;
+  }
+};
+
+// Hàm đóng kết nối WebSocket
+export const closeWebSocket = () => {
+  if (ws) {
+    ws.close();
+    ws = null;
+    wsCallbacks = { onSeatUpdate: null, onError: null, onClose: null };
+    reconnectAttempts = 0;
+    console.log("WebSocket connection closed");
+  }
+};
+
+// Các hàm HTTP
+export const simulateMomoPayment = async (bookingId, data) => {
+  try {
+    console.log("Sending simulateMomoPayment request:", { bookingId, data });
+    const response = await api.post(`/payments/simulate-momo/${bookingId}`, data);
+    console.log("simulateMomoPayment response:", response.data);
     return response.data;
   } catch (error) {
     console.error("Lỗi khi giả lập thanh toán Momo:", {
@@ -68,16 +170,81 @@ export const simulateMomoPayment = async (bookingId, { selectedProducts, voucher
       data: error.response?.data,
       message: error.message,
     });
-    throw error;
+    throw error.response?.data || error;
+  }
+};
+// API vé
+export const getBookings = async (page = 1, limit = 10) => {
+  try {
+    console.log(`Calling API: /tickets?page=${page}&limit=${limit}`);
+    const response = await api.get('/tickets', { params: { page, limit } });
+    console.log('API Response:', response.data);
+    return response.data;
+  } catch (error) {
+    console.error('Error fetching bookings:', {
+      message: error.message,
+      response: error.response?.data,
+      status: error.response?.status,
+    });
+    throw error.response?.data || error;
   }
 };
 
+export const getBookingById = async (bookingId) => {
+  try {
+    console.log(`Calling API: /tickets/${bookingId}`);
+    const response = await api.get(`/tickets/${bookingId}`);
+    console.log('API Response:', response.data);
+    return response.data;
+  } catch (error) {
+    console.error('Error fetching booking by ID:', {
+      status: error.response?.status,
+      data: error.response?.data,
+      message: error.message,
+    });
+    throw error.response?.data || error;
+  }
+};
+
+export const checkExpiredBookings = async () => {
+  try {
+    console.log('Calling API: /tickets/expiring');
+    const response = await api.get('/tickets/expiring');
+    console.log('API Response:', response.data);
+    return response.data;
+  } catch (error) {
+    console.error('Error checking expired bookings:', {
+      status: error.response?.status,
+      data: error.response?.data,
+      message: error.message,
+    });
+    throw error.response?.data || error;
+  }
+};
+
+// Api thanh toántoán
 export const checkPaymentStatus = async (bookingId) => {
   try {
-    const response = await api.get(`/payments/details/${bookingId}`);
+    const response = await api.get(`/payments/check-status/${bookingId}`);
     return response.data;
   } catch (error) {
     console.error("Lỗi khi kiểm tra trạng thái thanh toán:", {
+      status: error.response?.status,
+      data: error.response?.data,
+      message: error.message,
+    });
+    throw error.response?.data || error;
+  }
+};
+
+export const cancelBooking = async (bookingId) => {
+  try {
+    console.log(`Cancelling booking: ${bookingId}`);
+    const response = await api.post("/cancel-booking", { bookingId });
+    console.log("Cancel booking response:", response.data);
+    return response.data;
+  } catch (error) {
+    console.error("Error cancelling booking:", {
       status: error.response?.status,
       data: error.response?.data,
       message: error.message,
@@ -220,7 +387,7 @@ export const getSeatMapByShow = async (showId) => {
     console.log(`Fetching seat map for showId: ${showId}`);
     const response = await api.get(`/movies/${showId}/seats`);
     console.log("Seat map response:", response.data);
-    return response.data; // Chuẩn hóa trả về response.data
+    return response.data;
   } catch (error) {
     console.error("Error fetching seat map:", {
       status: error.response?.status,
@@ -231,10 +398,10 @@ export const getSeatMapByShow = async (showId) => {
   }
 };
 
-export const holdSeats = async (showId, seatIds) => {
+export const holdSeats = async (showId, seatIds, selectedProducts = []) => {
   try {
-    console.log("Holding seats:", { showId, seatIds });
-    const response = await api.post("/hold-seats", { showId, seatIds });
+    console.log("Holding seats:", { showId, seatIds, selectedProducts });
+    const response = await api.post("/hold-seats", { showId, seatIds, selectedProducts });
     console.log("Hold seats response:", response.data);
     return response.data;
   } catch (error) {
@@ -243,23 +410,7 @@ export const holdSeats = async (showId, seatIds) => {
       data: error.response?.data,
       message: error.message,
     });
-    throw error;
-  }
-};
-
-export const cancelBooking = async (bookingId) => {
-  try {
-    console.log(`Cancelling booking: ${bookingId}`);
-    const response = await api.post("/cancel-booking", { bookingId });
-    console.log("Cancel booking response:", response.data);
-    return response.data;
-  } catch (error) {
-    console.error("Error cancelling booking:", {
-      status: error.response?.status,
-      data: error.response?.data,
-      message: error.message,
-    });
-    throw error;
+    throw error.response?.data || error;
   }
 };
 
@@ -315,53 +466,14 @@ export const getNotificationById = async (notificationId) => {
       data: error.response?.data,
       message: error.message,
     });
-    throw error;
+    throw error.response?.data || error;
   }
 };
 
-export const getBookings = async () => {
-  try {
-    console.log("Calling API: /bookings");
-    const response = await api.get("/bookings");
-    console.log("API Response:", response.data);
-    return response.data;
-  } catch (error) {
-    console.error("Error fetching bookings:", {
-      message: error.message,
-      response: error.response?.data,
-      status: error.response?.status,
-    });
-    return { bookings: [], message: "Bạn không có vé" };
-  }
-};
 
-export const getBookingById = async (bookingId) => {
-  try {
-    const response = await api.get(`/bookings/${bookingId}`);
-    return response.data;
-  } catch (error) {
-    console.error("Error fetching booking by ID:", {
-      status: error.response?.status,
-      data: error.response?.data,
-      message: error.message,
-    });
-    throw error;
-  }
-};
 
-export const checkExpiredBookings = async () => {
-  try {
-    const response = await api.get("/bookings/check-expiring");
-    return response.data;
-  } catch (error) {
-    console.error("Error checking expired bookings:", {
-      status: error.response?.status,
-      data: error.response?.data,
-      message: error.message,
-    });
-    return { message: "Không có vé sắp hết hạn", expiringTickets: 0 };
-  }
-};
+
+
 
 export const processPayment = async (data) => {
   try {
@@ -406,10 +518,6 @@ export const getPaymentDetails = async (bookingId) => {
     throw error;
   }
 };
-
-
-
-
 
 export const getBookingDetails = async (bookingId) => {
   try {

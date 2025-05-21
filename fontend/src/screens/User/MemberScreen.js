@@ -115,8 +115,7 @@ export default function MemberScreen({ navigation }) {
         <Text style={styles.userName}>{user.customerName}</Text>
         <Text style={styles.userId}>mã số thành viên MTB: {user.customerID}</Text>
         <View style={styles.pointsContainer}>
-          <Text style={styles.pointsText}>Tổng chi tiêu 2025</Text>
-          <Text style={styles.pointsText}>0 đ</Text>
+          
         </View>
       </View>
       <Modal

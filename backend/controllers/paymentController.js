@@ -1,8 +1,8 @@
 const sql = require("mssql");
 const { dbConfig } = require("../config/db");
-const crypto = require("crypto");
 const QRCode = require("qrcode");
 const nodemailer = require("nodemailer");
+require('dotenv').config();
 
 const transporter = nodemailer.createTransport({
   host: "smtp.gmail.com",
@@ -16,10 +16,31 @@ const transporter = nodemailer.createTransport({
   debug: true,
 });
 
-// Hàm tạo nội dung thông báo (dùng cho cả email và Notification)
+// Hàm kiểm tra và ánh xạ PaymentMethod
+const validatePaymentMethod = (method) => {
+  const validMethods = ['Online', 'Card', 'Cash'];
+  if (method === 'Momo') return 'Online';
+  if (!validMethods.includes(method)) {
+    throw new Error(`Phương thức thanh toán không hợp lệ: ${method}. Chỉ chấp nhận: ${validMethods.join(', ')}`);
+  }
+  return method;
+};
+
+// Hàm tạo nội dung thông báo
 const generateNotificationContent = (bookingDetails, paymentDetails, products, discount, finalAmount) => {
-  const productText = products.length > 0
-    ? `Sản phẩm: ${products.map(p => `${p.ProductName} x${p.Quantity} - ${p.TotalPriceBookingProduct.toLocaleString("vi-VN")} VNĐ`).join(", ")}`
+  const productMap = new Map();
+  products.forEach(p => {
+    const key = `${p.ProductID}-${p.TotalPriceBookingProduct}`;
+    if (productMap.has(key)) {
+      productMap.get(key).Quantity += p.Quantity;
+    } else {
+      productMap.set(key, { ...p });
+    }
+  });
+  const uniqueProducts = Array.from(productMap.values());
+
+  const productText = uniqueProducts.length > 0
+    ? `Sản phẩm: ${uniqueProducts.map(p => `${p.ProductName} x${p.Quantity} - ${p.TotalPriceBookingProduct.toLocaleString("vi-VN")} VNĐ`).join(", ")}`
     : "";
   const discountText = discount > 0 ? `Giảm giá: ${discount.toLocaleString("vi-VN")} VNĐ` : "";
   
@@ -42,6 +63,7 @@ Cảm ơn bạn đã sử dụng dịch vụ của chúng tôi!
   `.trim();
 };
 
+// Hàm gửi email xác nhận thanh toán
 const sendPaymentConfirmationEmail = async (customerEmail, bookingDetails, paymentDetails, products, discount, finalAmount) => {
   const notificationContent = generateNotificationContent(bookingDetails, paymentDetails, products, discount, finalAmount);
   const htmlContent = notificationContent
@@ -76,22 +98,10 @@ const sendPaymentConfirmationEmail = async (customerEmail, bookingDetails, payme
   }
 };
 
-const verifyHmacSignature = (data, receivedSignature) => {
-  const secretKey = process.env.PAYMENT_SECRET_KEY || "hoangdepzai2k401hoangdepzai2k401";
-  const sortedKeys = Object.keys(data).sort();
-  const stringToSign = sortedKeys
-    .map((key) => `${key}=${data[key]}`)
-    .join("&");
-  const computedSignature = crypto
-    .createHmac("sha256", secretKey)
-    .update(stringToSign)
-    .digest("hex");
-  return computedSignature === receivedSignature;
-};
-
+// Hàm xác nhận thanh toán
 const confirmPayment = async (req, res) => {
   const { bookingId } = req.params;
-  const { paymentMethod, amount, selectedProducts = [], voucherId, hmacSignature, timestamp } = req.body;
+  const { paymentMethod, amount, selectedProducts = [], voucherId } = req.body;
   const customerId = req.user?.customerID;
 
   let pool;
@@ -106,25 +116,15 @@ const confirmPayment = async (req, res) => {
     await transaction.begin(sql.ISOLATION_LEVEL_SERIALIZABLE);
     console.log("Đã bắt đầu transaction với isolation level SERIALIZABLE");
 
-    const hmacData = {
-      bookingId,
-      amount,
-      paymentMethod,
-      timestamp,
-    };
-    if (!verifyHmacSignature(hmacData, hmacSignature)) {
-      await transaction.rollback();
-      return res.status(400).json({ success: false, message: "Chữ ký HMAC không hợp lệ" });
-    }
+    const validatedPaymentMethod = validatePaymentMethod(paymentMethod);
 
     const request = transaction.request();
-    const bookingCheck = await request
-      .input("bookingId", sql.Int, bookingId)
-      .input("customerId", sql.Int, customerId)
-      .query(
-        `SELECT Status, TotalSeats, ShowID FROM Booking WITH (UPDLOCK)
-         WHERE BookingID = @bookingId AND CustomerID = @customerId`
-      );
+    request.input("bookingId", sql.Int, bookingId);
+    request.input("customerId", sql.Int, customerId);
+    const bookingCheck = await request.query(
+      `SELECT Status, TotalSeats, ShowID FROM Booking WITH (UPDLOCK)
+       WHERE BookingID = @bookingId AND CustomerID = @customerId`
+    );
 
     if (!bookingCheck.recordset.length) {
       await transaction.rollback();
@@ -142,50 +142,40 @@ const confirmPayment = async (req, res) => {
       });
     }
 
-    const seatPriceResult = await request
-      .input("bookingId", sql.Int, bookingId)
-      .query(
-        `SELECT SUM(TicketPrice) as SeatTotalPrice 
-         FROM BookingSeat 
-         WHERE BookingID = @bookingId`
-      );
-    let totalPrice = parseFloat(seatPriceResult.recordset[0].SeatTotalPrice || 0);
-    let productTotal = 0;
+    // Kiểm tra trạng thái ghế trước khi thanh toán
+    const seatCheck = await request.query(
+      `SELECT chs.SeatID, chs.Status
+       FROM BookingSeat bs
+       JOIN CinemaHallSeat chs ON bs.SeatID = chs.SeatID
+       WHERE bs.BookingID = @bookingId`
+    );
 
-    if (selectedProducts.length > 0) {
-      const productIds = selectedProducts.map((p) => p.productId);
-      const productsResult = await request
-        .input("ProductIDs", sql.VarChar, productIds.join(","))
-        .query(
-          `SELECT ProductID, ProductPrice 
-           FROM Product 
-           WHERE ProductID IN (SELECT value FROM STRING_SPLIT(@ProductIDs, ','))`
-        );
-
-      const productPrices = {};
-      productsResult.recordset.forEach((product) => {
-        productPrices[product.ProductID] = parseFloat(product.ProductPrice);
+    const invalidSeats = seatCheck.recordset.filter(seat => seat.Status !== 'Reserved');
+    if (invalidSeats.length > 0) {
+      await transaction.rollback();
+      console.log("Ghế không hợp lệ:", invalidSeats);
+      return res.status(400).json({
+        success: false,
+        message: "Một số ghế đã bị thay đổi trạng thái. Vui lòng thử lại.",
+        invalidSeats: invalidSeats.map(seat => seat.SeatID)
       });
-
-      for (const product of selectedProducts) {
-        const productPrice = productPrices[product.productId] || 0;
-        const quantity = product.quantity || 0;
-        const productTotalPrice = productPrice * quantity;
-        productTotal += productTotalPrice;
-
-        if (quantity > 0) {
-          await request
-            .input("bookingId", sql.Int, bookingId)
-            .input("productId", sql.Int, product.productId)
-            .input("quantity", sql.Int, quantity)
-            .input("totalPrice", sql.Decimal(10, 2), productTotalPrice)
-            .query(
-              `INSERT INTO BookingProduct (BookingID, ProductID, Quantity, TotalPriceBookingProduct)
-               VALUES (@bookingId, @productId, @quantity, @totalPrice)`
-            );
-        }
-      }
     }
+
+    const seatPriceResult = await request.query(
+      `SELECT SUM(TicketPrice) as SeatTotalPrice 
+       FROM BookingSeat 
+       WHERE BookingID = @bookingId`
+    );
+    let totalPrice = parseFloat(seatPriceResult.recordset[0].SeatTotalPrice || 0);
+
+    const bookingProductsResult = await request.query(
+      `SELECT bp.ProductID, p.ProductName, bp.Quantity, bp.TotalPriceBookingProduct
+       FROM BookingProduct bp
+       JOIN Product p ON bp.ProductID = p.ProductID
+       WHERE bp.BookingID = @bookingId`
+    );
+    let productTotal = bookingProductsResult.recordset.reduce((sum, p) => sum + parseFloat(p.TotalPriceBookingProduct), 0);
+    console.log("Sản phẩm đã lưu:", bookingProductsResult.recordset);
 
     totalPrice += productTotal;
     let discountAmount = 0;
@@ -193,7 +183,6 @@ const confirmPayment = async (req, res) => {
     if (voucherId) {
       const voucherResult = await request
         .input("voucherId", sql.Int, voucherId)
-        .input("customerId", sql.Int, customerId)
         .query(
           `SELECT DiscountValue 
            FROM Voucher 
@@ -204,14 +193,23 @@ const confirmPayment = async (req, res) => {
 
       if (voucherResult.recordset.length > 0) {
         discountAmount = parseFloat(voucherResult.recordset[0].DiscountValue);
-        await request
-          .input("voucherId", sql.Int, voucherId)
-          .input("customerId", sql.Int, customerId)
+        const voucherUsageCheck = await request
+          .input("bookingId", sql.Int, bookingId)
           .query(
-            `INSERT INTO VoucherUsage (VoucherID, CustomerID, UsedAt)
-             VALUES (@voucherId, @customerId, GETDATE());
-             UPDATE Voucher SET UsageCount = UsageCount + 1 WHERE VoucherID = @voucherId`
+            `SELECT * FROM VoucherUsage 
+             WHERE VoucherID = @voucherId AND BookingID = @bookingId`
           );
+        if (voucherUsageCheck.recordset.length === 0) {
+          await request
+            .input("voucherId", sql.Int, voucherId)
+            .input("customerId", sql.Int, customerId)
+            .input("bookingId", sql.Int, bookingId)
+            .query(
+              `INSERT INTO VoucherUsage (VoucherID, CustomerID, BookingID, UsedAt)
+               VALUES (@voucherId, @customerId, @bookingId, GETDATE());
+               UPDATE Voucher SET UsageCount = UsageCount + 1 WHERE VoucherID = @voucherId`
+            );
+        }
       }
     }
 
@@ -219,6 +217,7 @@ const confirmPayment = async (req, res) => {
 
     if (finalAmount !== parseFloat(amount)) {
       await transaction.rollback();
+      console.log("Số tiền không khớp:", { finalAmount, amount });
       return res.status(400).json({ success: false, message: "Số tiền thanh toán không khớp" });
     }
 
@@ -227,24 +226,21 @@ const confirmPayment = async (req, res) => {
       .input("paymentId", sql.Int, paymentId)
       .input("bookingId", sql.Int, bookingId)
       .input("amount", sql.Decimal(10, 2), finalAmount)
-      .input("paymentMethod", sql.VarChar, paymentMethod)
+      .input("paymentMethod", sql.VarChar, validatedPaymentMethod)
       .query(
         `INSERT INTO Payment (PaymentID, BookingID, Amount, PaymentDate, PaymentMethod)
          VALUES (@paymentId, @bookingId, @amount, GETDATE(), @paymentMethod)`
       );
 
-    await request
-      .input("bookingId", sql.Int, bookingId)
-      .query(
-        `UPDATE Booking SET Status = 'Confirmed' WHERE BookingID = @bookingId;
-         UPDATE BookingSeat SET Status = 'Booked' WHERE BookingID = @bookingId;
-         UPDATE CinemaHallSeat SET Status = 'Booked'
-         WHERE SeatID IN (SELECT SeatID FROM BookingSeat WHERE BookingID = @bookingId)`
-      );
+    await request.query(
+      `UPDATE Booking SET Status = 'Confirmed' WHERE BookingID = @bookingId;
+       UPDATE BookingSeat SET Status = 'Booked' WHERE BookingID = @bookingId;
+       UPDATE CinemaHallSeat SET Status = 'Booked'
+       WHERE SeatID IN (SELECT SeatID FROM BookingSeat WHERE BookingID = @bookingId)`
+    );
 
     const paymentDetailsResult = await request
       .input("paymentId", sql.Int, paymentId)
-      .input("bookingId", sql.Int, bookingId)
       .query(
         `SELECT p.PaymentID, p.Amount, p.PaymentDate, p.PaymentMethod,
          b.BookingID, b.Status as BookingStatus, b.TotalSeats,
@@ -262,15 +258,6 @@ const confirmPayment = async (req, res) => {
          JOIN CinemaHall ch ON s.HallID = ch.HallID
          JOIN Cinema c ON ch.CinemaID = c.CinemaID
          WHERE p.PaymentID = @paymentId AND b.BookingID = @bookingId`
-      );
-
-    const bookingProductsResult = await request
-      .input("bookingId", sql.Int, bookingId)
-      .query(
-        `SELECT bp.ProductID, p.ProductName, bp.Quantity, bp.TotalPriceBookingProduct
-         FROM BookingProduct bp
-         JOIN Product p ON bp.ProductID = p.ProductID
-         WHERE bp.BookingID = @bookingId`
       );
 
     const customerResult = await request
@@ -321,178 +308,194 @@ const confirmPayment = async (req, res) => {
     }
     res.status(500).json({ success: false, message: "Lỗi server", error: error.message });
   } finally {
-    if (pool) {
-      console.log("Đóng kết nối SQL Server...");
+    if (pool && pool.connected) {
       await pool.close();
-      console.log("Đã đóng kết nối");
+      console.log("Đã đóng kết nối pool");
     }
   }
 };
 
+// Hàm xử lý thanh toán
 const processPayment = async (req, res) => {
-  try {
-    const { 
-      bookingId, 
-      selectedProducts = [], 
-      voucherId, 
-      paymentMethod, 
-      termsAccepted,
-      countdown 
-    } = req.body;
+  const { 
+    bookingId, 
+    selectedProducts = [], 
+    voucherId, 
+    paymentMethod, 
+    termsAccepted,
+    countdown 
+  } = req.body;
+  const customerId = req.user?.customerID;
 
-    if (!bookingId || !termsAccepted || !paymentMethod) {
+  let pool;
+  let transaction;
+  try {
+    if (!bookingId || !termsAccepted || !paymentMethod || !customerId) {
       return res.status(400).json({ 
         success: false, 
         message: "Thông tin không đầy đủ hoặc không hợp lệ" 
       });
     }
 
-    const pool = await sql.connect(dbConfig);
-    const bookingResult = await pool.request()
-      .input('BookingID', sql.NVarChar, bookingId)
-      .query(`
-        SELECT b.*, s.ShowDate, s.ShowTime, m.MovieTitle, m.ImageUrl, c.CinemaName,
-        (SELECT SUM(TicketPrice) FROM BookingSeat WHERE BookingID = b.BookingID) as SeatTotalPrice
-        FROM Booking b
-        JOIN Show s ON b.ShowID = s.ShowID
-        JOIN Movie m ON s.MovieID = m.MovieID
-        JOIN CinemaHall ch ON s.HallID = ch.HallID
-        JOIN Cinema c ON ch.CinemaID = c.CinemaID
-        WHERE b.BookingID = @BookingID
-      `);
+    console.log("Kết nối đến SQL Server...");
+    pool = await sql.connect(dbConfig);
+    console.log("Đã kết nối SQL Server");
 
-    if (bookingResult.recordset.length === 0) {
+    console.log("Khởi tạo transaction...");
+    transaction = new sql.Transaction(pool);
+    await transaction.begin(sql.ISOLATION_LEVEL_SERIALIZABLE);
+    console.log("Đã bắt đầu transaction với isolation level SERIALIZABLE");
+
+    const validatedPaymentMethod = validatePaymentMethod(paymentMethod);
+
+    const request = transaction.request();
+    request.input("bookingId", sql.Int, bookingId);
+    request.input("customerId", sql.Int, customerId);
+    const bookingResult = await request.query(
+      `SELECT b.*, s.ShowDate, s.ShowTime, m.MovieTitle, m.ImageUrl, c.CinemaName, ch.HallName,
+       (SELECT SUM(TicketPrice) FROM BookingSeat WHERE BookingID = b.BookingID) as SeatTotalPrice
+       FROM Booking b
+       JOIN Show s ON b.ShowID = s.ShowID
+       JOIN Movie m ON s.MovieID = m.MovieID
+       JOIN CinemaHall ch ON s.HallID = ch.HallID
+       JOIN Cinema c ON ch.CinemaID = c.CinemaID
+       WHERE b.BookingID = @bookingId AND b.CustomerID = @customerId`
+    );
+
+    if (!bookingResult.recordset.length) {
+      await transaction.rollback();
+      console.log("Không tìm thấy đặt vé:", { bookingId, customerId });
       return res.status(404).json({ 
         success: false, 
-        message: "Không tìm thấy thông tin đặt vé" 
+        message: "Không tìm thấy thông tin đặt vé hoặc bạn không có quyền truy cập" 
       });
     }
 
     const booking = bookingResult.recordset[0];
-    let totalPrice = parseFloat(booking.SeatTotalPrice || 0);
-    let productTotal = 0;
-
-    if (selectedProducts.length > 0) {
-      const productIds = selectedProducts.map(p => p.productId);
-      const productsResult = await pool.request()
-        .input('ProductIDs', sql.VarChar, productIds.join(','))
-        .query(`
-          SELECT ProductID, ProductPrice 
-          FROM Product 
-          WHERE ProductID IN (SELECT value FROM STRING_SPLIT(@ProductIDs, ','))
-        `);
-
-      const productPrices = {};
-      productsResult.recordset.forEach(product => {
-        productPrices[product.ProductID] = parseFloat(product.ProductPrice);
+    if (booking.Status !== "Pending") {
+      await transaction.rollback();
+      console.log("Đặt vé không hợp lệ:", { bookingId, status: booking.Status });
+      return res.status(400).json({
+        success: false,
+        message: `Đặt vé không hợp lệ do trạng thái hiện tại là '${booking.Status}'`
       });
-
-      for (const product of selectedProducts) {
-        const productPrice = productPrices[product.productId] || 0;
-        const quantity = product.quantity || 0;
-        const productTotalPrice = productPrice * quantity;
-        productTotal += productTotalPrice;
-
-        if (quantity > 0) {
-          await pool.request()
-            .input('BookingID', sql.NVarChar, bookingId)
-            .input('ProductID', sql.Int, product.productId)
-            .input('Quantity', sql.Int, quantity)
-            .input('TotalPriceBookingProduct', sql.Decimal(10, 2), productTotalPrice)
-            .query(`
-              INSERT INTO BookingProduct (BookingID, ProductID, Quantity, TotalPriceBookingProduct)
-              VALUES (@BookingID, @ProductID, @Quantity, @TotalPriceBookingProduct)
-            `);
-        }
-      }
     }
+
+    // Kiểm tra trạng thái ghế
+    const seatCheck = await request.query(
+      `SELECT chs.SeatID, chs.Status
+       FROM BookingSeat bs
+       JOIN CinemaHallSeat chs ON bs.SeatID = chs.SeatID
+       WHERE bs.BookingID = @bookingId`
+    );
+
+    const invalidSeats = seatCheck.recordset.filter(seat => seat.Status !== 'Reserved');
+    if (invalidSeats.length > 0) {
+      await transaction.rollback();
+      console.log("Ghế không hợp lệ:", invalidSeats);
+      return res.status(400).json({
+        success: false,
+        message: "Một số ghế đã bị thay đổi trạng thái. Vui lòng thử lại.",
+        invalidSeats: invalidSeats.map(seat => seat.SeatID)
+      });
+    }
+
+    let totalPrice = parseFloat(booking.SeatTotalPrice || 0);
+
+    const bookingProductsResult = await request.query(
+      `SELECT bp.ProductID, p.ProductName, bp.Quantity, bp.TotalPriceBookingProduct
+       FROM BookingProduct bp
+       JOIN Product p ON bp.ProductID = p.ProductID
+       WHERE bp.BookingID = @bookingId`
+    );
+    let productTotal = bookingProductsResult.recordset.reduce((sum, p) => sum + parseFloat(p.TotalPriceBookingProduct), 0);
+    console.log("Sản phẩm đã lưu:", bookingProductsResult.recordset);
 
     totalPrice += productTotal;
     let discountAmount = 0;
 
     if (voucherId) {
-      const voucherResult = await pool.request()
-        .input('VoucherID', sql.Int, voucherId)
-        .input('CustomerID', sql.Int, booking.CustomerID)
-        .query(`
-          SELECT DiscountValue FROM Voucher 
-          WHERE VoucherID = @VoucherID 
-          AND IsActive = 1
-          AND StartDate <= GETDATE() AND EndDate >= GETDATE()
-        `);
+      const voucherResult = await request
+        .input("voucherId", sql.Int, voucherId)
+        .query(
+          `SELECT DiscountValue 
+           FROM Voucher 
+           WHERE VoucherID = @voucherId 
+           AND IsActive = 1 
+           AND StartDate <= GETDATE() AND EndDate >= GETDATE()`
+        );
 
       if (voucherResult.recordset.length > 0) {
         discountAmount = parseFloat(voucherResult.recordset[0].DiscountValue);
-        await pool.request()
-          .input('VoucherID', sql.Int, voucherId)
-          .input('CustomerID', sql.Int, booking.CustomerID)
-          .query(`
-            INSERT INTO VoucherUsage (VoucherID, CustomerID, UsedAt)
-            VALUES (@VoucherID, @CustomerID, GETDATE());
-            UPDATE Voucher SET UsageCount = UsageCount + 1 WHERE VoucherID = @VoucherID
-          `);
+        const voucherUsageCheck = await request
+          .input("bookingId", sql.Int, bookingId)
+          .query(
+            `SELECT * FROM VoucherUsage 
+             WHERE VoucherID = @voucherId AND BookingID = @bookingId`
+          );
+        if (voucherUsageCheck.recordset.length === 0) {
+          await request
+            .input("voucherId", sql.Int, voucherId)
+            .input("customerId", sql.Int, customerId)
+            .input("bookingId", sql.Int, bookingId)
+            .query(
+              `INSERT INTO VoucherUsage (VoucherID, CustomerID, BookingID, UsedAt)
+               VALUES (@voucherId, @customerId, @bookingId, GETDATE());
+               UPDATE Voucher SET UsageCount = UsageCount + 1 WHERE VoucherID = @voucherId`
+            );
+        }
       }
     }
 
     const finalAmount = Math.max(0, totalPrice - discountAmount);
 
-    const paymentResult = await pool.request()
-      .input('BookingID', sql.NVarChar, bookingId)
-      .input('Amount', sql.Decimal(10, 2), finalAmount)
-      .input('PaymentMethod', sql.VarChar(50), paymentMethod)
-      .query(`
-        INSERT INTO Payment (BookingID, Amount, PaymentDate, PaymentMethod) 
-        VALUES (@BookingID, @Amount, GETDATE(), @PaymentMethod);
-        SELECT SCOPE_IDENTITY() AS PaymentID;
-      `);
+    const paymentResult = await request
+      .input("bookingId", sql.Int, bookingId)
+      .input("amount", sql.Decimal(10, 2), finalAmount)
+      .input("paymentMethod", sql.VarChar, validatedPaymentMethod)
+      .query(
+        `INSERT INTO Payment (BookingID, Amount, PaymentDate, PaymentMethod) 
+         VALUES (@bookingId, @amount, GETDATE(), @paymentMethod);
+         SELECT SCOPE_IDENTITY() AS PaymentID;`
+      );
 
     const paymentId = paymentResult.recordset[0].PaymentID;
 
-    await pool.request()
-      .input('BookingID', sql.NVarChar, bookingId)
-      .query(`
-        UPDATE Booking SET Status = 'Confirmed' WHERE BookingID = @BookingID;
-        UPDATE BookingSeat SET Status = 'Booked' WHERE BookingID = @BookingID
-      `);
+    await request.query(
+      `UPDATE Booking SET Status = 'Confirmed' WHERE BookingID = @bookingId;
+       UPDATE BookingSeat SET Status = 'Booked' WHERE BookingID = @bookingId;
+       UPDATE CinemaHallSeat SET Status = 'Booked'
+       WHERE SeatID IN (SELECT SeatID FROM BookingSeat WHERE BookingID = @bookingId)`
+    );
 
-    const paymentDetailsResult = await pool.request()
-      .input('PaymentID', sql.Int, paymentId)
-      .input('BookingID', sql.NVarChar, bookingId)
-      .query(`
-        SELECT p.PaymentID, p.Amount, p.PaymentDate, p.PaymentMethod,
-        b.BookingID, b.Status as BookingStatus, b.TotalSeats,
-        s.ShowDate, s.ShowTime,
-        m.MovieTitle, m.MovieAge, m.MovieGenre, m.ImageUrl,
-        c.CinemaName, ch.HallName,
-        (SELECT STRING_AGG(chs.SeatNumber, ', ') 
-         FROM BookingSeat bs
-         JOIN CinemaHallSeat chs ON bs.SeatID = chs.SeatID
-         WHERE bs.BookingID = b.BookingID) as SelectedSeats
-        FROM Payment p
-        JOIN Booking b ON p.BookingID = b.BookingID
-        JOIN Show s ON b.ShowID = s.ShowID
-        JOIN Movie m ON s.MovieID = m.MovieID
-        JOIN CinemaHall ch ON s.HallID = ch.HallID
-        JOIN Cinema c ON ch.CinemaID = c.CinemaID
-        WHERE p.PaymentID = @PaymentID AND b.BookingID = @BookingID
-      `);
+    const paymentDetailsResult = await request
+      .input("paymentId", sql.Int, paymentId)
+      .query(
+        `SELECT p.PaymentID, p.Amount, p.PaymentDate, p.PaymentMethod,
+         b.BookingID, b.Status as BookingStatus, b.TotalSeats,
+         s.ShowDate, s.ShowTime,
+         m.MovieTitle, m.MovieAge, m.MovieGenre, m.ImageUrl,
+         c.CinemaName, ch.HallName,
+         (SELECT STRING_AGG(chs.SeatNumber, ', ') 
+          FROM BookingSeat bs
+          JOIN CinemaHallSeat chs ON bs.SeatID = chs.SeatID
+          WHERE bs.BookingID = b.BookingID) as SelectedSeats
+         FROM Payment p
+         JOIN Booking b ON p.BookingID = b.BookingID
+         JOIN Show s ON b.ShowID = s.ShowID
+         JOIN Movie m ON s.MovieID = m.MovieID
+         JOIN CinemaHall ch ON s.HallID = ch.HallID
+         JOIN Cinema c ON ch.CinemaID = c.CinemaID
+         WHERE p.PaymentID = @paymentId AND b.BookingID = @bookingId`
+      );
 
-    const bookingProductsResult = await pool.request()
-      .input('BookingID', sql.NVarChar, bookingId)
-      .query(`
-        SELECT bp.ProductID, p.ProductName, bp.Quantity, bp.TotalPriceBookingProduct
-        FROM BookingProduct bp
-        JOIN Product p ON bp.ProductID = p.ProductID
-        WHERE bp.BookingID = @BookingID
-      `);
-
-    const customerResult = await pool.request()
-      .input('CustomerID', sql.Int, booking.CustomerID)
-      .query(`
-        SELECT CustomerEmail
-        FROM Customer
-        WHERE CustomerID = @CustomerID
-      `);
+    const customerResult = await request
+      .input("customerId", sql.Int, customerId)
+      .query(
+        `SELECT CustomerEmail
+         FROM Customer
+         WHERE CustomerID = @customerId`
+      );
 
     const customerEmail = customerResult.recordset[0]?.CustomerEmail || "unknown@example.com";
     const notificationMessage = generateNotificationContent(
@@ -503,13 +506,13 @@ const processPayment = async (req, res) => {
       finalAmount
     );
 
-    await pool.request()
-      .input('CustomerID', sql.Int, booking.CustomerID)
-      .input('Message', sql.NVarChar(sql.MAX), notificationMessage)
-      .query(`
-        INSERT INTO Notification (CustomerID, Message, DateSent, IsRead)
-        VALUES (@CustomerID, @Message, GETDATE(), 0)
-      `);
+    await request
+      .input("customerId", sql.Int, customerId)
+      .input("message", sql.NVarChar(sql.MAX), notificationMessage)
+      .query(
+        `INSERT INTO Notification (CustomerID, Message, DateSent, IsRead)
+         VALUES (@customerId, @message, GETDATE(), 0)`
+      );
 
     await sendPaymentConfirmationEmail(
       customerEmail,
@@ -519,6 +522,9 @@ const processPayment = async (req, res) => {
       discountAmount,
       finalAmount
     );
+
+    await transaction.commit();
+    console.log("Đã commit transaction");
 
     return res.status(200).json({
       success: true,
@@ -531,17 +537,27 @@ const processPayment = async (req, res) => {
         finalAmount: finalAmount
       }
     });
-
   } catch (error) {
     console.error("Lỗi khi xử lý thanh toán:", error);
+    if (transaction) {
+      console.log("Rollback transaction...");
+      await transaction.rollback();
+      console.log("Đã rollback transaction");
+    }
     return res.status(500).json({
       success: false,
       message: "Đã xảy ra lỗi khi xử lý thanh toán",
       error: error.message
     });
+  } finally {
+    if (pool && pool.connected) {
+      await pool.close();
+      console.log("Đã đóng kết nối pool");
+    }
   }
 };
 
+// Hàm lấy danh sách voucher áp dụng
 const getApplicableVouchers = async (req, res) => {
   try {
     const { customerId } = req.params;
@@ -557,17 +573,16 @@ const getApplicableVouchers = async (req, res) => {
     const vouchersResult = await pool.request()
       .input('CustomerID', sql.Int, customerId)
       .input('CurrentDate', sql.Date, new Date())
-      .query(`
-        SELECT * FROM Voucher 
-        WHERE IsActive = 1
-        AND StartDate <= @CurrentDate AND EndDate >= @CurrentDate
-      `);
+      .query(
+        `SELECT * FROM Voucher 
+         WHERE IsActive = 1
+         AND StartDate <= @CurrentDate AND EndDate >= @CurrentDate`
+      );
 
     return res.status(200).json({
       success: true,
       data: vouchersResult.recordset
     });
-
   } catch (error) {
     console.error("Lỗi khi lấy danh sách voucher:", error);
     return res.status(500).json({
@@ -575,9 +590,15 @@ const getApplicableVouchers = async (req, res) => {
       message: "Đã xảy ra lỗi khi lấy danh sách voucher",
       error: error.message
     });
+  } finally {
+    if (pool && pool.connected) {
+      await pool.close();
+      console.log("Đã đóng kết nối pool");
+    }
   }
 };
 
+// Hàm lấy chi tiết thanh toán
 const getPaymentDetails = async (req, res) => {
   try {
     const { bookingId } = req.params;
@@ -590,42 +611,40 @@ const getPaymentDetails = async (req, res) => {
     }
 
     const pool = await sql.connect(dbConfig);
-    const result = await pool.request()
-      .input('BookingID', sql.NVarChar, bookingId)
-      .query(`
-        SELECT b.*, s.ShowDate, s.ShowTime, 
-        m.MovieTitle, m.MovieAge, m.MovieGenre, m.ImageUrl,
-        c.CinemaName, ch.HallName,
-        (SELECT SUM(TicketPrice) FROM BookingSeat WHERE BookingID = b.BookingID) as SeatTotalPrice,
-        (SELECT STRING_AGG(chs.SeatNumber, ', ') 
-         FROM BookingSeat bs
-         JOIN CinemaHallSeat chs ON bs.SeatID = chs.SeatID
-         WHERE bs.BookingID = b.BookingID) as SelectedSeats,
-        (SELECT COUNT(*) FROM BookingSeat WHERE BookingID = b.BookingID) as SeatCount
-        FROM Booking b
-        JOIN Show s ON b.ShowID = s.ShowID
-        JOIN Movie m ON s.MovieID = m.MovieID
-        JOIN CinemaHall ch ON s.HallID = ch.HallID
-        JOIN Cinema c ON ch.CinemaID = c.CinemaID
-        WHERE b.BookingID = @BookingID
-      `);
+    const request = pool.request();
+    request.input('BookingID', sql.Int, bookingId);
+    const result = await request.query(
+      `SELECT b.*, s.ShowDate, s.ShowTime, 
+       m.MovieTitle, m.MovieAge, m.MovieGenre, m.ImageUrl,
+       c.CinemaName, ch.HallName,
+       (SELECT SUM(TicketPrice) FROM BookingSeat WHERE BookingID = b.BookingID) as SeatTotalPrice,
+       (SELECT STRING_AGG(chs.SeatNumber, ', ') 
+        FROM BookingSeat bs
+        JOIN CinemaHallSeat chs ON bs.SeatID = chs.SeatID
+        WHERE bs.BookingID = b.BookingID) as SelectedSeats,
+       (SELECT COUNT(*) FROM BookingSeat WHERE BookingID = b.BookingID) as SeatCount
+       FROM Booking b
+       JOIN Show s ON b.ShowID = s.ShowID
+       JOIN Movie m ON s.MovieID = m.MovieID
+       JOIN CinemaHall ch ON s.HallID = ch.HallID
+       JOIN Cinema c ON ch.CinemaID = c.CinemaID
+       WHERE b.BookingID = @BookingID`
+    );
 
-    if (result.recordset.length === 0) {
+    if (!result.recordset.length) {
       return res.status(404).json({
         success: false,
         message: "Không tìm thấy thông tin đặt vé"
       });
     }
 
-    const productsResult = await pool.request()
-      .input('BookingID', sql.NVarChar, bookingId)
-      .query(`
-        SELECT bp.ProductID, p.ProductName, p.ProductPrice, bp.Quantity, 
-        bp.TotalPriceBookingProduct, p.ImageProduct
-        FROM BookingProduct bp
-        JOIN Product p ON bp.ProductID = p.ProductID
-        WHERE bp.BookingID = @BookingID
-      `);
+    const productsResult = await request.query(
+      `SELECT bp.ProductID, p.ProductName, p.ProductPrice, bp.Quantity, 
+       bp.TotalPriceBookingProduct, p.ImageProduct
+       FROM BookingProduct bp
+       JOIN Product p ON bp.ProductID = p.ProductID
+       WHERE bp.BookingID = @BookingID`
+    );
 
     const paymentData = {
       booking: result.recordset[0],
@@ -636,7 +655,6 @@ const getPaymentDetails = async (req, res) => {
       success: true,
       data: paymentData
     });
-
   } catch (error) {
     console.error("Lỗi khi lấy thông tin thanh toán:", error);
     return res.status(500).json({
@@ -644,9 +662,15 @@ const getPaymentDetails = async (req, res) => {
       message: "Đã xảy ra lỗi khi lấy thông tin thanh toán",
       error: error.message
     });
+  } finally {
+    if (pool && pool.connected) {
+      await pool.close();
+      console.log("Đã đóng kết nối pool");
+    }
   }
 };
 
+// Hàm sinh mã QR
 const generateQRCode = async (req, res) => {
   const { bookingId } = req.params;
   const { paymentMethod, selectedProducts = [], voucherId } = req.body;
@@ -655,19 +679,27 @@ const generateQRCode = async (req, res) => {
   let pool;
   let transaction;
   try {
+    console.log("Kết nối đến SQL Server...");
     pool = await sql.connect(dbConfig);
-    transaction = new sql.Transaction(pool);
-    await transaction.begin();
-    const request = transaction.request();
+    console.log("Đã kết nối SQL Server");
 
+    console.log("Khởi tạo transaction...");
+    transaction = new sql.Transaction(pool);
+    await transaction.begin(sql.ISOLATION_LEVEL_SERIALIZABLE);
+    console.log("Đã bắt đầu transaction");
+
+    const validatedPaymentMethod = validatePaymentMethod(paymentMethod);
+
+    const request = transaction.request();
     request.input("bookingId", sql.Int, bookingId);
     request.input("customerId", sql.Int, customerId);
 
-    // SỬA: Thêm WITH (UPDLOCK) để khóa hàng booking khi kiểm tra
+    console.log("Kiểm tra booking...");
     const bookingCheck = await request.query(
       `SELECT Status, TotalSeats FROM Booking WITH (UPDLOCK)
        WHERE BookingID = @bookingId AND CustomerID = @customerId`
     );
+    console.log("Kết quả kiểm tra booking:", bookingCheck.recordset);
 
     if (!bookingCheck.recordset.length) {
       await transaction.rollback();
@@ -676,7 +708,6 @@ const generateQRCode = async (req, res) => {
     }
 
     const booking = bookingCheck.recordset[0];
-    // SỬA: Kiểm tra trạng thái cụ thể và trả về thông báo chi tiết
     if (booking.Status !== "Pending") {
       await transaction.rollback();
       console.log("Đặt vé không hợp lệ:", { bookingId, status: booking.Status });
@@ -686,6 +717,26 @@ const generateQRCode = async (req, res) => {
       });
     }
 
+    // Kiểm tra trạng thái ghế
+    const seatCheck = await request.query(
+      `SELECT chs.SeatID, chs.Status
+       FROM BookingSeat bs
+       JOIN CinemaHallSeat chs ON bs.SeatID = chs.SeatID
+       WHERE bs.BookingID = @bookingId`
+    );
+
+    const invalidSeats = seatCheck.recordset.filter(seat => seat.Status !== 'Reserved');
+    if (invalidSeats.length > 0) {
+      await transaction.rollback();
+      console.log("Ghế không hợp lệ:", invalidSeats);
+      return res.status(400).json({
+        success: false,
+        message: "Một số ghế đã bị thay đổi trạng thái. Vui lòng thử lại.",
+        invalidSeats: invalidSeats.map(seat => seat.SeatID)
+      });
+    }
+
+    console.log("Tính tổng giá vé...");
     const seatPriceResult = await request.query(
       `SELECT SUM(TicketPrice) as SeatTotalPrice 
        FROM BookingSeat 
@@ -695,7 +746,19 @@ const generateQRCode = async (req, res) => {
     let productTotal = 0;
 
     if (selectedProducts.length > 0) {
-      const productIds = selectedProducts.map((p) => p.productId);
+      console.log("Xử lý sản phẩm:", selectedProducts);
+      const uniqueProducts = [];
+      const productMap = new Map();
+      selectedProducts.forEach(p => {
+        const key = `${p.productId}-${p.quantity}`;
+        if (!productMap.has(key)) {
+          productMap.set(key, p);
+          uniqueProducts.push(p);
+        }
+      });
+      console.log("Sản phẩm không trùng lặp:", uniqueProducts);
+
+      const productIds = uniqueProducts.map((p) => p.productId);
       const productsResult = await request
         .input("ProductIDs", sql.VarChar, productIds.join(","))
         .query(
@@ -709,23 +772,48 @@ const generateQRCode = async (req, res) => {
         productPrices[product.ProductID] = parseFloat(product.ProductPrice);
       });
 
-      for (const product of selectedProducts) {
+      for (const product of uniqueProducts) {
         const productPrice = productPrices[product.productId] || 0;
         const quantity = product.quantity || 0;
         const productTotalPrice = productPrice * quantity;
         productTotal += productTotalPrice;
 
         if (quantity > 0) {
-          const productRequest = transaction.request();
-          await productRequest
-            .input("bookingId", sql.Int, bookingId)
-            .input("productId", sql.Int, product.productId)
-            .input("quantity", sql.Int, quantity)
-            .input("totalPrice", sql.Decimal(10, 2), productTotalPrice)
-            .query(
-              `INSERT INTO BookingProduct (BookingID, ProductID, Quantity, TotalPriceBookingProduct)
-               VALUES (@bookingId, @productId, @quantity, @totalPrice)`
-            );
+          const checkProductRequest = transaction.request();
+          checkProductRequest.input("bookingId", sql.Int, bookingId);
+          checkProductRequest.input("productId", sql.Int, product.productId);
+          const existingProduct = await checkProductRequest.query(
+            `SELECT Quantity, TotalPriceBookingProduct 
+             FROM BookingProduct 
+             WHERE BookingID = @bookingId AND ProductID = @productId`
+          );
+
+          if (existingProduct.recordset.length > 0) {
+            const newQuantity = existingProduct.recordset[0].Quantity + quantity;
+            const newTotalPrice = productPrice * newQuantity;
+            const updateProductRequest = transaction.request();
+            await updateProductRequest
+              .input("bookingId", sql.Int, bookingId)
+              .input("productId", sql.Int, product.productId)
+              .input("quantity", sql.Int, newQuantity)
+              .input("totalPrice", sql.Decimal(10, 2), newTotalPrice)
+              .query(
+                `UPDATE BookingProduct 
+                 SET Quantity = @quantity, TotalPriceBookingProduct = @totalPrice
+                 WHERE BookingID = @bookingId AND ProductID = @productId`
+              );
+          } else {
+            const productRequest = transaction.request();
+            await productRequest
+              .input("bookingId", sql.Int, bookingId)
+              .input("productId", sql.Int, product.productId)
+              .input("quantity", sql.Int, quantity)
+              .input("totalPrice", sql.Decimal(10, 2), productTotalPrice)
+              .query(
+                `INSERT INTO BookingProduct (BookingID, ProductID, Quantity, TotalPriceBookingProduct)
+                 VALUES (@bookingId, @productId, @quantity, @totalPrice)`
+              );
+          }
         }
       }
     }
@@ -734,6 +822,7 @@ const generateQRCode = async (req, res) => {
     let discountAmount = 0;
 
     if (voucherId) {
+      console.log("Xử lý voucher:", voucherId);
       const voucherRequest = transaction.request();
       const voucherResult = await voucherRequest
         .input("voucherId", sql.Int, voucherId)
@@ -748,238 +837,100 @@ const generateQRCode = async (req, res) => {
 
       if (voucherResult.recordset.length > 0) {
         discountAmount = parseFloat(voucherResult.recordset[0].DiscountValue);
+        const voucherUsageCheck = await voucherRequest
+          .input("bookingId", sql.Int, bookingId)
+          .query(
+            `SELECT * FROM VoucherUsage 
+             WHERE VoucherID = @voucherId AND BookingID = @bookingId`
+          );
+        if (voucherUsageCheck.recordset.length === 0) {
+          await voucherRequest
+            .input("bookingId", sql.Int, bookingId)
+            .query(
+              `INSERT INTO VoucherUsage (VoucherID, CustomerID, BookingID, UsedAt)
+               VALUES (@voucherId, @customerId, @bookingId, GETDATE());
+               UPDATE Voucher SET UsageCount = UsageCount + 1 WHERE VoucherID = @voucherId`
+            );
+        }
       }
     }
 
     const finalAmount = Math.max(0, totalPrice - discountAmount);
+    console.log("Tổng tiền cuối cùng:", finalAmount);
 
     let qrData;
     let transactionInfo;
-    if (paymentMethod === "Vietcombank") {
+    if (validatedPaymentMethod === "Online") {
       transactionInfo = {
-        bankName: "Vietcombank",
+        bankName: "Online",
         accountNumber: "1234567890",
         accountName: "CJ MTB VIETNAM",
         amount: finalAmount,
         content: `Thanh toan don hang ${bookingId}`,
       };
-      qrData = `vietqr:${transactionInfo.accountNumber}|${transactionInfo.accountName}|${transactionInfo.amount}|${transactionInfo.content}`;
-    } else if (paymentMethod === "Momo") {
-      const momoData = {
-        partnerCode: process.env.MOMO_PARTNER_CODE || "MOMO_TEST",
-        accessKey: process.env.MOMO_ACCESS_KEY || "test_access_key",
-        requestId: `${bookingId}_${Date.now()}`,
-        amount: finalAmount,
-        orderId: bookingId,
-        orderInfo: `Thanh toan don hang ${bookingId}`,
-        redirectUrl: "http://localhost:3000/redirect",
-        ipnUrl: "http://localhost:3000/api/payments/momo-callback",
-        requestType: "captureWallet",
-        extraData: "",
-      };
-
-      const rawSignature = `accessKey=${momoData.accessKey}&amount=${momoData.amount}&extraData=${momoData.extraData}&ipnUrl=${momoData.ipnUrl}&orderId=${momoData.orderId}&orderInfo=${momoData.orderInfo}&partnerCode=${momoData.partnerCode}&redirectUrl=${momoData.redirectUrl}&requestId=${momoData.requestId}&requestType=${momoData.requestType}`;
-      momoData.signature = crypto
-        .createHmac("sha256", process.env.MOMO_SECRET_KEY || "test_secret_key")
-        .update(rawSignature)
-        .digest("hex");
-
       qrData = `momo://payment?orderId=${bookingId}&amount=${finalAmount}&orderInfo=Thanh%20toan%20don%20hang%20${bookingId}`;
-      
-      transactionInfo = {
-        bankName: "Momo",
-        accountNumber: "1234567890",
-        accountName: "CJ MTB VIETNAM",
-        amount: finalAmount,
-        content: `Thanh toan don hang ${bookingId}`,
-      };
     } else {
       await transaction.rollback();
+      console.log("Phương thức thanh toán không hỗ trợ:", validatedPaymentMethod);
       return res.status(400).json({ success: false, message: "Phương thức thanh toán không hỗ trợ" });
     }
 
+    console.log("Sinh mã QR...");
     const qrCodeImage = await QRCode.toDataURL(qrData);
+    console.log("Đã sinh mã QR thành công");
 
     await transaction.commit();
+    console.log("Đã commit transaction");
 
     res.json({
       success: true,
       qrCode: qrCodeImage,
       bookingId,
       totalPrice: finalAmount,
-      paymentMethod,
+      paymentMethod: validatedPaymentMethod,
       transactionInfo,
     });
   } catch (error) {
     console.error("Lỗi khi sinh mã QR:", error);
-    if (transaction) await transaction.rollback();
+    if (transaction) {
+      console.log("Rollback transaction...");
+      await transaction.rollback();
+      console.log("Đã rollback transaction");
+    }
     res.status(500).json({ success: false, message: "Lỗi server", error: error.message });
   } finally {
-    if (pool) await pool.close();
+    if (pool && pool.connected) {
+      await pool.close();
+      console.log("Đã đóng kết nối pool");
+    }
   }
 };
 
-const handleMomoCallback = async (req, res) => {
-  const {
-    partnerCode,
-    orderId,
-    requestId,
-    amount,
-    orderInfo,
-    orderType,
-    transId,
-    resultCode,
-    message,
-    payType,
-    responseTime,
-    extraData,
-    signature,
-  } = req.body;
-
-  try {
-    const rawData = `partnerCode=${partnerCode}&orderId=${orderId}&requestId=${requestId}&amount=${amount}&orderInfo=${orderInfo}&orderType=${orderType}&transId=${transId}&resultCode=${resultCode}&message=${message}&payType=${payType}&responseTime=${responseTime}&extraData=${extraData}`;
-    const computedSignature = crypto
-      .createHmac("sha256", process.env.MOMO_SECRET_KEY || "test_secret_key")
-      .update(rawData)
-      .digest("hex");
-
-    if (computedSignature !== signature) {
-      return res.status(400).json({ success: false, message: "Chữ ký HMAC không hợp lệ" });
-    }
-
-    if (resultCode !== 0) {
-      return res.json({ success: false, message: "Thanh toán thất bại", momoMessage: message });
-    }
-
-    let pool;
-    try {
-      pool = await sql.connect(dbConfig);
-      const request = pool.request();
-
-      request.input("bookingId", sql.Int, orderId);
-      request.input("amount", sql.Decimal(10, 2), parseFloat(amount));
-      request.input("paymentMethod", sql.VarChar, "Online");
-
-      const bookingCheck = await request.query(
-        `SELECT Status FROM Booking 
-         WHERE BookingID = @bookingId`
-      );
-
-      if (!bookingCheck.recordset.length || bookingCheck.recordset[0].Status !== "Pending") {
-        return res.json({ success: false, message: "Đặt vé không hợp lệ hoặc đã được xử lý" });
-      }
-
-      const paymentResult = await request.query(
-        `INSERT INTO Payment (BookingID, Amount, PaymentDate, PaymentMethod)
-         VALUES (@bookingId, @amount, GETDATE(), @paymentMethod);
-         SELECT SCOPE_IDENTITY() AS PaymentID;`
-      );
-
-      const paymentId = paymentResult.recordset[0].PaymentID;
-
-      await request.query(
-        `UPDATE Booking SET Status = 'Confirmed' WHERE BookingID = @bookingId;
-         UPDATE BookingSeat SET Status = 'Booked' WHERE BookingID = @bookingId;
-         UPDATE CinemaHallSeat SET Status = 'Booked'
-         WHERE SeatID IN (SELECT SeatID FROM BookingSeat WHERE BookingID = @bookingId)`
-      );
-
-      const customerResult = await request.query(
-        `SELECT CustomerID FROM Booking WHERE BookingID = @bookingId`
-      );
-      const customerId = customerResult.recordset[0].CustomerID;
-
-      const paymentDetailsResult = await request
-        .input("paymentId", sql.Int, paymentId)
-        .input("bookingId", sql.Int, orderId)
-        .query(
-          `SELECT p.PaymentID, p.Amount, p.PaymentDate, p.PaymentMethod,
-           b.BookingID, b.Status as BookingStatus, b.TotalSeats,
-           s.ShowDate, s.ShowTime,
-           m.MovieTitle, m.MovieAge, m.MovieGenre, m.ImageUrl,
-           c.CinemaName, ch.HallName,
-           (SELECT STRING_AGG(chs.SeatNumber, ', ') 
-            FROM BookingSeat bs
-            JOIN CinemaHallSeat chs ON bs.SeatID = chs.SeatID
-            WHERE bs.BookingID = b.BookingID) as SelectedSeats
-           FROM Payment p
-           JOIN Booking b ON p.BookingID = b.BookingID
-           JOIN Show s ON b.ShowID = s.ShowID
-           JOIN Movie m ON s.MovieID = m.MovieID
-           JOIN CinemaHall ch ON s.HallID = ch.HallID
-           JOIN Cinema c ON ch.CinemaID = c.CinemaID
-           WHERE p.PaymentID = @paymentId AND b.BookingID = @bookingId`
-        );
-
-      const bookingProductsResult = await request
-        .input("bookingId", sql.Int, orderId)
-        .query(
-          `SELECT bp.ProductID, p.ProductName, bp.Quantity, bp.TotalPriceBookingProduct
-           FROM BookingProduct bp
-           JOIN Product p ON bp.ProductID = p.ProductID
-           WHERE bp.BookingID = @bookingId`
-        );
-
-      const customerEmailResult = await request
-        .input("customerId", sql.Int, customerId)
-        .query(
-          `SELECT CustomerEmail
-           FROM Customer
-           WHERE CustomerID = @customerId`
-        );
-
-      const customerEmail = customerEmailResult.recordset[0]?.CustomerEmail || "unknown@example.com";
-      const notificationMessage = generateNotificationContent(
-        paymentDetailsResult.recordset[0],
-        paymentDetailsResult.recordset[0],
-        bookingProductsResult.recordset,
-        0, // Giả định không có giảm giá trong callback
-        parseFloat(amount)
-      );
-
-      await request
-        .input("customerId", sql.Int, customerId)
-        .input("message", sql.NVarChar(sql.MAX), notificationMessage)
-        .query(
-          `INSERT INTO Notification (CustomerID, Message, DateSent, IsRead)
-           VALUES (@customerId, @message, GETDATE(), 0)`
-        );
-
-      await sendPaymentConfirmationEmail(
-        customerEmail,
-        paymentDetailsResult.recordset[0],
-        paymentDetailsResult.recordset[0],
-        bookingProductsResult.recordset,
-        0, // Giả định không có giảm giá trong callback
-        parseFloat(amount)
-      );
-
-      res.json({ success: true, message: "Thanh toán thành công" });
-    } catch (error) {
-      console.error("Lỗi khi xử lý callback Momo:", error);
-      res.status(500).json({ success: false, message: "Lỗi server", error: error.message });
-    } finally {
-      if (pool) await pool.close();
-    }
-  } catch (error) {
-    console.error("Lỗi khi xác thực callback Momo:", error);
-    res.status(400).json({ success: false, message: "Callback không hợp lệ", error: error.message });
-  }
-};
-
+// Hàm giả lập thanh toán Momo
 const simulateMomoPayment = async (req, res) => {
   const { bookingId } = req.params;
-  const { selectedProducts = [], voucherId } = req.body;
+  const { selectedProducts = [], voucherId, paymentConfirmed } = req.body;
   const customerId = req.user?.customerID;
+
+  if (!paymentConfirmed) {
+    return res.status(400).json({
+      success: false,
+      message: "Thanh toán chưa được xác nhận từ phía client",
+    });
+  }
 
   let pool;
   let transaction;
   try {
+    console.log("Kết nối đến SQL Server...");
     pool = await sql.connect(dbConfig);
-    transaction = new sql.Transaction(pool);
-    await transaction.begin();
+    console.log("Đã kết nối SQL Server");
 
-    // SỬA: Thêm WITH (UPDLOCK) để khóa hàng booking khi kiểm tra
+    console.log("Khởi tạo transaction...");
+    transaction = new sql.Transaction(pool);
+    await transaction.begin(sql.ISOLATION_LEVEL_SERIALIZABLE);
+    console.log("Đã bắt đầu transaction");
+
     const bookingRequest = transaction.request();
     bookingRequest.input("bookingId", sql.Int, bookingId);
     bookingRequest.input("customerId", sql.Int, customerId);
@@ -995,7 +946,6 @@ const simulateMomoPayment = async (req, res) => {
     }
 
     const booking = bookingCheck.recordset[0];
-    // SỬA: Kiểm tra trạng thái cụ thể và trả về thông báo chi tiết
     if (booking.Status !== "Pending") {
       await transaction.rollback();
       console.log("Đặt vé không hợp lệ:", { bookingId, status: booking.Status });
@@ -1005,7 +955,25 @@ const simulateMomoPayment = async (req, res) => {
       });
     }
 
-    // Tính tổng giá vé
+    // Kiểm tra trạng thái ghế
+    const seatCheck = await bookingRequest.query(
+      `SELECT chs.SeatID, chs.Status
+       FROM BookingSeat bs
+       JOIN CinemaHallSeat chs ON bs.SeatID = chs.SeatID
+       WHERE bs.BookingID = @bookingId`
+    );
+
+    const invalidSeats = seatCheck.recordset.filter(seat => seat.Status !== 'Reserved');
+    if (invalidSeats.length > 0) {
+      await transaction.rollback();
+      console.log("Ghế không hợp lệ:", invalidSeats);
+      return res.status(400).json({
+        success: false,
+        message: "Một số ghế đã bị thay đổi trạng thái. Vui lòng thử lại.",
+        invalidSeats: invalidSeats.map(seat => seat.SeatID)
+      });
+    }
+
     const seatPriceRequest = transaction.request();
     seatPriceRequest.input("bookingId", sql.Int, bookingId);
     const seatPriceResult = await seatPriceRequest.query(
@@ -1014,48 +982,19 @@ const simulateMomoPayment = async (req, res) => {
        WHERE BookingID = @bookingId`
     );
     let totalPrice = parseFloat(seatPriceResult.recordset[0].SeatTotalPrice || 0);
-    let productTotal = 0;
 
-    // Xử lý sản phẩm
-    if (selectedProducts.length > 0) {
-      const productIds = selectedProducts.map((p) => p.productId);
-      const productRequest = transaction.request();
-      productRequest.input("ProductIDs", sql.VarChar, productIds.join(","));
-      const productsResult = await productRequest.query(
-        `SELECT ProductID, ProductPrice 
-         FROM Product 
-         WHERE ProductID IN (SELECT value FROM STRING_SPLIT(@ProductIDs, ','))`
-      );
-
-      const productPrices = {};
-      productsResult.recordset.forEach((product) => {
-        productPrices[product.ProductID] = parseFloat(product.ProductPrice);
-      });
-
-      for (const product of selectedProducts) {
-        const productPrice = productPrices[product.productId] || 0;
-        const quantity = product.quantity || 0;
-        const productTotalPrice = productPrice * quantity;
-        productTotal += productTotalPrice;
-
-        if (quantity > 0) {
-          const insertProductRequest = transaction.request();
-          insertProductRequest.input("bookingId", sql.Int, bookingId);
-          insertProductRequest.input("productId", sql.Int, product.productId);
-          insertProductRequest.input("quantity", sql.Int, quantity);
-          insertProductRequest.input("totalPrice", sql.Decimal(10, 2), productTotalPrice);
-          await insertProductRequest.query(
-            `INSERT INTO BookingProduct (BookingID, ProductID, Quantity, TotalPriceBookingProduct)
-             VALUES (@bookingId, @productId, @quantity, @totalPrice)`
-          );
-        }
-      }
-    }
+    const bookingProductsResult = await seatPriceRequest.query(
+      `SELECT bp.ProductID, p.ProductName, bp.Quantity, bp.TotalPriceBookingProduct
+       FROM BookingProduct bp
+       JOIN Product p ON bp.ProductID = p.ProductID
+       WHERE bp.BookingID = @bookingId`
+    );
+    let productTotal = bookingProductsResult.recordset.reduce((sum, p) => sum + parseFloat(p.TotalPriceBookingProduct), 0);
+    console.log("Sản phẩm đã lưu:", bookingProductsResult.recordset);
 
     totalPrice += productTotal;
     let discountAmount = 0;
 
-    // Xử lý voucher
     if (voucherId) {
       const voucherRequest = transaction.request();
       voucherRequest.input("voucherId", sql.Int, voucherId);
@@ -1070,20 +1009,26 @@ const simulateMomoPayment = async (req, res) => {
 
       if (voucherResult.recordset.length > 0) {
         discountAmount = parseFloat(voucherResult.recordset[0].DiscountValue);
-        const voucherUsageRequest = transaction.request();
-        voucherUsageRequest.input("voucherId", sql.Int, voucherId);
-        voucherUsageRequest.input("customerId", sql.Int, customerId);
-        await voucherUsageRequest.query(
-          `INSERT INTO VoucherUsage (VoucherID, CustomerID, UsedAt)
-           VALUES (@voucherId, @customerId, GETDATE());
-           UPDATE Voucher SET UsageCount = UsageCount + 1 WHERE BonusID = @voucherId`
-        );
+        const voucherUsageCheck = await voucherRequest
+          .input("bookingId", sql.Int, bookingId)
+          .query(
+            `SELECT * FROM VoucherUsage 
+             WHERE VoucherID = @voucherId AND BookingID = @bookingId`
+          );
+        if (voucherUsageCheck.recordset.length === 0) {
+          await voucherRequest
+            .input("bookingId", sql.Int, bookingId)
+            .query(
+              `INSERT INTO VoucherUsage (VoucherID, CustomerID, BookingID, UsedAt)
+               VALUES (@voucherId, @customerId, @bookingId, GETDATE());
+               UPDATE Voucher SET UsageCount = UsageCount + 1 WHERE VoucherID = @voucherId`
+            );
+        }
       }
     }
 
     const finalAmount = Math.max(0, totalPrice - discountAmount);
 
-    // Lưu thông tin thanh toán
     const paymentRequest = transaction.request();
     paymentRequest.input("bookingId", sql.Int, bookingId);
     paymentRequest.input("amount", sql.Decimal(10, 2), finalAmount);
@@ -1096,7 +1041,6 @@ const simulateMomoPayment = async (req, res) => {
 
     const paymentId = paymentResult.recordset[0].PaymentID;
 
-    // Cập nhật trạng thái đặt vé và ghế
     const updateRequest = transaction.request();
     updateRequest.input("bookingId", sql.Int, bookingId);
     await updateRequest.query(
@@ -1106,7 +1050,6 @@ const simulateMomoPayment = async (req, res) => {
        WHERE SeatID IN (SELECT SeatID FROM BookingSeat WHERE BookingID = @bookingId)`
     );
 
-    // Lấy chi tiết thanh toán
     const paymentDetailsRequest = transaction.request();
     paymentDetailsRequest.input("paymentId", sql.Int, paymentId);
     paymentDetailsRequest.input("bookingId", sql.Int, bookingId);
@@ -1129,17 +1072,6 @@ const simulateMomoPayment = async (req, res) => {
        WHERE p.PaymentID = @paymentId AND b.BookingID = @bookingId`
     );
 
-    // Lấy danh sách sản phẩm
-    const bookingProductsRequest = transaction.request();
-    bookingProductsRequest.input("bookingId", sql.Int, bookingId);
-    const bookingProductsResult = await bookingProductsRequest.query(
-      `SELECT bp.ProductID, p.ProductName, bp.Quantity, bp.TotalPriceBookingProduct
-       FROM BookingProduct bp
-       JOIN Product p ON bp.ProductID = p.ProductID
-       WHERE bp.BookingID = @bookingId`
-    );
-
-    // Lấy email khách hàng
     const customerRequest = transaction.request();
     customerRequest.input("customerId", sql.Int, customerId);
     const customerResult = await customerRequest.query(
@@ -1157,7 +1089,6 @@ const simulateMomoPayment = async (req, res) => {
       finalAmount
     );
 
-    // Lưu thông báo
     const notificationRequest = transaction.request();
     notificationRequest.input("customerId", sql.Int, customerId);
     notificationRequest.input("message", sql.NVarChar(sql.MAX), notificationMessage);
@@ -1166,7 +1097,6 @@ const simulateMomoPayment = async (req, res) => {
        VALUES (@customerId, @message, GETDATE(), 0)`
     );
 
-    // Gửi email xác nhận
     await sendPaymentConfirmationEmail(
       customerEmail,
       paymentDetailsResult.recordset[0],
@@ -1177,6 +1107,7 @@ const simulateMomoPayment = async (req, res) => {
     );
 
     await transaction.commit();
+    console.log("Đã commit transaction");
 
     res.json({
       success: true,
@@ -1187,10 +1118,55 @@ const simulateMomoPayment = async (req, res) => {
     });
   } catch (error) {
     console.error("Lỗi khi giả lập thanh toán Momo:", error);
-    if (transaction) await transaction.rollback();
+    if (transaction) {
+      console.log("Rollback transaction...");
+      await transaction.rollback();
+      console.log("Đã rollback transaction");
+    }
     res.status(500).json({ success: false, message: "Lỗi server", error: error.message });
   } finally {
-    if (pool) await pool.close();
+    if (pool && pool.connected) {
+      await pool.close();
+      console.log("Đã đóng kết nối pool");
+    }
+  }
+};
+
+// Hàm kiểm tra trạng thái thanh toán
+const checkPaymentStatus = async (req, res) => {
+  const { bookingId } = req.params;
+  const customerId = req.user?.customerID;
+
+  let pool;
+  try {
+    console.log("Kết nối đến SQL Server...");
+    pool = await sql.connect(dbConfig);
+    console.log("Đã kết nối SQL Server");
+
+    const request = pool.request();
+    request.input("bookingId", sql.Int, bookingId);
+    request.input("customerId", sql.Int, customerId);
+
+    const result = await request.query(
+      `SELECT b.*, p.PaymentID, p.Amount, p.PaymentDate, p.PaymentMethod
+       FROM Booking b
+       LEFT JOIN Payment p ON b.BookingID = p.BookingID
+       WHERE b.BookingID = @bookingId AND b.CustomerID = @customerId`
+    );
+
+    if (!result.recordset.length) {
+      return res.status(404).json({ success: false, message: "Không tìm thấy đặt vé hoặc bạn không có quyền truy cập" });
+    }
+
+    res.json({ success: true, data: result.recordset[0] });
+  } catch (error) {
+    console.error("Lỗi khi kiểm tra trạng thái thanh toán:", error);
+    res.status(500).json({ success: false, message: "Lỗi server", error: error.message });
+  } finally {
+    if (pool && pool.connected) {
+      await pool.close();
+      console.log("Đã đóng kết nối pool");
+    }
   }
 };
 
@@ -1200,6 +1176,6 @@ module.exports = {
   getPaymentDetails,
   confirmPayment,
   generateQRCode,
-  handleMomoCallback,
   simulateMomoPayment,
+  checkPaymentStatus,
 };

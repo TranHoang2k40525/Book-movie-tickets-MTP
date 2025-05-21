@@ -10,6 +10,8 @@ import {
   ActivityIndicator,
   ImageBackground,
   BackHandler,
+  ScrollView,
+  RefreshControl,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import {
@@ -18,8 +20,8 @@ import {
   PanGestureHandler,
   State,
 } from 'react-native-gesture-handler';
-import { useNavigation, useRoute, useFocusEffect } from '@react-navigation/native';
-import { getSeatMapByShow, holdSeats, cancelBooking } from '../../Api/api';
+import { useNavigation, useRoute } from '@react-navigation/native';
+import { getSeatMapByShow, holdSeats, cancelBooking, setupWebSocket, closeWebSocket } from '../../Api/api';
 import Menu from '../../components/Menu';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
@@ -149,10 +151,10 @@ export default function SeatSelection() {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [bookingId, setBookingId] = useState(null);
   const [isCancelling, setIsCancelling] = useState(false);
+
   const scale = useRef(new Animated.Value(1)).current;
   const translateX = useRef(new Animated.Value(0)).current;
   const translateY = useRef(new Animated.Value(0)).current;
-
   const pinchRef = useRef();
   const panRef = useRef();
   const lastScale = useRef(1);
@@ -162,7 +164,40 @@ export default function SeatSelection() {
 
   useEffect(() => {
     checkAuthStatus();
+    fetchSeatMap();
+    setupWebSocketConnection();
+
+    return () => {
+      closeWebSocket(); // Đóng WebSocket khi component unmount
+      if (timerRef.current) clearInterval(timerRef.current);
+    };
   }, []);
+
+  const setupWebSocketConnection = useCallback(() => {
+    setupWebSocket(showId, {
+      onSeatUpdate: (newSeatLayout) => {
+        setSeatLayout(newSeatLayout);
+        setSelectedSeats((prev) =>
+          prev.filter((seat) => {
+            const updatedSeat = newSeatLayout
+              .flatMap((row) => row.seats)
+              .find((s) => s.seatId === seat.seatId);
+            return updatedSeat && updatedSeat.status === 'available';
+          })
+        );
+        setTotalPrice(
+          selectedSeats.reduce((sum, s) => sum + (s.price || 0), 0)
+        );
+      },
+      onError: (error) => {
+        console.error('WebSocket error:', error);
+        setError('Lỗi kết nối thời gian thực. Vui lòng thử lại.');
+      },
+      onClose: () => {
+        console.log('WebSocket connection closed');
+      },
+    });
+  }, [showId]);
 
   const checkAuthStatus = async () => {
     try {
@@ -198,7 +233,6 @@ export default function SeatSelection() {
 
   const fetchSeatMap = useCallback(async () => {
     try {
-      setLoading(true);
       setError(null);
       const response = await getSeatMapByShow(showId);
       const rawLayout = response.seatLayout || response.data.seatLayout;
@@ -226,20 +260,20 @@ export default function SeatSelection() {
       setError(err.message || 'Không thể tải sơ đồ ghế ngồi');
     } finally {
       setLoading(false);
+      setRefreshing(false);
     }
   }, [showId]);
 
-  useEffect(() => {
+  const onRefresh = useCallback(() => {
+    setRefreshing(true);
+    setSelectedSeats([]);
+    setTotalPrice(0);
     fetchSeatMap();
   }, [fetchSeatMap]);
 
-  // Check booking status before cancellation (mocked, replace with actual API)
   const checkBookingStatus = async (bookingId) => {
     try {
-      // Replace with actual API call to check booking status
-      // const response = await api.get(`/bookings/${bookingId}/status`);
-      // return response.data.status === 'active';
-      return true; // Mocked for now
+      return true;
     } catch (error) {
       console.error('Lỗi kiểm tra trạng thái đặt vé:', error);
       return false;
@@ -534,20 +568,11 @@ export default function SeatSelection() {
       setRefreshing(true);
       const seatIds = selectedSeats.map((seat) => seat.seatId);
       const response = await holdSeats(showId, seatIds);
-      const { bookingId, expirationTime } = response;
+      const { bookingId, expirationTime, bookingStatus, seats } = response;
 
       setBookingId(bookingId);
 
-      setSeatLayout((prevLayout) =>
-        prevLayout.map((row) => ({
-          ...row,
-          seats: row.seats.map((seat) =>
-            seatIds.includes(seat.seatId) ? { ...seat, status: 'reserved' } : seat
-          ),
-        }))
-      );
-
-      if (timerRef.current) clearInterval(timerRef.current); // Stop timer before navigating
+      if (timerRef.current) clearInterval(timerRef.current);
 
       navigation.navigate('DatVeThanhToan', {
         bookingId,
@@ -610,15 +635,6 @@ export default function SeatSelection() {
     );
   }
 
-  if (refreshing) {
-    return (
-      <View style={styles.refreshIndicator}>
-        <ActivityIndicator size="small" color="#ff4d6d" />
-        <Text style={styles.refreshText}>Đang cập nhật...</Text>
-      </View>
-    );
-  }
-
   if (error) {
     return (
       <View style={styles.errorContainer}>
@@ -654,109 +670,122 @@ export default function SeatSelection() {
           <Menu navigation={navigation} />
         </View>
 
-        <View style={styles.container}>
-          <MiniMap
-            seatLayout={seatLayout}
-            selectedSeats={selectedSeats}
-            viewportPosition={viewportPosition}
-            handleMiniMapPress={handleMiniMapPress}
-          />
+        <ScrollView
+          style={{ flex: 1 }}
+          contentContainerStyle={{ paddingBottom: 20 }}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={onRefresh}
+              tintColor="#ff4d6d"
+              colors={['#ff4d6d']}
+            />
+          }
+        >
+          <View style={styles.container}>
+            <MiniMap
+              seatLayout={seatLayout}
+              selectedSeats={selectedSeats}
+              viewportPosition={viewportPosition}
+              handleMiniMapPress={handleMiniMapPress}
+            />
 
-          <View style={styles.screenContainer}>
-            <Text style={styles.screenText}>Màn hình</Text>
-          </View>
+            <View style={styles.screenContainer}>
+              <Text style={styles.screenText}>Màn hình</Text>
+            </View>
 
-          <View style={styles.seatMapContainer}>
-            <PinchGestureHandler
-              ref={pinchRef}
-              simultaneousHandlers={panRef}
-              onGestureEvent={onPinchGestureEvent}
-              onHandlerStateChange={onPinchHandlerStateChange}
-            >
-              <Animated.View style={styles.seatMapWrapper}>
-                <PanGestureHandler
-                  ref={panRef}
-                  simultaneousHandlers={pinchRef}
-                  onGestureEvent={onPanGestureEvent}
-                  onHandlerStateChange={onPanHandlerStateChange}
-                  minDist={10}
-                >
-                  <Animated.View
-                    style={[
-                      styles.seatMap,
-                      {
-                        transform: [{ scale }, { translateX }, { translateY }],
-                      },
-                    ]}
+            <View style={styles.seatMapContainer}>
+              <PinchGestureHandler
+                ref={pinchRef}
+                simultaneousHandlers={panRef}
+                onGestureEvent={onPinchGestureEvent}
+                onHandlerStateChange={onPinchHandlerStateChange}
+              >
+                <Animated.View style={styles.seatMapWrapper}>
+                  <PanGestureHandler
+                    ref={panRef}
+                    simultaneousHandlers={pinchRef}
+                    onGestureEvent={onPanGestureEvent}
+                    onHandlerStateChange={onPanHandlerStateChange}
+                    minDist={10}
                   >
-                    {seatLayout.map((row) => (
-                      <View key={row.row} style={styles.row}>
-                        {row.seats.map((seat) => (
-                          <Seat
-                            key={seat.seatId}
-                            seat={seat}
-                            isSelected={selectedSeats.some((s) => s.seatId === seat.seatId)}
-                            onPress={handleSeatPress}
-                          />
-                        ))}
-                      </View>
-                    ))}
-                  </Animated.View>
-                </PanGestureHandler>
-              </Animated.View>
-            </PinchGestureHandler>
-          </View>
+                    <Animated.View
+                      style={[
+                        styles.seatMap,
+                        {
+                          transform: [{ scale }, { translateX }, { translateY }],
+                        },
+                      ]}
+                    >
+                      {seatLayout.map((row) => (
+                        <View key={row.row} style={styles.row}>
+                          {row.seats.map((seat) => (
+                            <Seat
+                              key={seat.seatId}
+                              seat={seat}
+                              isSelected={selectedSeats.some((s) => s.seatId === seat.seatId)}
+                              onPress={handleSeatPress}
+                            />
+                          ))}
+                        </View>
+                      ))}
+                    </Animated.View>
+                  </PanGestureHandler>
+                </Animated.View>
+              </PinchGestureHandler>
+            </View>
 
-          <View style={styles.legendContainer}>
-            <View style={styles.legend}>
-              <View style={styles.legendRow}>
-                <View style={styles.legendItem}>
-                  <Text style={{ color: seatTypes.vip }}>■ </Text>
-                  <Text>Ghế VIP</Text>
+            <View style={styles.legendContainer}>
+              <View style={styles.legend}>
+                <View style={styles.legendRow}>
+                  <View style={styles.legendItem}>
+                    <Text style={{ color: seatTypes.vip }}>■ </Text>
+                    <Text>Ghế VIP</Text>
+                  </View>
+                  <View style={styles.legendItem}>
+                    <Text style={{ color: seatTypes.regular }}>■ </Text>
+                    <Text>Ghế thường</Text>
+                  </View>
+                  <View style={styles.legendItem}>
+                    <Text style={{ color: seatTypes.booked }}>■ </Text>
+                    <Text>Ghế đã đặt</Text>
+                  </View>
                 </View>
-                <View style={styles.legendItem}>
-                  <Text style={{ color: seatTypes.regular }}>■ </Text>
-                  <Text>Ghế thường</Text>
-                </View>
-                <View style={styles.legendItem}>
-                  <Text style={{ color: seatTypes.booked }}>■ </Text>
-                  <Text>Ghế đã đặt</Text>
-                </View>
-              </View>
-              <View style={styles.legendRow}>
-                <View style={styles.legendItem}>
-                  <Text style={{ color: seatTypes.sweetbox }}>■ </Text>
-                  <Text>Ghế Sweet Box</Text>
-                </View>
-                <View style={styles.legendItem}>
-                  <Text style={{ color: seatTypes.selected }}>■ </Text>
-                  <Text>Ghế đang chọn</Text>
-                </View>
-                <View style={styles.legendItem}>
-                  <Text style={{ color: seatTypes.reserved }}>■ </Text>
-                  <Text>Ghế đang giữ</Text>
+                <View style={styles.legendRow}>
+                  <View style={styles.legendItem}>
+                    <Text style={{ color: seatTypes.sweetbox }}>■ </Text>
+                    <Text>Ghế Sweet Box</Text>
+                  </View>
+                  <View style={styles.legendItem}>
+                    <Text style={{ color: seatTypes.selected }}>■ </Text>
+                    <Text>Ghế đang chọn</Text>
+                  </View>
+                  <View style={styles.legendItem}>
+                    <Text style={{ color: seatTypes.reserved }}>■ </Text>
+                    <Text>Ghế đang giữ</Text>
+                  </View>
                 </View>
               </View>
             </View>
           </View>
-        </View>
 
-        <View style={styles.footer}>
-          <View style={styles.movieInfo}>
-            <Text style={styles.movieTitle}>{movieTitle}</Text>
-            <Text style={styles.movieLanguage}>Ngôn ngữ: {MovieLanguage || 'N/A'}</Text>
-            <Text style={styles.priceText}>Giá vé: {totalPrice.toLocaleString()}đ</Text>
+          <View style={styles.footer}>
+            <View style={styles.movieInfo}>
+              <Text style={styles.movieTitle}>{movieTitle}</Text>
+              <Text style={styles.movieLanguage}>Ngôn ngữ: {MovieLanguage || 'N/A'}</Text>
+              <Text style={styles.priceText}>Giá vé: {totalPrice.toLocaleString()}đ</Text>
+            </View>
+            <TouchableOpacity
+              style={[styles.bookButton, selectedSeats.length === 0 && styles.bookButtonDisabled]}
+              onPress={handleContinue}
+              disabled={selectedSeats.length === 0 || refreshing}
+            >
+              <Text style={styles.bookText}>Đặt Vé</Text>
+            </TouchableOpacity>
           </View>
-          <TouchableOpacity
-            style={[styles.bookButton, selectedSeats.length === 0 && styles.bookButtonDisabled]}
-            onPress={handleContinue}
-            disabled={selectedSeats.length === 0 || refreshing}
-          >
-            <Text style={styles.bookText}>Đặt Vé</Text>
-          </TouchableOpacity>
-        </View>
 
-        {renderLoginMessage()}
+          {renderLoginMessage()}
+        </ScrollView>
       </ImageBackground>
     </GestureHandlerRootView>
   );
@@ -772,7 +801,6 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(206, 145, 14, 0.6)',
   },
   container: {
-    flex: 1,
     paddingHorizontal: 20,
     paddingTop: 20,
   },
@@ -988,21 +1016,6 @@ const styles = StyleSheet.create({
     color: 'white',
     fontWeight: 'bold',
     fontSize: 16,
-  },
-  refreshIndicator: {
-    position: 'absolute',
-    top: 10,
-    right: 10,
-    flexDirection: 'row',
-    backgroundColor: 'rgba(0,0,0,0.7)',
-    padding: 5,
-    borderRadius: 15,
-    zIndex: 100,
-  },
-  refreshText: {
-    color: '#fff',
-    marginLeft: 5,
-    fontSize: 12,
   },
   loginRequiredContainer: {
     backgroundColor: '#333',

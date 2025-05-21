@@ -10,6 +10,7 @@ import {
   Alert,
   RefreshControl,
   ActivityIndicator,
+  BackHandler,
 } from "react-native";
 import { FlatList } from "react-native-gesture-handler";
 import Icon from "react-native-vector-icons/FontAwesome";
@@ -17,6 +18,7 @@ import Menu from "../../components/Menu";
 import { getMovies } from "../../Api/api";
 import { UserContext } from "../../contexts/User/UserContext";
 import * as Location from "expo-location";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 
 export default function Home({ navigation }) {
   const [selectedTab, setSelectedTab] = useState("Đang chiếu");
@@ -27,7 +29,55 @@ export default function Home({ navigation }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [userLocation, setUserLocation] = useState(null);
-  const { user } = useContext(UserContext);
+  const { user, setUser } = useContext(UserContext);
+  const [checkedLogin, setCheckedLogin] = useState(false);
+
+  // Handle hardware back button to stay on Home screen
+  useEffect(() => {
+    const backAction = () => {
+      console.log("Back button pressed on Home screen - staying on Home");
+      return true; // Prevent default back behavior
+    };
+
+    const backHandler = BackHandler.addEventListener("hardwareBackPress", backAction);
+
+    return () => backHandler.remove(); // Clean up listener on unmount
+  }, []);
+
+  // Check login status when component mounts
+  useEffect(() => {
+    const checkLogin = async () => {
+      if (!user) {
+        const userData = await AsyncStorage.getItem("user");
+        if (userData) {
+          setUser(JSON.parse(userData));
+          setCheckedLogin(true);
+        } else {
+          Alert.alert(
+            "Yêu cầu đăng nhập",
+            "Vui lòng đăng nhập để sử dụng dịch vụ",
+            [
+              { text: "Hủy", style: "cancel", onPress: () => navigation.goBack() },
+              { text: "Đăng nhập", onPress: () => navigation.navigate("Login", { from: "Home" }) },
+            ],
+            { cancelable: false }
+          );
+        }
+      } else {
+        setCheckedLogin(true);
+      }
+    };
+    checkLogin();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Fetch location and movies when logged in and tab changes
+  useEffect(() => {
+    if (user && checkedLogin) {
+      getUserLocation().then(fetchMovies);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedTab, user, checkedLogin]);
 
   const getUserLocation = async () => {
     try {
@@ -76,22 +126,6 @@ export default function Home({ navigation }) {
     getUserLocation().then(fetchMovies);
   };
 
-  useEffect(() => {
-    if (!user) {
-      Alert.alert(
-        "Yêu cầu đăng nhập",
-        "Vui lòng đăng nhập để sử dụng dịch vụ",
-        [
-          { text: "Hủy", style: "cancel", onPress: () => navigation.goBack() },
-          { text: "Đăng nhập", onPress: () => navigation.navigate("Login", { from: "Home" }) },
-        ],
-        { cancelable: false }
-      );
-    } else {
-      getUserLocation().then(fetchMovies);
-    }
-  }, [user, selectedTab]);
-
   const filterHorizontalMovies = () => {
     if (selectedTab === "Đặc biệt") {
       const specialMovieIds = [1, 4, 10, 20, 25, 15];
@@ -138,6 +172,10 @@ export default function Home({ navigation }) {
       </TouchableOpacity>
     );
   };
+
+  if (!checkedLogin) {
+    return null;
+  }
 
   if (loading) {
     return (
@@ -356,4 +394,14 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   bookButtonText: { color: "white", fontWeight: "bold" },
+  warningContainer: {
+    padding: 10,
+    backgroundColor: "#ffe6e6",
+    marginHorizontal: 10,
+    borderRadius: 5,
+  },
+  warningText: {
+    color: "#d32f2f",
+    textAlign: "center",
+  },
 });

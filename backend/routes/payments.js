@@ -23,8 +23,8 @@ router.post("/confirm/:bookingId", authMiddleware, paymentController.confirmPaym
 // Sinh mã QR thanh toán
 router.post("/generate-qr/:bookingId", authMiddleware, paymentController.generateQRCode);
 
-// SỬA: Thêm route cho callback Momo
-router.post("/momo-callback",authMiddleware, paymentController.handleMomoCallback);
+// Kiểm tra trạng thái thanh toán
+router.get("/check-status/:bookingId", authMiddleware, paymentController.checkPaymentStatus);
 
 // SỬA: Thêm route cho giả lập thanh toán Momo
 router.post("/simulate-momo/:bookingId", authMiddleware, paymentController.simulateMomoPayment);

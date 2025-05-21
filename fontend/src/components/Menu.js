@@ -248,7 +248,7 @@ export default function Menu({ navigation }) {
                     style={styles.avatar}
                   />
                   <Text style={styles.userName}>{user.customerName}</Text>
-                  <Text style={styles.userPoints}>Tổng chi tiêu: {totalSpending.replace(/\B(?=(\d{3})+(?!\d))/g, ".")} đ</Text>
+                  
                 </View>
               ) : (
                 <View style={styles.profileContainer}>
