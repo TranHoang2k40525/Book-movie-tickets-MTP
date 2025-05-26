@@ -1,81 +1,108 @@
-// backend/controllers/datgheController.js
-const sql = require('mssql');
-const { dbConfig } = require('../config/db');
-const { broadcastSeatUpdate } = require('../websocket');
+const sql = require("mssql");
+const { dbConfig } = require("../config/db");
+const { broadcastSeatUpdate } = require("../websocket");
 
-// Hàm lấy sơ đồ ghế để broadcast
-const getSeatLayout = async (transaction, showId, hallId) => {
-  const seatsQuery = `
-    SELECT 
-      chs.SeatID,
-      chs.SeatNumber,
-      chs.SeatType,
-      chs.SeatPrice,
-      CASE 
-        WHEN bs.Status = 'Reserved' AND bs.HoldUntil > DATEADD(HOUR, 7, GETUTCDATE()) THEN 'reserved'
-        WHEN chs.Status = 'Reserved' THEN 'reserved'
-        WHEN chs.Status = 'Locked' THEN 'locked'
-        WHEN chs.Status = 'Booked' THEN 'booked'
-        WHEN chs.Status IS NULL OR chs.Status = 'Available' THEN 'available'
-      END AS SeatStatus
-    FROM CinemaHallSeat chs
-    LEFT JOIN BookingSeat bs ON chs.SeatID = bs.SeatID AND bs.ShowID = @showId
-    WHERE chs.HallID = @hallId
-    ORDER BY chs.SeatNumber
-  `;
-  const seatsResult = await transaction
-    .request()
-    .input('showId', sql.Int, showId)
-    .input('hallId', sql.Int, hallId)
-    .query(seatsQuery);
-
-  const seatMap = {};
-  seatsResult.recordset.forEach((seat) => {
-    const rowMatch = seat.SeatNumber.match(/([A-H])(\d+)/);
-    if (rowMatch) {
-      const row = rowMatch[1];
-      const number = parseInt(rowMatch[2]);
-      if (!seatMap[row]) {
-        seatMap[row] = [];
-      }
-      seatMap[row][number - 1] = {
-        seatId: seat.SeatID,
-        seatNumber: seat.SeatNumber,
-        type: seat.SeatType.toLowerCase(),
-        price: seat.SeatPrice,
-        status: seat.SeatStatus,
-      };
+// Hàm lấy sơ đồ ghế cho API
+const getSeatMapByShow = async (req, res) => {
+  let pool = null;
+  try {
+    const { showId } = req.params;
+    if (!showId || isNaN(showId)) {
+      return res.status(400).json({ error: "showId không hợp lệ" });
     }
-  });
 
-  const rows = Object.keys(seatMap).sort();
-  const seatLayout = rows.map((row) => ({
-    row,
-    seats: seatMap[row],
-  }));
+    pool = await sql.connect(dbConfig);
 
-  // Lấy thông tin phòng chiếu
-  const hallQuery = `
-    SELECT c.CinemaName, ch.HallID, ch.HallName, ch.TotalSeats
-    FROM CinemaHall ch
-    JOIN Cinema c ON ch.CinemaID = c.CinemaID
-    WHERE ch.HallID = @hallId
-  `;
-  const hallResult = await transaction
-    .request()
-    .input('hallId', sql.Int, hallId)
-    .query(hallQuery);
+    const hallQuery = `
+      SELECT ch.HallID, ch.HallName, ch.TotalSeats, c.CinemaName
+      FROM CinemaHall ch
+      JOIN Cinema c ON ch.CinemaID = c.CinemaID
+      JOIN Show s ON s.HallID = ch.HallID
+      WHERE s.ShowID = @showId
+    `;
+    const hallResult = await pool
+      .request()
+      .input("showId", sql.Int, showId)
+      .query(hallQuery);
 
-  const hall = hallResult.recordset[0]
-    ? {
-        cinemaName: hallResult.recordset[0].CinemaName,
-        hallId: hallResult.recordset[0].HallID,
-        hallName: hallResult.recordset[0].HallName,
-        totalSeats: hallResult.recordset[0].TotalSeats,
+    if (!hallResult.recordset[0]) {
+      return res
+        .status(404)
+        .json({ error: "Không tìm thấy phòng chiếu cho suất chiếu này" });
+    }
+
+    const hall = hallResult.recordset[0];
+
+    const seatsQuery = `
+      SELECT 
+        chs.SeatID,
+        chs.SeatNumber,
+        chs.SeatType,
+        chs.SeatPrice,
+        CASE 
+          WHEN bs.Status = 'Reserved' AND bs.HoldUntil > GETDATE() THEN 'reserved'
+          WHEN chs.Status = 'Reserved' THEN 'reserved'
+          WHEN chs.Status = 'Locked' THEN 'locked'
+          WHEN chs.Status = 'Booked' THEN 'booked'
+          WHEN chs.Status IS NULL OR chs.Status = 'Available' THEN 'available'
+        END AS SeatStatus
+      FROM CinemaHallSeat chs
+      LEFT JOIN BookingSeat bs ON chs.SeatID = bs.SeatID AND bs.ShowID = @showId
+      WHERE chs.HallID = @hallId
+      ORDER BY chs.SeatNumber
+    `;
+    const seatsResult = await pool
+      .request()
+      .input("hallId", sql.Int, hall.HallID)
+      .input("showId", sql.Int, showId)
+      .query(seatsQuery);
+
+    const seatMap = {};
+    seatsResult.recordset.forEach((seat) => {
+      const rowMatch = seat.SeatNumber.match(/([A-H])(\d+)/);
+      if (rowMatch) {
+        const row = rowMatch[1];
+        const number = parseInt(rowMatch[2]);
+        if (!seatMap[row]) {
+          seatMap[row] = [];
+        }
+        seatMap[row][number - 1] = {
+          seatId: seat.SeatID,
+          seatNumber: seat.SeatNumber,
+          type: seat.SeatType.toLowerCase(),
+          price: seat.SeatPrice,
+          status: seat.SeatStatus,
+        };
       }
-    : null;
+    });
 
-  return { seatLayout, hall };
+    const rows = Object.keys(seatMap).sort();
+    const seatLayout = rows.map((row) => ({
+      row,
+      seats: seatMap[row],
+    }));
+
+    const response = {
+      hall: {
+        hallId: hall.HallID,
+        hallName: hall.HallName,
+        cinemaName: hall.CinemaName,
+        totalSeats: hall.TotalSeats,
+      },
+      seatLayout,
+    };
+
+    res.status(200).json(response);
+  } catch (error) {
+    console.error(`[${new Date().toISOString()}] Lỗi khi lấy sơ đồ ghế:`, error);
+    res
+      .status(500)
+      .json({ error: "Lỗi server khi lấy sơ đồ ghế ngồi", details: error.message });
+  } finally {
+    if (pool && pool.connected) {
+      await pool.close();
+    }
+  }
 };
 
 // Hàm giải phóng ghế hết hạn (cho cron job)
@@ -85,9 +112,8 @@ const releaseExpiredSeatsCron = async () => {
   try {
     pool = await sql.connect(dbConfig);
     transaction = new sql.Transaction(pool);
-    await transaction.begin(sql.ISOLATION_LEVEL.SERIALIZABLE);
+    await transaction.begin(sql.ISOLATION_LEVEL_SERIALIZABLE);
 
-    // Kiểm tra xem có ghế đang được đặt không
     const reservedCheck = await transaction.request().query(`
       SELECT COUNT(*) AS ReservedCount
       FROM BookingSeat
@@ -96,22 +122,29 @@ const releaseExpiredSeatsCron = async () => {
     const reservedCount = reservedCheck.recordset[0].ReservedCount;
 
     if (reservedCount === 0) {
+      
       await transaction.commit();
       return;
     }
 
-    const expiredSeats = await transaction.request().query(`
-      SELECT bs.SeatID, bs.ShowID, ch.HallID
-      FROM BookingSeat bs
-      JOIN Show s ON bs.ShowID = s.ShowID
-      JOIN CinemaHall ch ON s.HallID = ch.HallID
-      WHERE bs.Status = 'Reserved' AND bs.HoldUntil < DATEADD(HOUR, 7, GETUTCDATE())
+    const checkResult = await transaction.request().query(`
+      SELECT COUNT(*) AS ExpiredCount
+      FROM BookingSeat
+      WHERE Status = 'Reserved' AND HoldUntil < DATEADD(SECOND, -5, DATEADD(HOUR, 7, GETUTCDATE()))
     `);
+    const expiredCount = checkResult.recordset[0].ExpiredCount;
 
-    if (expiredSeats.recordset.length === 0) {
+    if (expiredCount === 0) {
+      console.log(`[${new Date().toISOString()}] Không có ghế hết hạn để giải phóng`);
       await transaction.commit();
       return;
     }
+
+    const affectedShows = await transaction.request().query(`
+      SELECT DISTINCT ShowID
+      FROM BookingSeat
+      WHERE Status = 'Reserved' AND HoldUntil < DATEADD(SECOND, -5, DATEADD(HOUR, 7, GETUTCDATE()))
+    `);
 
     const result = await transaction.request().query(`
       UPDATE CinemaHallSeat
@@ -120,11 +153,11 @@ const releaseExpiredSeatsCron = async () => {
       WHERE SeatID IN (
         SELECT SeatID
         FROM BookingSeat
-        WHERE Status = 'Reserved' AND HoldUntil < DATEADD(HOUR, 7, GETUTCDATE())
+        WHERE Status = 'Reserved' AND HoldUntil < DATEADD(SECOND, -5, DATEADD(HOUR, 7, GETUTCDATE()))
       );
 
       DELETE FROM BookingSeat
-      WHERE Status = 'Reserved' AND HoldUntil < DATEADD(HOUR, 7, GETUTCDATE());
+      WHERE Status = 'Reserved' AND HoldUntil < DATEADD(SECOND, -5, DATEADD(HOUR, 7, GETUTCDATE()));
 
       DELETE FROM Booking
       WHERE BookingID NOT IN (
@@ -135,91 +168,99 @@ const releaseExpiredSeatsCron = async () => {
     `);
 
     if (result.recordset.length > 0) {
-      console.log('Ghế được giải phóng (cron):', result.recordset);
-      const showIds = [...new Set(expiredSeats.recordset.map((seat) => seat.ShowID))];
-      for (const showId of showIds) {
-        const hallId = expiredSeats.recordset.find((seat) => seat.ShowID === showId).HallID;
-        const { seatLayout } = await getSeatLayout(transaction, showId, hallId);
-        broadcastSeatUpdate(showId, seatLayout);
+      console.log(`[${new Date().toISOString()}] Ghế được giải phóng:`, result.recordset);
+      for (const show of affectedShows.recordset) {
+        broadcastSeatUpdate(show.ShowID);
+        console.log(`[${new Date().toISOString()}] Gửi thông báo cập nhật ghế cho showId: ${show.ShowID}`);
       }
     }
 
     await transaction.commit();
-    console.log('Đã commit transaction cron job');
+    console.log(`[${new Date().toISOString()}] Đã commit transaction cron job`);
   } catch (err) {
-    console.error('Lỗi khi giải phóng ghế hết hạn (cron):', err);
+    console.error(`[${new Date().toISOString()}] Lỗi khi giải phóng ghế hết hạn:`, err);
     if (transaction) {
-      console.log('Rollback transaction cron job...');
+      console.log(`[${new Date().toISOString()}] Rollback transaction cron job...`);
       await transaction.rollback();
-      console.log('Đã rollback transaction cron job');
+      console.log(`[${new Date().toISOString()}] Đã rollback transaction cron job`);
     }
   } finally {
     if (pool && pool.connected) {
-      
+      await pool.close();
     }
   }
 };
 
 // Hàm giải phóng ghế hết hạn (cho transaction)
-const releaseExpiredSeats = async (transaction, showId) => {
+const releaseExpiredSeats = async (transaction) => {
   try {
-    const expiredSeats = await transaction
-      .request()
-      .input('showId', sql.Int, showId)
-      .query(`
-        SELECT bs.SeatID, bs.ShowID, ch.HallID
-        FROM BookingSeat bs
-        JOIN Show s ON bs.ShowID = s.ShowID
-        JOIN CinemaHall ch ON s.HallID = ch.HallID
-        WHERE bs.Status = 'Reserved' AND bs.HoldUntil < DATEADD(HOUR, 7, GETUTCDATE())
-        AND bs.ShowID = @showId
-      `);
+    const reservedCheck = await transaction.request().query(`
+      SELECT COUNT(*) AS ReservedCount
+      FROM BookingSeat
+      WHERE Status = 'Reserved'
+    `);
+    const reservedCount = reservedCheck.recordset[0].ReservedCount;
 
-    if (expiredSeats.recordset.length === 0) {
+    if (reservedCount === 0) {
+      console.log(`[${new Date().toISOString()}] Không có ghế Reserved trong transaction`);
       return;
     }
 
-    const result = await transaction
-      .request()
-      .input('showId', sql.Int, showId)
-      .query(`
-        UPDATE CinemaHallSeat
-        SET Status = 'Available'
-        OUTPUT DELETED.SeatID
-        WHERE SeatID IN (
-          SELECT SeatID
-          FROM BookingSeat
-          WHERE ShowID = @showId AND Status = 'Reserved' 
-            AND HoldUntil < DATEADD(HOUR, 7, GETUTCDATE())
-        );
+    const affectedShows = await transaction.request().query(`
+      SELECT DISTINCT ShowID
+      FROM BookingSeat
+      WHERE Status = 'Reserved' AND HoldUntil < DATEADD(SECOND, -5, DATEADD(HOUR, 7, GETUTCDATE()))
+    `);
 
-        DELETE FROM BookingSeat
-        WHERE ShowID = @showId AND Status = 'Reserved' 
-          AND HoldUntil < DATEADD(HOUR, 7, GETUTCDATE());
+    const checkResult = await transaction.request().query(`
+      SELECT COUNT(*) AS ExpiredCount
+      FROM BookingSeat
+      WHERE Status = 'Reserved' AND HoldUntil < DATEADD(SECOND, -5, DATEADD(HOUR, 7, GETUTCDATE()))
+    `);
+    const expiredCount = checkResult.recordset[0].ExpiredCount;
 
-        DELETE FROM Booking
-        WHERE BookingID NOT IN (
-          SELECT DISTINCT BookingID
-          FROM BookingSeat
-        )
-        AND Status = 'Pending';
-      `);
+    if (expiredCount === 0) {
+      console.log(`[${new Date().toISOString()}] Không có ghế hết hạn trong transaction`);
+      return;
+    }
+
+    const result = await transaction.request().query(`
+      UPDATE CinemaHallSeat
+      SET Status = 'Available'
+      OUTPUT DELETED.SeatID
+      WHERE SeatID IN (
+        SELECT SeatID
+        FROM BookingSeat
+        WHERE Status = 'Reserved' AND HoldUntil < DATEADD(SECOND, -5, DATEADD(HOUR, 7, GETUTCDATE()))
+      );
+
+      DELETE FROM BookingSeat
+      WHERE Status = 'Reserved' AND HoldUntil < DATEADD(SECOND, -5, DATEADD(HOUR, 7, GETUTCDATE()));
+
+      DELETE FROM Booking
+      WHERE BookingID NOT IN (
+        SELECT DISTINCT BookingID
+        FROM BookingSeat
+      )
+      AND Status = 'Pending';
+    `);
 
     if (result.recordset.length > 0) {
-      console.log('Đã giải phóng ghế hết hạn:', result.recordset);
-      const hallId = expiredSeats.recordset[0].HallID;
-      const { seatLayout } = await getSeatLayout(transaction, showId, hallId);
-      broadcastSeatUpdate(showId, seatLayout);
+      console.log(`[${new Date().toISOString()}] Đã giải phóng ghế hết hạn trong transaction:`, result.recordset);
+      for (const show of affectedShows.recordset) {
+        broadcastSeatUpdate(show.ShowID);
+        console.log(`[${new Date().toISOString()}] Gửi thông báo cập nhật ghế cho showId: ${show.ShowID}`);
+      }
     }
   } catch (err) {
-    console.error('Lỗi khi giải phóng ghế:', err);
+    console.error(`[${new Date().toISOString()}] Lỗi khi giải phóng ghế hết hạn trong transaction:`, err);
     throw err;
   }
 };
 
 // Hàm giữ ghế
 const holdSeats = async (req, res) => {
-  console.log("Running updated holdSeats version - 2025-05-20");
+  console.log(`[${new Date().toISOString()}] Running updated holdSeats version - 2025-05-26`);
   const { showId, seatIds, selectedProducts } = req.body;
   const customerId = req.user?.customerID;
 
@@ -228,125 +269,129 @@ const holdSeats = async (req, res) => {
   }
 
   if (!showId || !seatIds || !Array.isArray(seatIds) || seatIds.length === 0) {
-    return res.status(400).json({ message: "Danh sách ghế hoặc suất chiếu không hợp lệ" });
+    return res
+      .status(400)
+      .json({ message: "Danh sách ghế hoặc suất chiếu không hợp lệ" });
   }
 
   let pool = null;
   let transaction = null;
   try {
-    console.log("Kết nối đến SQL Server...");
+    console.log(`[${new Date().toISOString()}] Kết nối đến SQL Server...`);
     pool = await sql.connect(dbConfig);
-    console.log("Đã kết nối SQL Server");
+    console.log(`[${new Date().toISOString()}] Đã kết nối SQL Server`);
 
     const serverTimeResult = await pool
       .request()
       .query(
-        'SELECT DATEADD(HOUR, 7, GETUTCDATE()) AS ServerTime, DATEADD(MINUTE, 1, DATEADD(HOUR, 7, GETUTCDATE())) AS HoldUntil'
+        "SELECT DATEADD(HOUR, 7, GETUTCDATE()) AS ServerTime, DATEADD(MINUTE, 1, DATEADD(HOUR, 7, GETUTCDATE())) AS HoldUntil"
       );
     const holdUntil = serverTimeResult.recordset[0].HoldUntil;
-    const holdUntilDate = new Date(holdUntil);
-    const formattedExpirationTime = holdUntilDate.toISOString().replace('Z', '+07:00');
+    const formattedExpirationTime = holdUntil.toISOString().replace("Z", "+07:00");
     console.log(
-      'Node.js time:',
+      `[${new Date().toISOString()}] Node.js time:`,
       new Date(),
-      'SQL Server time:',
+      "SQL Server time:",
       serverTimeResult.recordset[0].ServerTime,
-      'HoldUntil:',
+      "HoldUntil:",
       holdUntil,
-      'Formatted expirationTime:',
+      "Formatted expirationTime:",
       formattedExpirationTime
     );
 
-    console.log('Khởi tạo transaction...');
+    console.log(`[${new Date().toISOString()}] Khởi tạo transaction...`);
     transaction = new sql.Transaction(pool);
-    await transaction.begin(sql.ISOLATION_LEVEL.SERIALIZABLE);
-    console.log('Đã bắt đầu transaction');
+    await transaction.begin(sql.ISOLATION_LEVEL_SERIALIZABLE);
+    console.log(`[${new Date().toISOString()}] Đã bắt đầu transaction`);
 
-    console.log('Bắt đầu giữ ghế:', { showId, seatIds, customerId });
+    console.log(`[${new Date().toISOString()}] Bắt đầu giữ ghế:`, { showId, seatIds, customerId });
 
-    await releaseExpiredSeats(transaction, showId);
+    await releaseExpiredSeats(transaction);
 
     let query = `SELECT SeatID, Status, SeatPrice, SeatNumber 
                  FROM CinemaHallSeat WITH (UPDLOCK, ROWLOCK)
                  WHERE SeatID IN (`;
     const seatParams = seatIds.map((id, index) => `@seat${index}`);
-    query += seatParams.join(',');
+    query += seatParams.join(",");
     query += `) AND HallID = (SELECT HallID FROM Show WHERE ShowID = @showId)`;
 
     const request = transaction.request();
     seatIds.forEach((id, index) => {
       request.input(`seat${index}`, sql.Int, id);
     });
-    request.input('showId', sql.Int, showId);
+    request.input("showId", sql.Int, showId);
 
-    console.log('Kiểm tra ghế có sẵn...');
+    console.log(`[${new Date().toISOString()}] Kiểm tra ghế có sẵn...`);
     const availableSeats = await request.query(query);
-    console.log('Kết quả kiểm tra ghế:', availableSeats.recordset);
+    console.log(`[${new Date().toISOString()}] Kết quả kiểm tra ghế:`, availableSeats.recordset);
 
     if (availableSeats.recordset.length !== seatIds.length) {
       await transaction.rollback();
       const unavailableSeats = seatIds.filter(
         (id) => !availableSeats.recordset.some((seat) => seat.SeatID === id)
       );
-      console.log('Ghế không khả dụng:', unavailableSeats);
+      console.log(`[${new Date().toISOString()}] Ghế không khả dụng:`, unavailableSeats);
       return res.status(400).json({
-        message: 'Một số ghế không tồn tại hoặc không thuộc suất chiếu này',
+        message: "Một số ghế không tồn tại hoặc không thuộc suất chiếu này",
         unavailableSeats,
       });
     }
 
     const nonAvailableSeats = availableSeats.recordset.filter(
-      (seat) => seat.Status !== 'Available' && seat.Status !== null
+      (seat) => seat.Status !== "Available" && seat.Status !== null
     );
     if (nonAvailableSeats.length > 0) {
-      console.log('Xung đột ghế:', {
+      console.log(`[${new Date().toISOString()}] Xung đột ghế:`, {
         showId,
         seatIds: nonAvailableSeats.map((seat) => seat.SeatID),
         timestamp: new Date(),
       });
       await transaction.rollback();
       return res.status(400).json({
-        message: 'Một số ghế đã được đặt hoặc khóa',
+        message: "Một số ghế đã được đặt hoặc khóa",
         unavailableSeats: nonAvailableSeats.map((seat) => seat.SeatID),
       });
     }
 
-    console.log('Tạo Booking...');
+    console.log(`[${new Date().toISOString()}] Tạo Booking...`);
     const bookingResult = await transaction
       .request()
-      .input('customerId', sql.Int, customerId)
-      .input('showId', sql.Int, showId)
-      .input('totalSeats', sql.Int, seatIds.length)
-      .input('status', sql.VarChar, 'Pending')
+      .input("customerId", sql.Int, customerId)
+      .input("showId", sql.Int, showId)
+      .input("totalSeats", sql.Int, seatIds.length)
+      .input("status", sql.VarChar, "Pending")
       .query(
         `INSERT INTO Booking (CustomerID, ShowID, TotalSeats, Status)
          OUTPUT INSERTED.BookingID
          VALUES (@customerId, @showId, @totalSeats, @status)`
       );
     const bookingId = bookingResult.recordset[0].BookingID;
-    console.log('Đã tạo Booking:', bookingId);
+    console.log(`[${new Date().toISOString()}] Đã tạo Booking:`, bookingId);
 
     const seatDetails = [];
     for (const seatId of seatIds) {
-      const seatPrice = availableSeats.recordset.find((s) => s.SeatID === seatId).SeatPrice || 75000;
-      console.log('Tạo BookingSeat cho ghế:', seatId);
+      const seatPrice =
+        availableSeats.recordset.find((s) => s.SeatID === seatId).SeatPrice || 75000;
+      console.log(`[${new Date().toISOString()}] Tạo BookingSeat cho ghế:`, seatId);
       await transaction
         .request()
-        .input('bookingId', sql.Int, bookingId)
-        .input('showId', sql.Int, showId)
-        .input('seatId', sql.Int, seatId)
-        .input('status', sql.VarChar, 'Reserved')
-        .input('ticketPrice', sql.Decimal(10, 2), seatPrice)
-        .input('holdUntil', sql.DateTime, holdUntil)
+        .input("bookingId", sql.Int, bookingId)
+        .input("showId", sql.Int, showId)
+        .input("seatId", sql.Int, seatId)
+        .input("status", sql.VarChar, "Reserved")
+        .input("ticketPrice", sql.Decimal(10, 2), seatPrice)
+        .input("holdUntil", sql.DateTime, holdUntil)
         .query(
           `INSERT INTO BookingSeat (BookingID, ShowID, SeatID, Status, TicketPrice, HoldUntil)
            VALUES (@bookingId, @showId, @seatId, @status, @ticketPrice, @holdUntil)`
         );
-      console.log('Đã tạo BookingSeat cho ghế:', seatId);
+      console.log(`[${new Date().toISOString()}] Đã tạo BookingSeat cho ghế:`, seatId);
       seatDetails.push({
         seatId,
-        seatNumber: availableSeats.recordset.find((s) => s.SeatID === seatId).SeatNumber || `Seat${seatId}`,
-        status: 'Reserved',
+        seatNumber:
+          availableSeats.recordset.find((s) => s.SeatID === seatId).SeatNumber ||
+          `Seat${seatId}`,
+        status: "Reserved",
         price: seatPrice,
       });
     }
@@ -355,11 +400,11 @@ const holdSeats = async (req, res) => {
       for (const product of selectedProducts) {
         await transaction
           .request()
-          .input('bookingProductId', sql.Int, Math.floor(Math.random() * 1000000))
-          .input('bookingId', sql.Int, bookingId)
-          .input('productId', sql.Int, product.productId)
-          .input('quantity', sql.Int, product.quantity)
-          .input('totalPrice', sql.Decimal(10, 2), product.price * product.quantity)
+          .input("bookingProductId", sql.Int, Math.floor(Math.random() * 1000000))
+          .input("bookingId", sql.Int, bookingId)
+          .input("productId", sql.Int, product.productId)
+          .input("quantity", sql.Int, product.quantity)
+          .input("totalPrice", sql.Decimal(10, 2), product.price * product.quantity)
           .query(
             `INSERT INTO BookingProduct (BookingProductID, BookingID, ProductID, Quantity, TotalPriceBookingProduct)
              VALUES (@bookingProductId, @bookingId, @productId, @quantity, @totalPrice)`
@@ -368,7 +413,7 @@ const holdSeats = async (req, res) => {
     }
 
     let updateQuery = `UPDATE CinemaHallSeat SET Status = 'Reserved' WHERE SeatID IN (`;
-    updateQuery += seatParams.join(',');
+    updateQuery += seatParams.join(",");
     updateQuery += `)`;
 
     const updateRequest = transaction.request();
@@ -376,39 +421,35 @@ const holdSeats = async (req, res) => {
       updateRequest.input(`seat${index}`, sql.Int, id);
     });
 
-    console.log('Cập nhật trạng thái ghế...');
+    console.log(`[${new Date().toISOString()}] Cập nhật trạng thái ghế...`);
     await updateRequest.query(updateQuery);
-    console.log('Đã cập nhật trạng thái ghế thành Reserved:', seatIds);
+    console.log(`[${new Date().toISOString()}] Đã cập nhật trạng thái ghế thành Reserved:`, seatIds);
 
-    // Lấy hallId và gửi cập nhật WebSocket
-    const hallQuery = `SELECT HallID FROM Show WHERE ShowID = @showId`;
-    const hallResult = await transaction.request().input('showId', sql.Int, showId).query(hallQuery);
-    const hallId = hallResult.recordset[0].HallID;
+    broadcastSeatUpdate(showId);
+    console.log(`[${new Date().toISOString()}] Gửi thông báo cập nhật ghế cho showId: ${showId}`);
 
-    const { seatLayout } = await getSeatLayout(transaction, showId, hallId);
-    broadcastSeatUpdate(showId, seatLayout);
-
-    console.log('Commit transaction...');
+    console.log(`[${new Date().toISOString()}] Commit transaction...`);
     await transaction.commit();
-    console.log('Đã commit transaction');
+    console.log(`[${new Date().toISOString()}] Đã commit transaction`);
 
     res.json({
       bookingId,
       expirationTime: formattedExpirationTime,
-      bookingStatus: 'Pending',
+      bookingStatus: "Pending",
       seats: seatDetails,
     });
   } catch (err) {
-    console.error('Lỗi trong quá trình giữ ghế:', err);
+    console.error(`[${new Date().toISOString()}] Lỗi trong quá trình giữ ghế:`, err);
     if (transaction) {
-      console.log('Rollback transaction...');
+      console.log(`[${new Date().toISOString()}] Rollback transaction...`);
       await transaction.rollback();
-      console.log('Đã rollback transaction');
+      console.log(`[${new Date().toISOString()}] Đã rollback transaction`);
     }
-    res.status(500).json({ message: 'Lỗi server!', error: err.message });
+    res.status(500).json({ message: "Lỗi server!", error: err.message });
   } finally {
     if (pool && pool.connected) {
-      
+      await pool.close();
+      console.log(`[${new Date().toISOString()}] Đã đóng kết nối pool`);
     }
   }
 };
@@ -419,29 +460,29 @@ const cancelBooking = async (req, res) => {
   const customerId = req.user?.customerID;
 
   if (!customerId) {
-    return res.status(401).json({ message: 'Không tìm thấy thông tin người dùng' });
+    return res.status(401).json({ message: "Không tìm thấy thông tin người dùng" });
   }
 
   if (!bookingId) {
-    return res.status(400).json({ message: 'BookingID không hợp lệ' });
+    return res.status(400).json({ message: "BookingID không hợp lệ" });
   }
 
   let pool = null;
   let transaction = null;
   try {
-    console.log('Kết nối đến SQL Server...');
+    console.log(`[${new Date().toISOString()}] Kết nối đến SQL Server...`);
     pool = await sql.connect(dbConfig);
-    console.log('Đã kết nối SQL Server');
+    console.log(`[${new Date().toISOString()}] Đã kết nối SQL Server`);
 
-    console.log('Khởi tạo transaction...');
+    console.log(`[${new Date().toISOString()}] Khởi tạo transaction...`);
     transaction = new sql.Transaction(pool);
-    await transaction.begin(sql.ISOLATION_LEVEL.SERIALIZABLE);
-    console.log('Đã bắt đầu transaction');
+    await transaction.begin(sql.ISOLATION_LEVEL_SERIALIZABLE);
+    console.log(`[${new Date().toISOString()}] Đã bắt đầu transaction`);
 
     const bookingCheck = await transaction
       .request()
-      .input('bookingId', sql.Int, bookingId)
-      .input('customerId', sql.Int, customerId)
+      .input("bookingId", sql.Int, bookingId)
+      .input("customerId", sql.Int, customerId)
       .query(
         `SELECT BookingID, CustomerID, Status, ShowID
          FROM Booking 
@@ -450,27 +491,30 @@ const cancelBooking = async (req, res) => {
 
     if (bookingCheck.recordset.length === 0) {
       await transaction.rollback();
-      console.log('Không tìm thấy đặt vé hoặc không có quyền:', { bookingId, customerId });
-      return res.status(403).json({ message: 'Không có quyền hủy đặt vé này' });
+      console.log(`[${new Date().toISOString()}] Không tìm thấy đặt vé hoặc không có quyền:`, {
+        bookingId,
+        customerId,
+      });
+      return res.status(403).json({ message: "Không có quyền hủy đặt vé này" });
     }
 
     const booking = bookingCheck.recordset[0];
 
-    if (booking.Status === 'Cancelled') {
+    if (booking.Status === "Cancelled") {
       await transaction.rollback();
-      console.log('Đã hủy đặt vé trước đó:', bookingId);
-      return res.status(400).json({ message: 'Đặt vé đã được hủy trước đó' });
+      console.log(`[${new Date().toISOString()}] Đã hủy đặt vé trước đó:`, bookingId);
+      return res.status(400).json({ message: "Đặt vé đã được hủy trước đó" });
     }
 
-    if (booking.Status === 'Confirmed') {
+    if (booking.Status === "Confirmed") {
       await transaction.rollback();
-      console.log('Không thể hủy đặt vé đã xác nhận:', bookingId);
-      return res.status(400).json({ message: 'Không thể hủy đặt vé đã xác nhận' });
+      console.log(`[${new Date().toISOString()}] Không thể hủy đặt vé đã xác nhận:`, bookingId);
+      return res.status(400).json({ message: "Không thể hủy đặt vé đã xác nhận" });
     }
 
     await transaction
       .request()
-      .input('bookingId', sql.Int, bookingId)
+      .input("bookingId", sql.Int, bookingId)
       .query(`
         UPDATE CinemaHallSeat
         SET Status = 'Available'
@@ -488,34 +532,27 @@ const cancelBooking = async (req, res) => {
         WHERE BookingID = @bookingId AND Status = 'Pending';
       `);
 
-    // Lấy hallId và gửi cập nhật WebSocket
-    const hallQuery = `SELECT HallID FROM Show WHERE ShowID = @showId`;
-    const hallResult = await transaction
-      .request()
-      .input('showId', sql.Int, booking.ShowID)
-      .query(hallQuery);
-    const hallId = hallResult.recordset[0].HallID;
+    broadcastSeatUpdate(booking.ShowID);
+    console.log(`[${new Date().toISOString()}] Gửi thông báo cập nhật ghế cho showId: ${booking.ShowID}`);
 
-    const { seatLayout } = await getSeatLayout(transaction, booking.ShowID, hallId);
-    broadcastSeatUpdate(booking.ShowID, seatLayout);
-
-    console.log('Đã hủy đặt vé và giải phóng ghế:', bookingId);
+    console.log(`[${new Date().toISOString()}] Đã hủy đặt vé và giải phóng ghế:`, bookingId);
     await transaction.commit();
-    console.log('Đã commit transaction');
-    res.json({ message: 'Đã hủy đặt vé và giải phóng ghế' });
+    console.log(`[${new Date().toISOString()}] Đã commit transaction`);
+    res.json({ message: "Đã hủy đặt vé và giải phóng ghế" });
   } catch (err) {
-    console.error('Lỗi khi hủy đặt vé:', err);
+    console.error(`[${new Date().toISOString()}] Lỗi khi hủy đặt vé:`, err);
     if (transaction) {
-      console.log('Rollback transaction...');
+      console.log(`[${new Date().toISOString()}] Rollback transaction...`);
       await transaction.rollback();
-      console.log('Đã rollback transaction');
+      console.log(`[${new Date().toISOString()}] Đã rollback transaction`);
     }
-    res.status(500).json({ message: 'Lỗi server!', error: err.message });
+    res.status(500).json({ message: "Lỗi server!", error: err.message });
   } finally {
     if (pool && pool.connected) {
-      
+      await pool.close();
+      console.log(`[${new Date().toISOString()}] Đã đóng kết nối pool`);
     }
   }
 };
 
-module.exports = { holdSeats, cancelBooking, releaseExpiredSeatsCron };
+module.exports = { holdSeats, cancelBooking, getSeatMapByShow, releaseExpiredSeatsCron };

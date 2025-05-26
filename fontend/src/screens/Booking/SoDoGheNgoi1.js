@@ -168,26 +168,16 @@ export default function SeatSelection() {
     setupWebSocketConnection();
 
     return () => {
-      closeWebSocket(); // Đóng WebSocket khi component unmount
+      closeWebSocket();
       if (timerRef.current) clearInterval(timerRef.current);
     };
-  }, []);
+  }, [showId]);
 
   const setupWebSocketConnection = useCallback(() => {
     setupWebSocket(showId, {
-      onSeatUpdate: (newSeatLayout) => {
-        setSeatLayout(newSeatLayout);
-        setSelectedSeats((prev) =>
-          prev.filter((seat) => {
-            const updatedSeat = newSeatLayout
-              .flatMap((row) => row.seats)
-              .find((s) => s.seatId === seat.seatId);
-            return updatedSeat && updatedSeat.status === 'available';
-          })
-        );
-        setTotalPrice(
-          selectedSeats.reduce((sum, s) => sum + (s.price || 0), 0)
-        );
+      onSeatUpdate: async () => {
+        console.log('Nhận thông báo cập nhật ghế từ WebSocket, đang lấy dữ liệu mới...');
+        await fetchSeatMap(); // Gọi hàm fetchSeatMap thay vì cập nhật trực tiếp
       },
       onError: (error) => {
         console.error('WebSocket error:', error);
@@ -197,7 +187,7 @@ export default function SeatSelection() {
         console.log('WebSocket connection closed');
       },
     });
-  }, [showId]);
+  }, [showId, fetchSeatMap]); // Thêm fetchSeatMap vào dependencies
 
   const checkAuthStatus = async () => {
     try {

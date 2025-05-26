@@ -1,12 +1,13 @@
 import axios from "axios";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import jwtDecode from "jwt-decode"; // Sửa import jwt-decode
 
-const BASE_URL = "http://192.168.1.101:3000/api";
-const WS_URL = "ws://192.168.1.101:3000"; // Địa chỉ WebSocket
+const BASE_URL = "http://192.168.1.102:3000/api";
+const WS_URL = "ws://192.168.1.102:3000"; // Địa chỉ WebSocket
 
 const api = axios.create({
   baseURL: BASE_URL,
-  timeout: 10000,
+  timeout: 30000,
   headers: {
     "Content-Type": "application/json",
   },
@@ -23,12 +24,12 @@ const RECONNECT_INTERVAL = 5000; // 5 giây
 api.interceptors.request.use(
   async (config) => {
     const token = await AsyncStorage.getItem("accessToken");
-    console.log("Request URL:", `${BASE_URL}${config.url}`);
+    console.log("Yêu cầu URL:", `${BASE_URL}${config.url}`);
     console.log("Access Token:", token);
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     } else {
-      console.warn("No access token found in AsyncStorage");
+      console.warn("Không tìm thấy access token trong AsyncStorage");
     }
     return config;
   },
@@ -49,7 +50,7 @@ api.interceptors.response.use(
       try {
         const refreshToken = await AsyncStorage.getItem("refreshToken");
         if (!refreshToken) {
-          throw new Error("No refresh token available");
+          throw new Error("Không tìm thấy refresh token");
         }
         const response = await axios.post(`${BASE_URL}/refresh-token`, { refreshToken });
         const { accessToken, refreshToken: newRefreshToken } = response.data;
@@ -58,7 +59,7 @@ api.interceptors.response.use(
         originalRequest.headers.Authorization = `Bearer ${accessToken}`;
         return api(originalRequest);
       } catch (refreshError) {
-        console.error("Error refreshing token:", refreshError);
+        console.error("Lỗi khi làm mới token:", refreshError);
         await AsyncStorage.removeItem("accessToken");
         await AsyncStorage.removeItem("refreshToken");
         return Promise.reject(refreshError);
@@ -71,7 +72,7 @@ api.interceptors.response.use(
 // Hàm thiết lập kết nối WebSocket
 export const setupWebSocket = async (showId, { onSeatUpdate, onError, onClose }) => {
   try {
-    const token = await AsyncStorage.getItem("accessToken");
+    let token = await AsyncStorage.getItem("accessToken");
     if (!token) {
       throw new Error("No access token found for WebSocket connection");
     }
@@ -83,25 +84,27 @@ export const setupWebSocket = async (showId, { onSeatUpdate, onError, onClose })
     }
 
     // Tạo kết nối WebSocket mới
+    console.log("Kết nối WebSocket với token:", token);
     ws = new WebSocket(`${WS_URL}?showId=${showId}&token=${encodeURIComponent(token)}`);
 
     // Lưu các callback
     wsCallbacks = { onSeatUpdate, onError, onClose };
 
     ws.onopen = () => {
-      console.log(`WebSocket connected for showId: ${showId}`);
+      console.log(`WebSocket đã kết nối cho showId: ${showId}`);
       reconnectAttempts = 0; // Reset số lần thử kết nối lại
     };
 
-    ws.onmessage = (event) => {
+    ws.onmessage = async (event) => {
       try {
         const data = JSON.parse(event.data);
         if (data.type === "SEAT_UPDATE" && wsCallbacks.onSeatUpdate) {
-          console.log("Received seat update:", data.seatLayout);
-          wsCallbacks.onSeatUpdate(data.seatLayout);
+          console.log("Nhận được cập nhật ghế, đang lấy sơ đồ ghế mới...");
+          const seatMap = await getSeatMapByShow(showId); // Gọi API để lấy dữ liệu mới nhất
+          wsCallbacks.onSeatUpdate(seatMap); // Truyền dữ liệu từ API cho callback
         }
       } catch (err) {
-        console.error("Error processing WebSocket message:", err);
+        console.error("Lỗi xử lý tin nhắn WebSocket:", err);
         if (wsCallbacks.onError) {
           wsCallbacks.onError(err);
         }
@@ -109,7 +112,7 @@ export const setupWebSocket = async (showId, { onSeatUpdate, onError, onClose })
     };
 
     ws.onclose = (event) => {
-      console.log(`WebSocket disconnected: ${event.reason || "No reason provided"}`);
+      console.log(`WebSocket ngắt kết nối: ${event.reason || "Không có lý do"}`);
       ws = null;
       if (wsCallbacks.onClose) {
         wsCallbacks.onClose(event);
@@ -118,19 +121,19 @@ export const setupWebSocket = async (showId, { onSeatUpdate, onError, onClose })
       if (reconnectAttempts < MAX_RECONNECT_ATTEMPTS) {
         setTimeout(() => {
           reconnectAttempts++;
-          console.log(`Reconnecting WebSocket, attempt ${reconnectAttempts}...`);
+          console.log(`Đang kết nối lại WebSocket, lần thử ${reconnectAttempts}...`);
           setupWebSocket(showId, wsCallbacks);
         }, RECONNECT_INTERVAL);
       } else {
-        console.error("Max reconnect attempts reached");
+        console.error("Đã đạt số lần thử kết nối lại tối đa");
         if (wsCallbacks.onError) {
-          wsCallbacks.onError(new Error("Failed to reconnect WebSocket"));
+          wsCallbacks.onError(new Error("Không thể kết nối lại WebSocket"));
         }
       }
     };
 
     ws.onerror = (error) => {
-      console.error("WebSocket error:", error);
+      console.error("Lỗi WebSocket:", error);
       if (wsCallbacks.onError) {
         wsCallbacks.onError(error);
       }
@@ -138,7 +141,7 @@ export const setupWebSocket = async (showId, { onSeatUpdate, onError, onClose })
 
     return ws;
   } catch (error) {
-    console.error("Error setting up WebSocket:", error);
+    console.error("Lỗi thiết lập WebSocket:", error);
     if (wsCallbacks.onError) {
       wsCallbacks.onError(error);
     }
@@ -153,16 +156,16 @@ export const closeWebSocket = () => {
     ws = null;
     wsCallbacks = { onSeatUpdate: null, onError: null, onClose: null };
     reconnectAttempts = 0;
-    console.log("WebSocket connection closed");
+    console.log("Đã đóng kết nối WebSocket");
   }
 };
 
-// Các hàm HTTP
+// Các hàm HTTP (giữ nguyên)
 export const simulateMomoPayment = async (bookingId, data) => {
   try {
-    console.log("Sending simulateMomoPayment request:", { bookingId, data });
+    console.log("Gửi yêu cầu simulateMomoPayment:", { bookingId, data });
     const response = await api.post(`/payments/simulate-momo/${bookingId}`, data);
-    console.log("simulateMomoPayment response:", response.data);
+    console.log("Phản hồi simulateMomoPayment:", response.data);
     return response.data;
   } catch (error) {
     console.error("Lỗi khi giả lập thanh toán Momo:", {
@@ -173,15 +176,16 @@ export const simulateMomoPayment = async (bookingId, data) => {
     throw error.response?.data || error;
   }
 };
+
 // API vé
 export const getBookings = async (page = 1, limit = 10) => {
   try {
-    console.log(`Calling API: /tickets?page=${page}&limit=${limit}`);
+    console.log(`Gọi API: /tickets?page=${page}&limit=${limit}`);
     const response = await api.get('/tickets', { params: { page, limit } });
-    console.log('API Response:', response.data);
+    console.log('Phản hồi API:', response.data);
     return response.data;
   } catch (error) {
-    console.error('Error fetching bookings:', {
+    console.error('Lỗi khi lấy danh sách vé:', {
       message: error.message,
       response: error.response?.data,
       status: error.response?.status,
@@ -192,12 +196,12 @@ export const getBookings = async (page = 1, limit = 10) => {
 
 export const getBookingById = async (bookingId) => {
   try {
-    console.log(`Calling API: /tickets/${bookingId}`);
+    console.log(`Gọi API: /tickets/${bookingId}`);
     const response = await api.get(`/tickets/${bookingId}`);
-    console.log('API Response:', response.data);
+    console.log('Phản hồi API:', response.data);
     return response.data;
   } catch (error) {
-    console.error('Error fetching booking by ID:', {
+    console.error('Lỗi khi lấy vé theo ID:', {
       status: error.response?.status,
       data: error.response?.data,
       message: error.message,
@@ -208,12 +212,12 @@ export const getBookingById = async (bookingId) => {
 
 export const checkExpiredBookings = async () => {
   try {
-    console.log('Calling API: /tickets/expiring');
+    console.log('Gọi API: /tickets/expiring');
     const response = await api.get('/tickets/expiring');
-    console.log('API Response:', response.data);
+    console.log('Phản hồi API:', response.data);
     return response.data;
   } catch (error) {
-    console.error('Error checking expired bookings:', {
+    console.error('Lỗi khi kiểm tra vé hết hạn:', {
       status: error.response?.status,
       data: error.response?.data,
       message: error.message,
@@ -222,7 +226,7 @@ export const checkExpiredBookings = async () => {
   }
 };
 
-// Api thanh toántoán
+// API thanh toán
 export const checkPaymentStatus = async (bookingId) => {
   try {
     const response = await api.get(`/payments/check-status/${bookingId}`);
@@ -239,12 +243,12 @@ export const checkPaymentStatus = async (bookingId) => {
 
 export const cancelBooking = async (bookingId) => {
   try {
-    console.log(`Cancelling booking: ${bookingId}`);
+    console.log(`Hủy vé: ${bookingId}`);
     const response = await api.post("/cancel-booking", { bookingId });
-    console.log("Cancel booking response:", response.data);
+    console.log("Phản hồi hủy vé:", response.data);
     return response.data;
   } catch (error) {
-    console.error("Error cancelling booking:", {
+    console.error("Lỗi khi hủy vé:", {
       status: error.response?.status,
       data: error.response?.data,
       message: error.message,
@@ -258,7 +262,7 @@ export const getVouchers = async () => {
     const response = await api.get("/vouchers");
     return response.data;
   } catch (error) {
-    console.error("Error fetching vouchers:", {
+    console.error("Lỗi khi lấy danh sách voucher:", {
       status: error.response?.status,
       data: error.response?.data,
       message: error.message,
@@ -272,7 +276,7 @@ export const useVoucher = async (voucherId) => {
     const response = await api.post("/use-voucher", { voucherId });
     return response.data;
   } catch (error) {
-    console.error("Error using voucher:", {
+    console.error("Lỗi khi sử dụng voucher:", {
       status: error.response?.status,
       data: error.response?.data,
       message: error.message,
@@ -281,7 +285,10 @@ export const useVoucher = async (voucherId) => {
   }
 };
 
-export const getMovies = () => api.get("/movies");
+export const getMovies = (config = {}) => {
+  console.log("Gọi API getMovies với config:", config);
+  return api.get("/movies", config);
+};
 export const getMovieById = (id) => api.get(`/movies/${id}`);
 export const getShowtimesByMovieId = (id) => api.get(`/movies/${id}/showtimes`);
 export const getCinemasByMovieAndDate = (id, date) =>
@@ -302,10 +309,10 @@ export const login = async (email, password) => {
 
 export const refreshToken = async (refreshToken) => {
   try {
-    const response = await api.post("/refresh-token", { refreshToken });
+    const response = await axios.post(`${BASE_URL}/refresh-token`, { refreshToken });
     return response.data;
   } catch (error) {
-    console.error("Error refreshing token:", error);
+    console.error("Lỗi làm mới token:", error);
     throw error;
   }
 };
@@ -313,10 +320,10 @@ export const refreshToken = async (refreshToken) => {
 export const getAccount = async () => {
   try {
     const response = await api.post("/get-account");
-    console.log("Account API response:", response.data);
+    console.log("Phản hồi API tài khoản:", response.data);
     return response;
   } catch (error) {
-    console.error("Error fetching account:", {
+    console.error("Lỗi khi lấy thông tin tài khoản:", {
       status: error.response?.status,
       data: error.response?.data,
       message: error.message,
@@ -328,10 +335,10 @@ export const getAccount = async () => {
 export const getCustomer = async () => {
   try {
     const response = await api.post("/get-customer");
-    console.log("Customer API response:", response.data);
+    console.log("Phản hồi API khách hàng:", response.data);
     return response;
   } catch (error) {
-    console.error("Error fetching customer:", {
+    console.error("Lỗi khi lấy thông tin khách hàng:", {
       status: error.response?.status,
       data: error.response?.data,
       message: error.message,
@@ -349,7 +356,7 @@ export const updateAvatar = async (avatarUrl) => {
     const response = await api.post("/update-avatar", { avatarUrl });
     return response.data;
   } catch (error) {
-    console.error("Error updating avatar:", error);
+    console.error("Lỗi khi cập nhật avatar:", error);
     throw error;
   }
 };
@@ -367,7 +374,7 @@ export const likeMovie = async (movieId) => {
     const response = await api.post("/like", { movieId });
     return response.data;
   } catch (error) {
-    console.error("Error liking movie:", error);
+    console.error("Lỗi khi thích phim:", error);
     throw error;
   }
 };
@@ -377,19 +384,19 @@ export const getLikeStatus = async (movieId) => {
     const response = await api.get(`/like/${movieId}`);
     return response.data;
   } catch (error) {
-    console.error("Error fetching like status:", error);
+    console.error("Lỗi khi lấy trạng thái thích:", error);
     throw error;
   }
 };
 
 export const getSeatMapByShow = async (showId) => {
   try {
-    console.log(`Fetching seat map for showId: ${showId}`);
-    const response = await api.get(`/movies/${showId}/seats`);
-    console.log("Seat map response:", response.data);
+    console.log(`Lấy sơ đồ ghế cho showId: ${showId}`);
+    const response = await api.get(`/datghe/${showId}/seats`);
+    console.log("Phản hồi sơ đồ ghế:", response.data);
     return response.data;
   } catch (error) {
-    console.error("Error fetching seat map:", {
+    console.error("Lỗi khi lấy sơ đồ ghế:", {
       status: error.response?.status,
       data: error.response?.data,
       message: error.message,
@@ -400,12 +407,12 @@ export const getSeatMapByShow = async (showId) => {
 
 export const holdSeats = async (showId, seatIds, selectedProducts = []) => {
   try {
-    console.log("Holding seats:", { showId, seatIds, selectedProducts });
+    console.log("Giữ ghế:", { showId, seatIds, selectedProducts });
     const response = await api.post("/hold-seats", { showId, seatIds, selectedProducts });
-    console.log("Hold seats response:", response.data);
+    console.log("Phản hồi giữ ghế:", response.data);
     return response.data;
   } catch (error) {
-    console.error("Error holding seats:", {
+    console.error("Lỗi khi giữ ghế:", {
       status: error.response?.status,
       data: error.response?.data,
       message: error.message,
@@ -419,7 +426,7 @@ export const getProducts = async () => {
     const response = await api.get("/products");
     return response.data;
   } catch (error) {
-    console.error("Error fetching products:", {
+    console.error("Lỗi khi lấy danh sách sản phẩm:", {
       status: error.response?.status,
       data: error.response?.data,
       message: error.message,
@@ -433,7 +440,7 @@ export const getNotifications = async () => {
     const response = await api.get("/notifications");
     return response.data;
   } catch (error) {
-    console.error("Error fetching notifications:", {
+    console.error("Lỗi khi lấy thông báo:", {
       status: error.response?.status,
       data: error.response?.data,
       message: error.message,
@@ -447,7 +454,7 @@ export const markNotificationAsRead = async (notificationId) => {
     const response = await api.put(`/notifications/${notificationId}/read`);
     return response.data;
   } catch (error) {
-    console.error("Error marking notification as read:", {
+    console.error("Lỗi khi đánh dấu thông báo đã đọc:", {
       status: error.response?.status,
       data: error.response?.data,
       message: error.message,
@@ -461,7 +468,7 @@ export const getNotificationById = async (notificationId) => {
     const response = await api.get(`/notifications/${notificationId}`);
     return response.data;
   } catch (error) {
-    console.error("Error fetching notification details:", {
+    console.error("Lỗi khi lấy chi tiết thông báo:", {
       status: error.response?.status,
       data: error.response?.data,
       message: error.message,
@@ -469,11 +476,6 @@ export const getNotificationById = async (notificationId) => {
     throw error.response?.data || error;
   }
 };
-
-
-
-
-
 
 export const processPayment = async (data) => {
   try {
@@ -524,7 +526,7 @@ export const getBookingDetails = async (bookingId) => {
     const response = await api.get(`/bookings/${bookingId}`);
     return response.data;
   } catch (error) {
-    console.error("Error fetching booking details:", {
+    console.error("Lỗi khi lấy chi tiết vé:", {
       status: error.response?.status,
       data: error.response?.data,
       message: error.message,
@@ -538,7 +540,7 @@ export const confirmPayment = async (bookingId, paymentData) => {
     const response = await api.post(`/payments/confirm/${bookingId}`, paymentData);
     return response.data;
   } catch (error) {
-    console.error("Error confirming payment:", {
+    console.error("Lỗi khi xác nhận thanh toán:", {
       status: error.response?.status,
       data: error.response?.data,
       message: error.message,
@@ -552,7 +554,7 @@ export const generateQRCode = async (bookingId, data) => {
     const response = await api.post(`/payments/generate-qr/${bookingId}`, data);
     return response.data;
   } catch (error) {
-    console.error("Error generating QR code:", {
+    console.error("Lỗi khi tạo mã QR:", {
       status: error.response?.status,
       data: error.response?.data,
       message: error.message,

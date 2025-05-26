@@ -77,17 +77,17 @@ const DateSelector = memo(({ selectedDate, onDateChange }) => {
       <Text style={styles.currentDateText}>
         {areSameDay(selectedDate, today)
           ? `Hôm nay, ${selectedDate.toLocaleDateString('vi-VN', {
-              weekday: 'long',
-              month: 'long',
-              day: 'numeric',
-              year: 'numeric',
-            })}`
+            weekday: 'long',
+            month: 'long',
+            day: 'numeric',
+            year: 'numeric',
+          })}`
           : selectedDate.toLocaleDateString('vi-VN', {
-              weekday: 'long',
-              month: 'long',
-              day: 'numeric',
-              year: 'numeric',
-            })}
+            weekday: 'long',
+            month: 'long',
+            day: 'numeric',
+            year: 'numeric',
+          })}
       </Text>
       <ScrollView
         ref={scrollViewRef}
@@ -101,7 +101,7 @@ const DateSelector = memo(({ selectedDate, onDateChange }) => {
   );
 });
 
-const TheaterLocations = memo(({ navigation, movieId, selectedDate, cinemas, movieTitle, moviePoster, MovieLanguage ,userLocation}) => {
+const TheaterLocations = memo(({ navigation, movieId, selectedDate, cinemas, movieTitle, moviePoster, MovieLanguage, userLocation }) => {
   const { user } = useContext(UserContext);
   const [expandedTheater, setExpandedTheater] = useState(null);
   const [localCinemas, setLocalCinemas] = useState([]);
@@ -152,9 +152,9 @@ const TheaterLocations = memo(({ navigation, movieId, selectedDate, cinemas, mov
         showTime: show.ShowTime,
         movieTitle,
         movieId,
-      moviePoster,
-      MovieLanguage,
-      fromScreen: 'MovieBookingScreen',
+        moviePoster,
+        MovieLanguage,
+        fromScreen: 'MovieBookingScreen',
       });
     },
     [user, navigation, movieId, selectedDate, movieTitle]
@@ -392,7 +392,10 @@ const MovieBookingScreen = ({ navigation, route }) => {
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
+        <TouchableOpacity
+          onPress={() => navigation.navigate('MovieDetailsScreen', { movieId })}
+          style={styles.backButton}
+        >
           <Ionicons name="arrow-back" size={24} color="red" />
         </TouchableOpacity>
         <Text style={styles.headerTitle} numberOfLines={2} ellipsizeMode="tail">

@@ -11,7 +11,7 @@ import {
   Linking,
   ActivityIndicator,
   Share,
-   // Thêm Share
+  // Thêm Share
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { WebView } from "react-native-webview";
@@ -20,7 +20,7 @@ import Menu from "../../components/Menu";
 import { UserContext } from "../../contexts/User/UserContext";
 
 // Thêm cấu hình Deep Linking
-const APP_SCHEME = "book_movie-tickets-mtp"; 
+const APP_SCHEME = "book_movie-tickets-mtp";
 
 export default function MovieDetailsScreen({ route, navigation }) {
   const { movieId } = route.params;
@@ -33,7 +33,7 @@ export default function MovieDetailsScreen({ route, navigation }) {
   const [showCalendar, setShowCalendar] = useState(false);
   const [showShare, setShowShare] = useState(false);
   const [isExpanded, setIsExpanded] = useState(false);
-  
+
   const [showPlayButton, setShowPlayButton] = useState(true);
 
   const currentDate = new Date();
@@ -44,11 +44,9 @@ export default function MovieDetailsScreen({ route, navigation }) {
     currentDate.getMonth() + 1
   );
 
-  const formattedDate = `${
-    selectedDay < 10 ? "0" + selectedDay : selectedDay
-  }/${
-    selectedMonth < 10 ? "0" + selectedMonth : selectedMonth
-  }/${selectedYear}`;
+  const formattedDate = `${selectedDay < 10 ? "0" + selectedDay : selectedDay
+    }/${selectedMonth < 10 ? "0" + selectedMonth : selectedMonth
+    }/${selectedYear}`;
 
   // Xử lý Deep Link khi ứng dụng được mở
   useEffect(() => {
@@ -173,7 +171,7 @@ export default function MovieDetailsScreen({ route, navigation }) {
     }
   };
 
-  
+
 
   // Hàm chia sẻ liên kết đến phim
   const handleShare = async () => {
@@ -181,10 +179,10 @@ export default function MovieDetailsScreen({ route, navigation }) {
       Alert.alert("Lỗi", "Không thể chia sẻ vì thiếu thông tin phim.");
       return;
     }
-  
+
     const shareLink = `${APP_SCHEME}movie/${movieId}`;
     const shareMessage = `Xem phim "${movie.MovieTitle}" trên ứng dụng của chúng tôi! ${shareLink}`;
-  
+
     try {
       await Share.share({
         message: shareMessage,
@@ -195,7 +193,7 @@ export default function MovieDetailsScreen({ route, navigation }) {
       console.error("Lỗi khi chia sẻ:", error);
       Alert.alert("Lỗi", "Không thể chia sẻ lúc này. Vui lòng thử lại.");
     }
-  
+
     setShowShare(false);
   };
 
@@ -216,11 +214,10 @@ export default function MovieDetailsScreen({ route, navigation }) {
                 <Ionicons name="chevron-back" size={24} color="black" />
               </TouchableOpacity>
               <Text style={styles.modalDate}>
-                {`${selectedDay < 10 ? "0" + selectedDay : selectedDay}/${
-                  currentCalendarMonth < 10
+                {`${selectedDay < 10 ? "0" + selectedDay : selectedDay}/${currentCalendarMonth < 10
                     ? "0" + currentCalendarMonth
                     : currentCalendarMonth
-                }/${selectedYear}`}
+                  }/${selectedYear}`}
               </Text>
               <TouchableOpacity onPress={handleNextMonth}>
                 <Ionicons name="chevron-forward" size={24} color="black" />
@@ -233,9 +230,9 @@ export default function MovieDetailsScreen({ route, navigation }) {
                   style={[
                     styles.calendarDay,
                     i + 1 === selectedDay &&
-                      currentCalendarMonth === selectedMonth && {
-                        backgroundColor: "#cce5ff",
-                      },
+                    currentCalendarMonth === selectedMonth && {
+                      backgroundColor: "#cce5ff",
+                    },
                   ]}
                   onPress={() => handleDayPress(i + 1)}
                 >
@@ -256,35 +253,35 @@ export default function MovieDetailsScreen({ route, navigation }) {
   };
 
   // Sửa renderShareModal để sử dụng Share API
- const renderShareModal = () => {
-  return (
-    <Modal
-      animationType="slide"
-      transparent={true}
-      visible={showShare}
-      onRequestClose={() => setShowShare(false)}
-    >
-      <View style={styles.modalOverlay}>
-        <View style={styles.modalContainer}>
-          <Text style={styles.modalTitle}>Chia sẻ</Text>
-          <TouchableOpacity
-            style={styles.shareButton}
-            onPress={handleShare}
-          >
-            <Ionicons name="share-social" size={24} color="black" />
-            <Text style={styles.shareButtonText}>Chia sẻ phim</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={styles.closeButton}
-            onPress={() => setShowShare(false)}
-          >
-            <Text style={styles.closeButtonText}>Đóng</Text>
-          </TouchableOpacity>
+  const renderShareModal = () => {
+    return (
+      <Modal
+        animationType="slide"
+        transparent={true}
+        visible={showShare}
+        onRequestClose={() => setShowShare(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContainer}>
+            <Text style={styles.modalTitle}>Chia sẻ</Text>
+            <TouchableOpacity
+              style={styles.shareButton}
+              onPress={handleShare}
+            >
+              <Ionicons name="share-social" size={24} color="black" />
+              <Text style={styles.shareButtonText}>Chia sẻ phim</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.closeButton}
+              onPress={() => setShowShare(false)}
+            >
+              <Text style={styles.closeButtonText}>Đóng</Text>
+            </TouchableOpacity>
+          </View>
         </View>
-      </View>
-    </Modal>
-  );
-};
+      </Modal>
+    );
+  };
 
   if (loading) {
     return (
@@ -317,7 +314,10 @@ export default function MovieDetailsScreen({ route, navigation }) {
     <View style={styles.container}>
       <View style={styles.header}>
         <View style={styles.backButton}>
-          <TouchableOpacity onPress={() => navigation.goBack()}>
+          <TouchableOpacity
+            onPress={() => navigation.navigate('Home')}
+            style={styles.backButton}
+          >
             <Ionicons name="arrow-back" size={24} />
           </TouchableOpacity>
           <Text style={styles.backButtonText}>Phim</Text>
@@ -450,7 +450,7 @@ export default function MovieDetailsScreen({ route, navigation }) {
             >
               <Text style={styles.infoLabel1}>Tin mới & Ưu đãi</Text>
             </TouchableOpacity>
-            <TouchableOpacity ><TouchableOpacity  style={styles.allButton} onPress={() => navigation.navigate("TinMoiUuDaiTatCa")}>
+            <TouchableOpacity ><TouchableOpacity style={styles.allButton} onPress={() => navigation.navigate("TinMoiUuDaiTatCa")}>
               <Text style={styles.allButtonText} >Tất Cả</Text>
             </TouchableOpacity>
             </TouchableOpacity>
@@ -462,7 +462,7 @@ export default function MovieDetailsScreen({ route, navigation }) {
           >
             {newsData.map((item) => (
               <View key={item.id} style={styles.offerCard}>
-                <TouchableOpacity  onPress={handleImagePress}>
+                <TouchableOpacity onPress={handleImagePress}>
                   <Image
                     source={{ uri: item.image }}
                     style={styles.offerImage}
