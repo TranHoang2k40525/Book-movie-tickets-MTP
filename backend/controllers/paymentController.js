@@ -2,6 +2,7 @@ const sql = require("mssql");
 const { dbConfig } = require("../config/db");
 const QRCode = require("qrcode");
 const nodemailer = require("nodemailer");
+const { generateHmac } = require('../utils/hmac');
 require('dotenv').config();
 
 const transporter = nodemailer.createTransport({
@@ -119,6 +120,20 @@ const confirmPayment = async (req, res) => {
     const validatedPaymentMethod = validatePaymentMethod(paymentMethod);
 
     const request = transaction.request();
+
+    // Khóa booking để tránh race condition
+    const bookingStatusResult = await request
+      .input("bookingId", sql.Int, bookingId)
+      .query(
+        `SELECT Status FROM Booking WITH (UPDLOCK, HOLDLOCK) WHERE BookingID = @bookingId`
+      );
+
+    const bookingStatus = bookingStatusResult.recordset[0]?.Status;
+    if (bookingStatus !== 'Pending') {
+      await transaction.rollback();
+      return res.status(400).json({ success: false, message: "Vé đã được thanh toán hoặc không hợp lệ." });
+    }
+
     request.input("bookingId", sql.Int, bookingId);
     request.input("customerId", sql.Int, customerId);
     const bookingCheck = await request.query(
@@ -323,9 +338,17 @@ const processPayment = async (req, res) => {
     voucherId, 
     paymentMethod, 
     termsAccepted,
-    countdown 
+    countdown,
+    hmac // <-- client gửi lên
   } = req.body;
   const customerId = req.user?.customerID;
+
+  // Kiểm tra HMAC
+  const dataForHmac = { bookingId, selectedProducts: JSON.stringify(selectedProducts), voucherId, paymentMethod, termsAccepted, countdown, customerId };
+  const serverHmac = generateHmac(dataForHmac);
+  if (!hmac || hmac !== serverHmac) {
+    return res.status(400).json({ success: false, message: "Dữ liệu thanh toán không hợp lệ (HMAC sai)" });
+  }
 
   let pool;
   let transaction;
@@ -343,10 +366,8 @@ const processPayment = async (req, res) => {
 
     console.log("Khởi tạo transaction...");
     transaction = new sql.Transaction(pool);
-    await transaction.begin(sql.ISOLATION_LEVEL_SERIALIZABLE);
-    console.log("Đã bắt đầu transaction với isolation level SERIALIZABLE");
-
-    const validatedPaymentMethod = validatePaymentMethod(paymentMethod);
+    await transaction.begin(sql.ISOLATION_LEVEL.SERIALIZABLE);
+    console.log("Đã bắt đầu transaction");
 
     const request = transaction.request();
     request.input("bookingId", sql.Int, bookingId);
@@ -696,7 +717,7 @@ const generateQRCode = async (req, res) => {
 
     console.log("Kiểm tra booking...");
     const bookingCheck = await request.query(
-      `SELECT Status, TotalSeats FROM Booking WITH (UPDLOCK)
+      `SELECT Status, TotalSeats FROM Booking WITH (UPDLOCK, HOLDLOCK)
        WHERE BookingID = @bookingId AND CustomerID = @customerId`
     );
     console.log("Kết quả kiểm tra booking:", bookingCheck.recordset);
