@@ -99,6 +99,8 @@ const getMoviesAndShowtimesByCinema = async (req, res) => {
           m.MovieID, 
           m.MovieTitle, 
           m.MovieAge, 
+          m.ImageUrl, 
+          m.MovieGenre, 
           s.ShowID, 
           s.ShowDate, 
           s.ShowTime,
@@ -123,6 +125,8 @@ const getMoviesAndShowtimesByCinema = async (req, res) => {
           movieId: row.MovieID,
           title: row.MovieTitle,
           ageRating: row.MovieAge || "T16",
+          imageUrl: row.Image ? (Buffer.isBuffer(row.ImageUrl) ? `data:image/jpeg;base64,${row.ImageUrl.toString("base64")}` : `/assets/images/${row.ImageUrl}`) : null,
+          genre: row.MovieGenre || '',
           showtimes: [],
         });
       }
@@ -166,6 +170,9 @@ const getMovieById = async (req, res) => {
     const movie = result.recordset[0];
     if (movie.ImageUrl && Buffer.isBuffer(movie.ImageUrl)) {
       movie.ImageUrl = movie.ImageUrl.toString("base64");
+      
+    } else if (movie.ImageUrl && !movie.ImageUrl.startsWith('data:image')) {
+      movie.ImageUrl = `/assets/images/${movie.ImageUrl}`;
     }
 
     if (movie.MovieTrailer) {
@@ -181,6 +188,168 @@ const getMovieById = async (req, res) => {
   }
 };
 
+const addMovie = async (req, res) => {
+  try {
+    if (req.user.AccountType !== 'ADMIN') {
+      return res.status(403).json({ message: 'Chỉ admin mới có quyền thêm phim!' });
+    }
+
+    const {
+      MovieTitle,
+      MovieDescription,
+      MovieLanguage,
+      MovieGenre,
+      MovieReleaseDate,
+      MovieRuntime,
+      ImageUrl,
+      MovieActor,
+      MovieDirector,
+      MovieAge,
+      MovieTrailer
+    } = req.body;
+
+    const pool = await sql.connect(dbConfig);
+    const result = await pool.request()
+      .input('MovieTitle', sql.NVarChar, MovieTitle)
+      .input('MovieDescription', sql.NVarChar, MovieDescription)
+      .input('MovieLanguage', sql.NVarChar, MovieLanguage)
+      .input('MovieGenre', sql.NVarChar, MovieGenre)
+      .input('MovieReleaseDate', sql.Date, MovieReleaseDate)
+      .input('MovieRuntime', sql.Int, MovieRuntime)
+      .input('ImageUrl', sql.NVarChar, ImageUrl)
+      .input('MovieActor', sql.NVarChar, MovieActor)
+      .input('MovieDirector', sql.NVarChar, MovieDirector)
+      .input('MovieAge', sql.NVarChar, MovieAge)
+      .input('MovieTrailer', sql.NVarChar, MovieTrailer)
+      .query(`
+        INSERT INTO Movie (
+          MovieTitle, MovieDescription, MovieLanguage, MovieGenre,
+          MovieReleaseDate, MovieRuntime, ImageUrl, MovieActor,
+          MovieDirector, MovieAge, MovieTrailer
+        )
+        VALUES (
+          @MovieTitle, @MovieDescription, @MovieLanguage, @MovieGenre,
+          @MovieReleaseDate, @MovieRuntime, @ImageUrl, @MovieActor,
+          @MovieDirector, @MovieAge, @MovieTrailer
+        );
+        SELECT SCOPE_IDENTITY() as MovieID;
+      `);
+
+    const movieId = result.recordset[0].MovieID;
+    res.status(201).json({
+      message: 'Thêm phim mới thành công!',
+      movieId: movieId
+    });
+  } catch (err) {
+    console.error('Lỗi khi thêm phim:', err);
+    res.status(500).json({ message: 'Lỗi server!', error: err.message });
+  }
+};
+
+const updateMovie = async (req, res) => {
+  try {
+    if (req.user.AccountType !== 'ADMIN') {
+      return res.status(403).json({ message: 'Chỉ admin mới có quyền sửa phim!' });
+    }
+
+    const { id } = req.params;
+    const {
+      MovieTitle,
+      MovieDescription,
+      MovieLanguage,
+      MovieGenre,
+      MovieReleaseDate,
+      MovieRuntime,
+      ImageUrl,
+      MovieActor,
+      MovieDirector,
+      MovieAge,
+      MovieTrailer
+    } = req.body;
+
+    const pool = await sql.connect(dbConfig);
+    const result = await pool.request()
+      .input('MovieID', sql.Int, id)
+      .input('MovieTitle', sql.NVarChar, MovieTitle)
+      .input('MovieDescription', sql.NVarChar, MovieDescription)
+      .input('MovieLanguage', sql.NVarChar, MovieLanguage)
+      .input('MovieGenre', sql.NVarChar, MovieGenre)
+      .input('MovieReleaseDate', sql.Date, MovieReleaseDate)
+      .input('MovieRuntime', sql.Int, MovieRuntime)
+      .input('ImageUrl', sql.NVarChar, ImageUrl)
+      .input('MovieActor', sql.NVarChar, MovieActor)
+      .input('MovieDirector', sql.NVarChar, MovieDirector)
+      .input('MovieAge', sql.NVarChar, MovieAge)
+      .input('MovieTrailer', sql.NVarChar, MovieTrailer)
+      .query(`
+        UPDATE Movie
+        SET MovieTitle = @MovieTitle,
+            MovieDescription = @MovieDescription,
+            MovieLanguage = @MovieLanguage,
+            MovieGenre = @MovieGenre,
+            MovieReleaseDate = @MovieReleaseDate,
+            MovieRuntime = @MovieRuntime,
+            ImageUrl = @ImageUrl,
+            MovieActor = @MovieActor,
+            MovieDirector = @MovieDirector,
+            MovieAge = @MovieAge,
+            MovieTrailer = @MovieTrailer
+        WHERE MovieID = @MovieID;
+        
+        SELECT * FROM Movie WHERE MovieID = @MovieID;
+      `);
+
+    if (result.recordset.length === 0) {
+      return res.status(404).json({ message: 'Không tìm thấy phim!' });
+    }
+
+    res.json({
+      message: 'Cập nhật phim thành công!',
+      movie: result.recordset[0]
+    });
+  } catch (err) {
+    console.error('Lỗi khi cập nhật phim:', err);
+    res.status(500).json({ message: 'Lỗi server!', error: err.message });
+  }
+};
+
+const deleteMovie = async (req, res) => {
+  try {
+    if (req.user.AccountType !== 'ADMIN') {
+      return res.status(403).json({ message: 'Chỉ admin mới có quyền xóa phim!' });
+    }
+
+    const { id } = req.params;
+    const pool = await sql.connect(dbConfig);
+
+    // Kiểm tra xem phim có suất chiếu nào không
+    const showCheck = await pool.request()
+      .input('MovieID', sql.Int, id)
+      .query('SELECT COUNT(*) as ShowCount FROM Show WHERE MovieID = @MovieID');
+
+    if (showCheck.recordset[0].ShowCount > 0) {
+      return res.status(400).json({
+        message: 'Không thể xóa phim này vì đã có suất chiếu được tạo!'
+      });
+    }
+
+    const result = await pool.request()
+      .input('MovieID', sql.Int, id)
+      .query('DELETE FROM Movie WHERE MovieID = @MovieID');
+
+    if (result.rowsAffected[0] === 0) {
+      return res.status(404).json({ message: 'Không tìm thấy phim!' });
+    }
+
+    res.json({ message: 'Xóa phim thành công!' });
+  } catch (err) {
+    console.error('Lỗi khi xóa phim:', err);
+    res.status(500).json({ message: 'Lỗi server!', error: err.message });
+  }
+};
+
+
+// Các hàm khác giữ nguyên
 const getMoviesShowingToday = async (req, res) => {
   try {
     const pool = await sql.connect(dbConfig);
@@ -209,7 +378,9 @@ const getMoviesShowingToday = async (req, res) => {
 
     const movies = result.recordset.map((movie) => {
       if (movie.ImageUrl && Buffer.isBuffer(movie.ImageUrl)) {
-        movie.ImageUrl = movie.ImageUrl.toString("base64");
+        movie.ImageUrl = `data:image/jpeg;base64,${movie.ImageUrl.toString("base64")}`;
+      } else if (movie.ImageUrl && !movie.ImageUrl.startsWith('data:image')) {
+        movie.ImageUrl = `/assets/images/${movie.ImageUrl}`;
       }
       return movie;
     });
@@ -356,9 +527,8 @@ const getShowtimesByCinemaAndDate = async (req, res) => {
 
     const currentTime = new Date();
     const selectedDate = new Date(formattedDate);
-    const currentDate = new Date(currentTime.toISOString().split("T")[0]); // Ngày hiện tại, bỏ thời gian
+    const currentDate = new Date(currentTime.toISOString().split("T")[0]);
 
-    // Kiểm tra nếu ngày được chọn là ngày trong quá khứ
     const isPastDate = selectedDate < currentDate;
     const areSameDay =
       selectedDate.getFullYear() === currentTime.getFullYear() &&
@@ -373,12 +543,9 @@ const getShowtimesByCinemaAndDate = async (req, res) => {
       const showTimeStr = `${hours}:${minutes}:${seconds}`;
 
       let isPassed = false;
-      // Nếu ngày đã qua, tất cả giờ chiếu đều được đánh dấu là đã qua
       if (isPastDate) {
         isPassed = true;
-      }
-      // Nếu là ngày hiện tại, kiểm tra giờ chiếu
-      else if (areSameDay) {
+      } else if (areSameDay) {
         const [hoursNum, minutesNum] = showTimeStr.split(":").map(Number);
         const showDateTime = new Date();
         showDateTime.setHours(hoursNum, minutesNum, 0, 0);
@@ -407,4 +574,7 @@ module.exports = {
   getShowtimesByCinemaAndDate,
   getMoviesShowingToday,
   getMoviesAndShowtimesByCinema,
+  addMovie,
+  updateMovie,
+  deleteMovie,
 };

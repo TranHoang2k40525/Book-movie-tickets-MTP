@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Quản lý toàn bộ phim - Hệ Thống Quản Lý Đặt Vé Xem Phim</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+    <header>
+        <div class="container header-container">
+            <div class="logo">
+                <i class="fas fa-film"></i>
+                <h1>MTB 67CS1</h1>
+            </div>
+            <div class="user-panel">
+                <div class="user-info">
+                    <span>Xin chào, Admin</span>
+                </div>
+                <button class="btn btn-primary" onclick="logout()">
+                    <i class="fas fa-sign-out-alt"></i> Đăng xuất
+                </button>
+            </div>
+        </div>
+    </header>
+    <nav>
+        <div class="container">
+            <ul class="nav-list">
+                <li><a href="main.html"><i class="fas fa-home"></i> Trang chủ</a></li>
+                <li><a href="movies.html"><i class="fas fa-film"></i> Quản lý phim theo rạp</a></li>
+                <li><a href="all-movies.html" class="active"><i class="fas fa-film"></i> Quản lý toàn bộ phim</a></li>
+                <li><a href="statistics.html"><i class="fas fa-chart-bar"></i> Thống kê</a></li>
+            </ul>
+        </div>
+    </nav>
+    <section class="movie-management">
+        <div class="container">
+            <h2 class="dashboard-title">Quản lý toàn bộ phim</h2>
+            
+            <!-- Nút thêm phim mới -->
+            <div class="action-buttons">
+                <button id="addMovieBtn" class="btn btn-primary">
+                    <i class="fas fa-plus"></i> Thêm phim mới
+                </button>
+            </div>
+
+            <!-- Form thêm/sửa phim -->
+            <div id="movieFormModal" class="modal">
+                <div class="modal-content">
+                    <span class="close">&times;</span>
+                    <h3 id="modalTitle">Thêm phim mới</h3>
+                    <form id="movieForm">
+                        <input type="hidden" id="movieId">
+                        <div class="form-group">
+                            <label for="title">Tên phim:</label>
+                            <input type="text" id="title" name="title" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="description">Mô tả:</label>
+                            <textarea id="description" name="description" required></textarea>
+                        </div>
+                        <div class="form-group">
+                            <label for="language">Ngôn ngữ:</label>
+                            <input type="text" id="language" name="language" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="genre">Thể loại:</label>
+                            <input type="text" id="genre" name="genre" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="releaseDate">Ngày khởi chiếu:</label>
+                            <input type="date" id="releaseDate" name="releaseDate" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="runtime">Thời lượng (phút):</label>
+                            <input type="number" id="runtime" name="runtime" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="imageUrl">URL Ảnh:</label>
+                            <input type="text" id="imageUrl" name="imageUrl" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="actor">Diễn viên:</label>
+                            <input type="text" id="actor" name="actor" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="director">Đạo diễn:</label>
+                            <input type="text" id="director" name="director" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="age">Giới hạn tuổi:</label>
+                            <input type="text" id="age" name="age" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="trailer">URL Trailer:</label>
+                            <input type="text" id="trailer" name="trailer">
+                        </div>
+                        <div class="form-buttons">
+                            <button type="submit" class="btn btn-primary">Lưu</button>
+                            <button type="button" class="btn btn-secondary" onclick="closeModal()">Hủy</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+
+            <!-- Danh sách phim -->
+            <div class="movie-list">
+                <div id="loading" style="text-align: center; display: none;">
+                    <i class="fas fa-spinner fa-spin"></i> Đang tải...
+                </div>
+                <div id="error" style="color: red; text-align: center; display: none;"></div>
+                <div id="movieList" class="movie-grid"></div>
+            </div>
+        </div>
+    </section>
+
+    <script type="module" src="js/api.js"></script>
+    <script type="module" src="js/all-movies.js"></script>
+    <script>
+        function logout() {
+            localStorage.removeItem('token');
+            window.location.href = 'index.html';
+        }
+    </script>
+</body>
+</html>

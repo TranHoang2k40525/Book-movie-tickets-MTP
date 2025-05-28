@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Đăng ký - Hệ Thống Quản Lý Đặt Vé Xem Phim</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+    <header>
+        <div class="container header-container">
+            <div class="logo">
+                <i class="fas fa-film"></i>
+                <h1>MTB 67CS1</h1>
+            </div>
+        </div>
+    </header>
+    <section>
+        <div class="container">
+            <h2 class="dashboard-title">Đăng ký (ADMIN)</h2>
+            <form id="registerForm">
+                <div class="form-group">
+                    <label class="form-label" for="email">Email</label>
+                    <input type="email" class="form-control" id="email" required>
+                </div>
+                <div class="form-group">
+                    <label class="form-label" for="password">Mật khẩu</label>
+                    <input type="password" class="form-control" id="password" required>
+                </div>
+                <button type="submit" class="btn btn-primary">Đăng ký</button>
+            </form>
+            <p>Đã có tài khoản? <a href="index.html">Đăng nhập</a></p>
+        </div>
+    </section>
+    <script type="module" src="js/api.js"></script>
+    <script type="module" src="js/auth.js"></script>
+</body>
+</html>

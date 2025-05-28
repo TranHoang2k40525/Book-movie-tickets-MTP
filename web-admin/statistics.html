@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Thống kê - Hệ Thống Quản Lý Đặt Vé Xem Phim</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+    <header>
+        <div class="container header-container">
+            <div class="logo">
+                <i class="fas fa-film"></i>
+                <h1>MTB 67CS1</h1>
+            </div>
+            <div class="user-panel">
+                <div class="user-info">
+                    <span>Xin chào, Admin</span>
+                </div>
+                <button class="btn btn-primary" onclick="logout()">
+                    <i class="fas fa-sign-out-alt"></i> Đăng xuất
+                </button>
+            </div>
+        </div>
+    </header>
+    <nav>
+        <div class="container">
+            <ul class="nav-list">
+                <li><a href="main.html"><i class="fas fa-home"></i> Trang chủ</a></li>
+                <li><a href="movies.html"><i class="fas fa-film"></i> Quản lý phim theo rạp</a></li>
+                <li><a href="all-movies.html"><i class="fas fa-film"></i> Quản lý toàn bộ phim</a></li>
+                <li><a href="statistics.html" class="active"><i class="fas fa-chart-bar"></i> Thống kê</a></li>
+            </ul>
+        </div>
+    </nav>
+    <section class="statistics">
+        <div class="container">
+            <h2 class="dashboard-title">Thống kê chi tiết</h2>
+
+            <!-- Bộ lọc thời gian -->
+            <div class="filter-section">
+                <div class="date-range">
+                    <label for="startDate">Từ ngày:</label>
+                    <input type="date" id="startDate">
+                    <label for="endDate">Đến ngày:</label>
+                    <input type="date" id="endDate">
+                    <button id="applyFilter" class="btn btn-primary">Áp dụng</button>
+                </div>
+            </div>
+
+            <!-- Thống kê tổng quan -->
+            <div class="stats-overview">
+                <div class="stats-row">
+                    <div class="stats-card">
+                        <i class="fas fa-money-bill-wave"></i>
+                        <div class="stats-info">
+                            <h3>Tổng doanh thu</h3>
+                            <p id="totalRevenue">0 VNĐ</p>
+                        </div>
+                    </div>
+                    <div class="stats-card">
+                        <i class="fas fa-ticket-alt"></i>
+                        <div class="stats-info">
+                            <h3>Tổng vé bán</h3>
+                            <p id="totalTickets">0</p>
+                        </div>
+                    </div>
+                    <div class="stats-card">
+                        <i class="fas fa-user-friends"></i>
+                        <div class="stats-info">
+                            <h3>Khách hàng mới</h3>
+                            <p id="newCustomers">0</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Biểu đồ -->
+            <div class="charts-section">
+                <div class="chart-container">
+                    <h3>Doanh thu theo ngày</h3>
+                    <canvas id="revenueChart"></canvas>
+                </div>
+                <div class="chart-container">
+                    <h3>Số vé bán theo ngày</h3>
+                    <canvas id="ticketChart"></canvas>
+                </div>
+            </div>
+
+            <!-- Bảng thống kê chi tiết -->
+            <div class="table-section">
+                <h3>Chi tiết doanh thu theo rạp</h3>
+                <div class="table-container">
+                    <table id="revenueTable">
+                        <thead>
+                            <tr>
+                                <th>Rạp</th>
+                                <th>Tổng vé</th>
+                                <th>Doanh thu vé</th>
+                                <th>Doanh thu combo</th>
+                                <th>Tổng doanh thu</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <!-- Dữ liệu sẽ được thêm bởi JavaScript -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Thư viện Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script type="module" src="js/api.js"></script>
+    <script type="module" src="js/statistics.js"></script>
+    <script>
+        function logout() {
+            localStorage.removeItem('token');
+            window.location.href = 'index.html';
+        }
+    </script>
+</body>
+</html>

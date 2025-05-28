@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chọn sản phẩm - Hệ Thống Đặt Vé Xem Phim</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+    <header>
+        <div class="container header-container">
+            <div class="logo">
+                <i class="fas fa-film"></i>
+                <h1>MTB 67CS1</h1>
+            </div>
+            <div class="user-panel">
+                <span>Xin chào, Admin</span>
+                <button class="btn btn-primary" onclick="logout()">
+                    <i class="fas fa-sign-out-alt"></i> Đăng xuất
+                </button>
+            </div>
+        </div>
+    </header>
+    <nav>
+        <div class="container">
+            <ul class="nav-list">
+                <li><a href="main.html"><i class="fas fa-home"></i> Trang chủ</a></li>
+                <li><a href="movies.html"><i class="fas fa-film"></i> Quản lý phim</a></li>
+            </ul>
+        </div>
+    </nav>
+    <section class="select-products">
+        <div class="container">
+            <h2 class="dashboard-title">Chọn sản phẩm</h2>
+            <div class="content-section">
+                <div id="countdown" style="text-align: center; color: red;"></div>
+                <div class="product-grid" id="productList"></div>
+                <div class="button-group">
+                    <button class="btn btn-secondary" id="backToSeats">Quay lại chọn ghế</button>
+                    <button class="btn btn-primary" id="proceedToPayment">Tiếp tục thanh toán</button>
+                </div>
+                <div id="loading" style="text-align: center;">Đang tải...</div>
+                <div id="error" style="color: red; display: none;"></div>
+            </div>
+        </div>
+    </section>
+    <script type="module" src="js/api.js"></script>
+    <script type="module" src="js/select-products.js"></script>
+    <script>
+        function logout() {
+            localStorage.removeItem('token');
+            window.location.href = 'index.html';
+        }
+    </script>
+</body>
+</html>

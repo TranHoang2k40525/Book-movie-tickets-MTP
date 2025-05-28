@@ -2,8 +2,8 @@ import axios from "axios";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import jwtDecode from "jwt-decode"; // Sửa import jwt-decode
 
-const BASE_URL = "http://192.168.1.102:3000/api";
-const WS_URL = "ws://192.168.1.102:3000"; // Địa chỉ WebSocket
+const BASE_URL = "http://192.168.1.103:3000/api";
+const WS_URL = "ws://192.168.1.103:3000"; // Địa chỉ WebSocket
 
 const api = axios.create({
   baseURL: BASE_URL,

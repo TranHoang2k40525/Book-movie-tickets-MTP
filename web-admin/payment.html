@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Thanh toán - Hệ Thống Đặt Vé Xem Phim</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <header>
+        <div class="container header-container">
+            <div class="logo">
+                <i class="fas fa-film"></i>
+                <h1>MTB 67CS1</h1>
+            </div>
+            <div class="user-panel">
+                <span>Xin chào, <span id="username">Admin</span></span>
+                <button class="btn btn-primary" onclick="logout()">
+                    <i class="fas fa-sign-out-alt"></i> Đăng xuất
+                </button>
+            </div>
+        </div>
+    </header>
+    <nav>
+        <div class="container">
+            <ul class="nav-list">
+                <li><a href="main.html"><i class="fas fa-home"></i> Trang chủ</a></li>
+                <li><a href="movies.html"><i class="fas fa-film"></i> Quản lý phim</a></li>
+            </ul>
+        </div>
+    </nav>
+    <section class="payment">
+        <div class="container">
+            <h2 class="dashboard-title">Thanh toán</h2>
+            <div class="content-section">
+                <div id="countdown" style="text-align: center; color: red;"></div>
+                <div id="paymentDetails" class="payment-details"></div>
+                <div id="paymentForm" class="payment-form">
+                    <h3>Chọn phương thức thanh toán</h3>
+                    <select id="paymentMethod">
+                        <option value="Online">Momo</option>
+                        <option value="Card">Thẻ ngân hàng</option>
+                        <option value="Cash">Tiền mặt</option>
+                    </select>
+                    <label><input type="checkbox" id="termsAccepted"> Tôi đồng ý với các điều khoản</label>
+                    <button class="btn btn-primary" id="confirmPayment">Xác nhận thanh toán</button>
+                    <button class="btn btn-secondary" id="backToProducts">Quay lại</button>
+                </div>
+                <div id="qrCodeSection" style="display: none; text-align: center;">
+                    <h3>Quét mã QR để thanh toán</h3>
+                    <img id="qrCode" src="" alt="QR Code">
+                    <p>Thông tin chuyển khoản:</p>
+                    <div id="transactionInfo"></div>
+                    <button class="btn btn-primary" id="simulatePayment">Giả lập thanh toán thành công</button>
+                    <button class="btn btn-secondary" id="cancelPayment">Hủy thanh toán</button>
+                </div>
+                <div id="successSection" style="display: none; text-align: center;">
+                    <h3>Thanh toán thành công!</h3>
+                    <button class="btn btn-primary" id="printInvoice">In hóa đơn (PDF)</button>
+                    <button class="btn btn-secondary" id="backToSeats">Quay lại</button>
+                </div>
+                <div id="loading" style="text-align: center;">Đang tải...</div>
+                <div id="error" style="color: red; display: none;"></div>
+            </div>
+        </div>
+    </section>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+    <script type="module" src="js/api.js"></script>
+    <script type="module" src="js/payment.js"></script>
+    <script>
+        function logout() {
+            localStorage.removeItem('token');
+            window.location.href = 'index.html';
+        }
+    </script>
+</body>
+</html>

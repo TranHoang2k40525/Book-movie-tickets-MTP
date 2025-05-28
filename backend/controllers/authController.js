@@ -7,7 +7,8 @@ const { verifyRefreshToken, generateToken, generateRefreshToken } = require("../
 const login = async (req, res) => {
   const { email, password } = req.body;
 
-  console.log("Email nhận được:", email); // Thêm log để kiểm tra
+  console.log("Email nhận được:", email);
+  console.log("Mật khẩu nhận được:", password);
 
   if (!email || !password) {
     return res.status(400).json({ message: "Vui lòng cung cấp email và mật khẩu!" });
@@ -24,7 +25,7 @@ const login = async (req, res) => {
       .input("email", sql.VarChar, email)
       .query("SELECT * FROM Account WHERE AccountName = @email");
 
-    console.log("Kết quả truy vấn:", accountResult.recordset); // Thêm log để kiểm tra
+    console.log("Kết quả truy vấn:", accountResult.recordset);
 
     if (accountResult.recordset.length === 0) {
       return res.status(404).json({ message: "Tài khoản không tồn tại!" });
@@ -32,10 +33,31 @@ const login = async (req, res) => {
 
     const account = accountResult.recordset[0];
     const isPasswordMatch = await bcrypt.compare(password, account.AccountPassword);
+    
     if (!isPasswordMatch) {
       return res.status(401).json({ message: "Mật khẩu không đúng!" });
     }
 
+    // Nếu là tài khoản admin
+    if (account.AccountType === "ADMIN") {
+      const userData = {
+        AccountID: account.AccountID,
+        AccountName: account.AccountName,
+        AccountType: account.AccountType
+      };
+
+      const accessToken = generateToken(userData);
+      const refreshToken = generateRefreshToken(userData);
+
+      return res.json({
+        message: "Đăng nhập thành công!",
+        user: userData,
+        accessToken,
+        refreshToken,
+      });
+    }
+
+    // Nếu là tài khoản khách hàng
     const customerResult = await pool
       .request()
       .input("accountID", sql.Int, account.AccountID)
@@ -60,8 +82,8 @@ const login = async (req, res) => {
       AvatarUrl: customer.AvatarUrl,
     };
 
-      const accessToken = generateToken(userData);
-      const refreshToken = generateRefreshToken(userData);
+    const accessToken = generateToken(userData);
+    const refreshToken = generateRefreshToken(userData);
 
     res.json({
       message: "Đăng nhập thành công!",
@@ -77,14 +99,22 @@ const login = async (req, res) => {
 
 // Đăng ký
 const register = async (req, res) => {
-  const { customerName, customerEmail, customerPhone, password, customerGender, customerDate, customerAddress } = req.body;
+  const { customerName, customerEmail, customerPhone, password, customerGender, customerDate, customerAddress, isAdmin } = req.body;
 
-  if (!customerName || !customerEmail || !customerPhone || !password) {
-    return res.status(400).json({ message: "Vui lòng cung cấp đầy đủ thông tin bắt buộc!" });
+  console.log("Dữ liệu đăng ký nhận được:", req.body);
+
+  // Kiểm tra thông tin bắt buộc
+  if (!customerEmail || !password) {
+    return res.status(400).json({ message: "Vui lòng cung cấp email và mật khẩu!" });
   }
 
   if (!isValidEmail(customerEmail)) {
     return res.status(400).json({ message: "Email không hợp lệ!" });
+  }
+
+  // Nếu là tài khoản thường thì yêu cầu thêm thông tin
+  if (!isAdmin && (!customerName || !customerPhone)) {
+    return res.status(400).json({ message: "Vui lòng cung cấp đầy đủ thông tin bắt buộc!" });
   }
 
   let pool;
@@ -96,6 +126,7 @@ const register = async (req, res) => {
 
     await transaction.begin();
 
+    // Kiểm tra email trong Account
     const checkEmail = await transaction
       .request()
       .input("email", sql.VarChar, customerEmail)
@@ -104,46 +135,57 @@ const register = async (req, res) => {
       throw new Error("Email đã được sử dụng!");
     }
 
-    const checkPhone = await transaction
-      .request()
-      .input("phone", sql.VarChar, customerPhone)
-      .query("SELECT * FROM Account WHERE AccountName = @phone");
-    if (checkPhone.recordset.length > 0) {
-      throw new Error("Số điện thoại đã được sử dụng!");
+    // Nếu là tài khoản thường thì kiểm tra số điện thoại
+    if (!isAdmin) {
+      const checkPhone = await transaction
+        .request()
+        .input("phone", sql.VarChar, customerPhone)
+        .query("SELECT * FROM Customer WHERE CustomerPhone = @phone");
+      if (checkPhone.recordset.length > 0) {
+        throw new Error("Số điện thoại đã được sử dụng!");
+      }
     }
+
+    console.log("Bắt đầu tạo tài khoản...");
     const hashedPassword = await bcrypt.hash(password, SALT_ROUNDS);
     const accountResult = await transaction
       .request()
       .input("AccountName", sql.VarChar, customerEmail)
       .input("AccountPassword", sql.VarChar, hashedPassword)
-      .input("AccountType", sql.VarChar, "Customer")
+      .input("AccountType", sql.VarChar, isAdmin ? "ADMIN" : "Customer")
       .query(
         "INSERT INTO Account (AccountName, AccountPassword, AccountType) OUTPUT INSERTED.AccountID VALUES (@AccountName, @AccountPassword, @AccountType)"
       );
 
     const accountId = accountResult.recordset[0].AccountID;
+    console.log("Đã tạo tài khoản với ID:", accountId);
 
-    const maxIdResult = await transaction
-      .request()
-      .query("SELECT MAX(CustomerID) AS MaxID FROM Customer WITH (UPDLOCK, HOLDLOCK)");
-    const maxId = maxIdResult.recordset[0].MaxID || 0;
-    const customerId = maxId + 1;
+    // Nếu là tài khoản thường thì tạo thông tin khách hàng
+    if (!isAdmin) {
+      const maxIdResult = await transaction
+        .request()
+        .query("SELECT MAX(CustomerID) AS MaxID FROM Customer WITH (UPDLOCK, HOLDLOCK)");
+      const maxId = maxIdResult.recordset[0].MaxID || 0;
+      const customerId = maxId + 1;
 
-    await transaction
-      .request()
-      .input("CustomerID", sql.Int, customerId)
-      .input("CustomerName", sql.NVarChar, customerName)
-      .input("CustomerEmail", sql.VarChar, customerEmail)
-      .input("CustomerPhone", sql.VarChar, customerPhone)
-      .input("AccountID", sql.Int, accountId)
-      .input("CustomerGender", sql.VarChar, customerGender || null)
-      .input("CustomerDate", sql.Date, customerDate || null)
-      .input("CustomerAddress", sql.NVarChar, customerAddress || null)
-      .query(
-        "INSERT INTO Customer (CustomerID, CustomerName, CustomerEmail, CustomerPhone, AccountID, CustomerGender, CustomerDate, CustomerAddress) VALUES (@CustomerID, @CustomerName, @CustomerEmail, @CustomerPhone, @AccountID, @CustomerGender, @CustomerDate, @CustomerAddress)"
-      );
+      console.log("Bắt đầu tạo thông tin khách hàng...");
+      await transaction
+        .request()
+        .input("CustomerID", sql.Int, customerId)
+        .input("CustomerName", sql.NVarChar, customerName)
+        .input("CustomerEmail", sql.VarChar, customerEmail)
+        .input("CustomerPhone", sql.VarChar, customerPhone)
+        .input("AccountID", sql.Int, accountId)
+        .input("CustomerGender", sql.VarChar, customerGender || null)
+        .input("CustomerDate", sql.Date, customerDate || null)
+        .input("CustomerAddress", sql.NVarChar, customerAddress || null)
+        .query(
+          "INSERT INTO Customer (CustomerID, CustomerName, CustomerEmail, CustomerPhone, AccountID, CustomerGender, CustomerDate, CustomerAddress) VALUES (@CustomerID, @CustomerName, @CustomerEmail, @CustomerPhone, @AccountID, @CustomerGender, @CustomerDate, @CustomerAddress)"
+        );
+    }
 
     await transaction.commit();
+    console.log("Đăng ký thành công!");
 
     res.json({ message: "Đăng ký thành công!" });
   } catch (err) {

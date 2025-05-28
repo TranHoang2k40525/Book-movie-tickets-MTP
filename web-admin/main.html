@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Trang chủ Admin - Hệ Thống Quản Lý Đặt Vé Xem Phim</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/chart.js@3.7.0/dist/chart.min.css">
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+    <header>
+        <div class="container header-container">
+            <div class="logo">
+                <i class="fas fa-film"></i>
+                <h1>MTB 67CS1</h1>
+            </div>
+            <div class="user-panel">
+                <div class="user-info">
+                    <span>Xin chào, Admin</span>
+                </div>
+                <button class="btn btn-primary" onclick="logout()">
+                    <i class="fas fa-sign-out-alt"></i> Đăng xuất
+                </button>
+            </div>
+        </div>
+    </header>
+    <nav>
+        <div class="container">
+            <ul class="nav-list">
+                <li><a href="main.html" class="active"><i class="fas fa-home"></i> Trang chủ</a></li>
+                <li><a href="movies.html"><i class="fas fa-film"></i> Quản lý phim theo rạp</a></li>
+                <li><a href="all-movies.html"><i class="fas fa-film"></i> Quản lý toàn bộ phim</a></li>
+                <li><a href="statistics.html"><i class="fas fa-chart-bar"></i> Thống kê</a></li>
+            </ul>
+        </div>
+    </nav>
+    <section class="dashboard">
+        <div class="container">
+            <h2 class="dashboard-title">Tổng quan hệ thống</h2>
+            
+            <!-- Thống kê tổng quan -->
+            <div class="stats-grid">
+                <div class="stats-card">
+                    <i class="fas fa-building"></i>
+                    <div class="stats-info">
+                        <h3>Tổng số rạp</h3>
+                        <p id="totalCinemas">0</p>
+                    </div>
+                </div>
+                <div class="stats-card">
+                    <i class="fas fa-film"></i>
+                    <div class="stats-info">
+                        <h3>Tổng số phim</h3>
+                        <p id="totalMovies">0</p>
+                    </div>
+                </div>
+                <div class="stats-card">
+                    <i class="fas fa-money-bill-wave"></i>
+                    <div class="stats-info">
+                        <h3>Doanh thu hôm nay</h3>
+                        <p id="todayRevenue">0 VNĐ</p>
+                    </div>
+                </div>
+                <div class="stats-card">
+                    <i class="fas fa-ticket-alt"></i>
+                    <div class="stats-info">
+                        <h3>Vé đã bán hôm nay</h3>
+                        <p id="todayTickets">0</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Danh sách rạp -->
+            <div class="content-section">
+                <div class="section-header">
+                    <h3 class="section-title">Danh sách rạp phim</h3>
+                </div>
+                <div id="cinemaList" class="cinema-grid"></div>
+                <div id="loading" style="text-align: center; display: none;">
+                    <i class="fas fa-spinner fa-spin"></i> Đang tải...
+                </div>
+                <div id="error" style="color: red; text-align: center; display: none;"></div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Thêm thư viện Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script type="module" src="js/api.js"></script>
+    <script type="module" src="js/main.js"></script>
+    <script>
+        function logout() {
+            localStorage.removeItem('token');
+            window.location.href = 'index.html';
+        }
+    </script>
+</body>
+</html>

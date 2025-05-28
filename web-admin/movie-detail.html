@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chi tiết phim - MTB 67CS1</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+    <header>
+        <div class="container header-container">
+            <div class="logo">
+                <i class="fas fa-film"></i>
+                <h1>MTB 67CS1</h1>
+            </div>
+            <div class="user-panel">
+                <select id="cinemaSelect" class="form-control">
+                    <option value="">Chọn rạp</option>
+                </select>
+                <button class="btn btn-primary" onclick="logout()">
+                    <i class="fas fa-sign-out-alt"></i> Đăng xuất
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <section class="movie-detail">
+        <div class="container">
+            <h2 class="dashboard-title">Chi tiết phim</h2>
+            <div class="content-section">
+                <div id="movieDetail">
+                    <!-- Chi tiết phim sẽ được thêm ở đây -->
+                </div>
+                <form id="editForm" class="edit-form">
+                    <div class="form-group">
+                        <label class="form-label" for="title">Tên phim</label>
+                        <input type="text" class="form-control" id="title" required>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label" for="description">Mô tả</label>
+                        <textarea class="form-control" id="description" rows="4"></textarea>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label" for="language">Ngôn ngữ</label>
+                        <input type="text" class="form-control" id="language">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label" for="genre">Thể loại</label>
+                        <input type="text" class="form-control" id="genre">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label" for="releaseDate">Ngày khởi chiếu</label>
+                        <input type="date" class="form-control" id="releaseDate">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label" for="runtime">Thời lượng (phút)</label>
+                        <input type="number" class="form-control" id="runtime" min="1">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label" for="imageFile">Poster phim</label>
+                        <input type="file" class="form-control" id="imageFile" accept="image/*">
+                        <img id="imagePreview" src="" alt="Preview" style="margin-top: 10px; max-width: 200px; display: none;">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label" for="actor">Diễn viên</label>
+                        <input type="text" class="form-control" id="actor">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label" for="director">Đạo diễn</label>
+                        <input type="text" class="form-control" id="director">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label" for="age">Độ tuổi</label>
+                        <select class="form-control" id="age">
+                            <option value="P">P - Phổ biến</option>
+                            <option value="C13">C13 - Cấm dưới 13 tuổi</option>
+                            <option value="C16">C16 - Cấm dưới 16 tuổi</option>
+                            <option value="C18">C18 - Cấm dưới 18 tuổi</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label" for="trailer">Link trailer</label>
+                        <input type="url" class="form-control" id="trailer" placeholder="https://www.youtube.com/...">
+                    </div>
+                    <div class="button-group">
+                        <button type="button" class="btn btn-secondary" onclick="window.location.href='movies.html'">
+                            <i class="fas fa-arrow-left"></i> Quay lại
+                        </button>
+                        <button type="submit" class="btn btn-primary">
+                            <i class="fas fa-save"></i> Lưu thay đổi
+                        </button>
+                    </div>
+                </form>
+                <div id="loading" class="loading-spinner">
+                    <i class="fas fa-spinner fa-spin"></i> Đang tải...
+                </div>
+                <div id="error" class="error-message"></div>
+            </div>
+        </div>
+    </section>
+
+    <script type="module" src="js/api.js"></script>
+    <script type="module" src="js/movie-detail.js"></script>
+    <script>
+        function logout() {
+            localStorage.removeItem('token');
+            window.location.href = 'index.html';
+        }
+    </script>
+</body>
+</html>

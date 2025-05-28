@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chọn suất chiếu - Hệ Thống Quản Lý Đặt Vé Xem Phim</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+    <header>
+        <div class="container header-container">
+            <div class="logo">
+                <i class="fas fa-film"></i>
+                <h1>MTB 67CS1</h1>
+            </div>
+            <div class="user-panel">
+                <div class="user-info">
+                    <span>Xin chào, Admin</span>
+                </div>
+                <button class="btn btn-primary" onclick="logout()">
+                    <i class="fas fa-sign-out-alt"></i> Đăng xuất
+                </button>
+            </div>
+        </div>
+    </header>
+    <nav>
+        <div class="container">
+            <ul class="nav-list">
+                <li><a href="main.html"><i class="fas fa-home"></i> Trang chủ</a></li>
+                <li><a href="movies.html"><i class="fas fa-film"></i> Quản lý phim</a></li>
+            </ul>
+        </div>
+    </nav>
+    <section class="select-showtime">
+        <div class="container">
+            <h2 class="dashboard-title">Chọn suất chiếu</h2>
+            <div class="content-section">
+                <div class="section-header">
+                    <h3 class="section-title">Danh sách suất chiếu</h3>
+                    <select id="cinemaSelect" class="form-control" style="width: auto;"></select>
+                </div>
+                <div class="showtime-grid" id="showtimeList"></div>
+                <div id="loading" style="text-align: center;">Đang tải...</div>
+                <div id="error" style="color: var(--danger-color); display: none;"></div>
+            </div>
+        </div>
+    </section>
+    <script type="module" src="js/api.js"></script>
+    <script type="module" src="js/select-showtime.js"></script>
+    <script>
+        function logout() {
+            localStorage.removeItem('token');
+            window.location.href = 'index.html';
+        }
+    </script>
+</body>
+</html>
