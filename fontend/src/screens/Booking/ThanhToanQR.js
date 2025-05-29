@@ -14,7 +14,7 @@ import {
 } from "react-native";
 import { Ionicons, MaterialIcons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { confirmPayment, cancelBooking, generateQRCode, simulateMomoPayment, checkPaymentStatus } from "../../Api/api";
+import { confirmPayment, cancelBooking, generateQRCode, simulateMomoPayment, checkPaymentStatus, restoreVoucher } from "../../Api/api";
 
 export default function ThanhToanQR({ navigation, route }) {
   const {
@@ -52,7 +52,7 @@ export default function ThanhToanQR({ navigation, route }) {
         const response = await generateQRCode(bookingId, {
           paymentMethod,
           selectedProducts,
-          selectedVoucherId,
+          voucherId: selectedVoucherId, // Đúng trường voucherId
         });
         if (response.success) {
           setQrCodeImage(response.qrCode);
@@ -115,6 +115,15 @@ export default function ThanhToanQR({ navigation, route }) {
     setIsCancelled(true);
     clearInterval(timerRef.current);
     try {
+      // Hoàn voucher nếu có
+      if (selectedVoucherId) {
+        try {
+          await restoreVoucher({ voucherID: selectedVoucherId, bookingID: bookingId });
+          console.log("Đã hoàn voucher:", selectedVoucherId);
+        } catch (err) {
+          console.warn("Không thể hoàn voucher:", err?.response?.data?.message || err.message);
+        }
+      }
       await cancelBooking(bookingId);
       console.log("Đã hủy đặt vé:", bookingId);
     } catch (error) {
@@ -182,6 +191,7 @@ export default function ThanhToanQR({ navigation, route }) {
         selectedProducts,
         selectedVoucherId,
         paymentConfirmed: true,
+        finalAmount, // truyền đúng số tiền đã trừ voucher
       });
       if (response.success) {
         console.log("Giả lập thanh toán thành công:", { bookingId });
@@ -222,6 +232,8 @@ export default function ThanhToanQR({ navigation, route }) {
     const remainingSeconds = seconds % 60;
     return `${minutes.toString().padStart(2, "0")}:${remainingSeconds.toString().padStart(2, "0")}`;
   };
+
+  
 
   return (
     <SafeAreaView style={styles.container}>
