@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from "react";
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert } from "react-native";
 import Icon from "react-native-vector-icons/FontAwesome";
-import { sendOtp } from "../../Api/api"; 
+import { sendOtp, verifyOtp } from "../../Api/api"; 
 
 export default function ForgotPasswordScreen({ navigation, route }) {
   const [email, setEmail] = useState("");
@@ -9,11 +9,6 @@ export default function ForgotPasswordScreen({ navigation, route }) {
   const [isOtpSent, setIsOtpSent] = useState(false);
   const [timer, setTimer] = useState(60);
   const otpInputs = useRef([]);
-  const [generatedOtp, setGeneratedOtp] = useState("");
-
-  const generateOtp = () => {
-    return Math.floor(100000 + Math.random() * 900000).toString();
-  };
 
   useEffect(() => {
     let interval;
@@ -29,7 +24,6 @@ export default function ForgotPasswordScreen({ navigation, route }) {
             setIsOtpSent(false);
             setOtp(["", "", "", "", "", ""]);
             setTimer(60);
-            setGeneratedOtp("");
           },
         },
       ]);
@@ -51,30 +45,30 @@ export default function ForgotPasswordScreen({ navigation, route }) {
 
     try {
       const response = await sendOtp({ email });
-      const newOtp = generateOtp();
-      setGeneratedOtp(newOtp);
       setIsOtpSent(true);
-      console.log(`Mã OTP được tạo: ${newOtp}`);
       Alert.alert("Thành công", response.data.message);
     } catch (error) {
-      Alert.alert("Không thể kết nối đến server!");
+      Alert.alert("Lỗi", error.response?.data?.message || "Không thể kết nối đến server!");
       console.error(error);
     }
   };
 
-  const handleVerifyOtp = () => {
+  const handleVerifyOtp = async () => {
     const enteredOtp = otp.join("");
     if (!enteredOtp || enteredOtp.length !== 6) {
       Alert.alert("Lỗi", "Vui lòng nhập đầy đủ 6 chữ số OTP!");
       return;
     }
 
-    if (enteredOtp !== generatedOtp) {
-      Alert.alert("Lỗi", "Mã OTP không đúng!");
-      return;
+    try {
+      const response = await verifyOtp({ email, otp: enteredOtp });
+      if (response.data.message === "Xác thực OTP thành công!") {
+        navigation.navigate("ResetPassword", { email, from: route.params?.from });
+      }
+    } catch (error) {
+      Alert.alert("Lỗi", error.response?.data?.message || "Mã OTP không đúng!");
+      console.error(error);
     }
-    console.log("Route params in ForgotPasswordScreen:", route.params);
-    navigation.navigate("ResetPassword", { email, from: route.params?.from });
   };
 
   const handleOtpChange = (text, index) => {
@@ -101,10 +95,10 @@ export default function ForgotPasswordScreen({ navigation, route }) {
       </View>
 
       <View style={styles.formContainer}>
-        <Text style={styles.label}>Nhập email hoặc số điện thoại</Text>
+        <Text style={styles.label}>Nhập email của bạn</Text>
         <TextInput
           style={styles.input}
-          placeholder="Email hoặc số điện thoại"
+          placeholder="Email"
           placeholderTextColor="#888"
           value={email}
           onChangeText={setEmail}
