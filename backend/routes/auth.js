@@ -11,6 +11,9 @@ router.post('/register', authController.register);
 // Gửi OTP
 router.post('/send-otp', authController.sendOtp);
 
+// Xác thực OTP
+router.post('/verify-otp', authController.verifyOtp);
+
 // Đặt lại mật khẩu
 router.post('/reset-password', authController.resetPassword);
 
