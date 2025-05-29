@@ -271,9 +271,9 @@ export const getVouchers = async () => {
   }
 };
 
-export const useVoucher = async (voucherId) => {
+export const useVoucher = async (voucherID) => {
   try {
-    const response = await api.post("/use-voucher", { voucherId });
+    const response = await api.post("/use-voucher", { voucherID }); // Đúng trường voucherID
     return response.data;
   } catch (error) {
     console.error("Lỗi khi sử dụng voucher:", {
@@ -561,6 +561,10 @@ export const generateQRCode = async (bookingId, data) => {
     });
     throw error;
   }
+};
+
+export const restoreVoucher = async ({ voucherID, bookingID }) => {
+  return await axios.post("/vouchers/restore-voucher", { voucherID, bookingID });
 };
 
 export default api;

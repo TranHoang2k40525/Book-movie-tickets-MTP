@@ -131,7 +131,36 @@ const useVoucher = async (req, res) => {
   }
 };
 
+// Hoàn voucher lại cho khách hàng khi hủy thanh toán
+const restoreVoucher = async (req, res) => {
+  const { voucherID, bookingID } = req.body;
+  const customerID = req.user.customerID;
+  if (!voucherID) return res.status(400).json({ message: "Thiếu voucherID" });
+
+  try {
+    const pool = await sql.connect(dbConfig);
+    // Xóa bản ghi VoucherUsage cho booking này (nếu có)
+    await pool.request()
+      .input("voucherID", sql.Int, voucherID)
+      .input("customerID", sql.Int, customerID)
+      .input("bookingID", sql.Int, bookingID)
+      .query(`
+        DELETE FROM VoucherUsage WHERE VoucherID = @voucherID AND CustomerID = @customerID AND BookingID = @bookingID
+      `);
+    // Giảm UsageCount
+    await pool.request()
+      .input("voucherID", sql.Int, voucherID)
+      .query(`
+        UPDATE Voucher SET UsageCount = CASE WHEN UsageCount > 0 THEN UsageCount - 1 ELSE 0 END WHERE VoucherID = @voucherID
+      `);
+    res.json({ message: "Hoàn voucher thành công!" });
+  } catch (err) {
+    res.status(500).json({ message: "Lỗi server!", error: err.message });
+  }
+};
+
 module.exports = {
   getVouchers,
-  useVoucher
+  useVoucher,
+  restoreVoucher
 };

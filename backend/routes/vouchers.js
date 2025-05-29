@@ -9,4 +9,7 @@ router.get('/vouchers', authMiddleware, voucherController.getVouchers);
 // Sử dụng một voucher
 router.post('/use-voucher', authMiddleware, voucherController.useVoucher);
 
+// Khôi phục một voucher
+router.post('/restore-voucher', authMiddleware, voucherController.restoreVoucher);
+
 module.exports = router;

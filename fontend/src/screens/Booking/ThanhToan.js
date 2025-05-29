@@ -258,7 +258,18 @@ export default function ThanhToan({ navigation, route }) {
   const handleApplyVoucher = async () => {
     if (isCancelled || !selectedVoucherId) return;
     try {
-      await useVoucher(selectedVoucherId);
+      await useVoucher(selectedVoucherId); // Đã sửa ở api.js
+      // Tìm voucher vừa chọn
+      const voucher = vouchers.find(v => v.VoucherID === selectedVoucherId);
+      const discountValue = voucher ? voucher.DiscountValue : 0;
+      setDiscount(discountValue);
+      // Tính lại tổng tiền
+      let currentProductTotal = 0;
+      products.forEach((product) => {
+        const quantity = productQuantities[product.ProductID] || 0;
+        currentProductTotal += quantity * product.ProductPrice;
+      });
+      setTotalPrice(Math.max(0, seatTotalPrice + currentProductTotal - discountValue));
       setVoucherModalVisible(false);
       Alert.alert("Thành công", "Voucher đã được áp dụng!");
     } catch (error) {
@@ -290,7 +301,7 @@ export default function ThanhToan({ navigation, route }) {
 
     navigation.navigate("ThanhToanQR", {
       bookingId,
-      totalPrice,
+      totalPrice, // Đã trừ discount
       expirationTime,
       selectedSeats,
       selectedProducts: updatedSelectedProducts,
@@ -304,7 +315,7 @@ export default function ThanhToan({ navigation, route }) {
       ImageUrl,
       moviePoster,
       MovieLanguage,
-      selectedVoucherId,
+      selectedVoucherId, // Truyền voucherId sang QR
       fromScreen,
     });
   };

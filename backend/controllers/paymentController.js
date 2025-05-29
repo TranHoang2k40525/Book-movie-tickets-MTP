@@ -44,14 +44,30 @@ const generateNotificationContent = (bookingDetails, paymentDetails, products, d
     ? `Sản phẩm: ${uniqueProducts.map(p => `${p.ProductName} x${p.Quantity} - ${p.TotalPriceBookingProduct.toLocaleString("vi-VN")} VNĐ`).join(", ")}`
     : "";
   const discountText = discount > 0 ? `Giảm giá: ${discount.toLocaleString("vi-VN")} VNĐ` : "";
-  
+
+  // Format giờ chiếu chỉ lấy HH:mm, fix timezone nếu là kiểu Date
+  let showTime = bookingDetails.ShowTime;
+  let showTimeStr = "";
+  if (showTime) {
+    if (typeof showTime === "string") {
+      // Nếu là chuỗi dạng "19:00:00.0000000" hoặc "19:00:00"
+      showTimeStr = showTime.split(":").slice(0,2).join(":");
+    } else if (showTime instanceof Date) {
+      // Nếu là kiểu Date (có thể bị lệch múi giờ do parse từ time SQL)
+      // Lấy giờ UTC để tránh lệch múi giờ
+      showTimeStr = showTime.getUTCHours().toString().padStart(2, "0") + ":" + showTime.getUTCMinutes().toString().padStart(2, "0");
+    } else {
+      showTimeStr = String(showTime);
+    }
+  }
+
   return `
 Xác nhận thanh toán thành công
 Bạn đã đặt vé thành công! Dưới đây là chi tiết vé:
 - Mã đặt vé: ${bookingDetails.BookingID}
 - Phim: ${bookingDetails.MovieTitle}
 - Ngày chiếu: ${new Date(bookingDetails.ShowDate).toLocaleDateString("vi-VN")}
-- Giờ chiếu: ${bookingDetails.ShowTime}
+- Giờ chiếu: ${showTimeStr}
 - Rạp: ${bookingDetails.CinemaName}
 - Phòng: ${bookingDetails.HallName}
 - Ghế: ${bookingDetails.SelectedSeats}
@@ -208,27 +224,31 @@ const confirmPayment = async (req, res) => {
 
       if (voucherResult.recordset.length > 0) {
         discountAmount = parseFloat(voucherResult.recordset[0].DiscountValue);
-        const voucherUsageCheck = await request
-          .input("bookingId", sql.Int, bookingId)
-          .query(
-            `SELECT * FROM VoucherUsage 
-             WHERE VoucherID = @voucherId AND BookingID = @bookingId`
-          );
+
+        // Tạo request mới cho mỗi truy vấn voucher usage
+        const voucherUsageCheckRequest = transaction.request();
+        voucherUsageCheckRequest.input("voucherId", sql.Int, voucherId);
+        voucherUsageCheckRequest.input("bookingId", sql.Int, bookingId);
+        const voucherUsageCheck = await voucherUsageCheckRequest.query(
+          `SELECT * FROM VoucherUsage 
+           WHERE VoucherID = @voucherId AND BookingID = @bookingId`
+        );
+
         if (voucherUsageCheck.recordset.length === 0) {
-          await request
-            .input("voucherId", sql.Int, voucherId)
-            .input("customerId", sql.Int, customerId)
-            .input("bookingId", sql.Int, bookingId)
-            .query(
-              `INSERT INTO VoucherUsage (VoucherID, CustomerID, BookingID, UsedAt)
-               VALUES (@voucherId, @customerId, @bookingId, GETDATE());
-               UPDATE Voucher SET UsageCount = UsageCount + 1 WHERE VoucherID = @voucherId`
-            );
+          const insertVoucherUsageRequest = transaction.request();
+          insertVoucherUsageRequest.input("voucherId", sql.Int, voucherId);
+          insertVoucherUsageRequest.input("customerId", sql.Int, customerId);
+          insertVoucherUsageRequest.input("bookingId", sql.Int, bookingId);
+          await insertVoucherUsageRequest.query(
+            `INSERT INTO VoucherUsage (VoucherID, CustomerID, BookingID, UsedAt)
+             VALUES (@voucherId, @customerId, @bookingId, GETDATE());
+             UPDATE Voucher SET UsageCount = UsageCount + 1 WHERE VoucherID = @voucherId`
+          );
         }
       }
     }
 
-    const finalAmount = Math.max(0, totalPrice - discountAmount);
+    const finalAmount = parseFloat(amount); // lấy từ frontend đã trừ voucher
 
     if (finalAmount !== parseFloat(amount)) {
       await transaction.rollback();
@@ -448,27 +468,31 @@ const processPayment = async (req, res) => {
 
       if (voucherResult.recordset.length > 0) {
         discountAmount = parseFloat(voucherResult.recordset[0].DiscountValue);
-        const voucherUsageCheck = await request
-          .input("bookingId", sql.Int, bookingId)
-          .query(
-            `SELECT * FROM VoucherUsage 
-             WHERE VoucherID = @voucherId AND BookingID = @bookingId`
-          );
+
+        // Tạo request mới cho mỗi truy vấn voucher usage
+        const voucherUsageCheckRequest = transaction.request();
+        voucherUsageCheckRequest.input("voucherId", sql.Int, voucherId);
+        voucherUsageCheckRequest.input("bookingId", sql.Int, bookingId);
+        const voucherUsageCheck = await voucherUsageCheckRequest.query(
+          `SELECT * FROM VoucherUsage 
+           WHERE VoucherID = @voucherId AND BookingID = @bookingId`
+        );
+
         if (voucherUsageCheck.recordset.length === 0) {
-          await request
-            .input("voucherId", sql.Int, voucherId)
-            .input("customerId", sql.Int, customerId)
-            .input("bookingId", sql.Int, bookingId)
-            .query(
-              `INSERT INTO VoucherUsage (VoucherID, CustomerID, BookingID, UsedAt)
-               VALUES (@voucherId, @customerId, @bookingId, GETDATE());
-               UPDATE Voucher SET UsageCount = UsageCount + 1 WHERE VoucherID = @voucherId`
-            );
+          const insertVoucherUsageRequest = transaction.request();
+          insertVoucherUsageRequest.input("voucherId", sql.Int, voucherId);
+          insertVoucherUsageRequest.input("customerId", sql.Int, customerId);
+          insertVoucherUsageRequest.input("bookingId", sql.Int, bookingId);
+          await insertVoucherUsageRequest.query(
+            `INSERT INTO VoucherUsage (VoucherID, CustomerID, BookingID, UsedAt)
+             VALUES (@voucherId, @customerId, @bookingId, GETDATE());
+             UPDATE Voucher SET UsageCount = UsageCount + 1 WHERE VoucherID = @voucherId`
+          );
         }
       }
     }
 
-    const finalAmount = Math.max(0, totalPrice - discountAmount);
+    const finalAmount = parseFloat(amount); // lấy từ frontend đã trừ voucher
 
     const paymentResult = await request
       .input("bookingId", sql.Int, bookingId)
@@ -711,45 +735,39 @@ const generateQRCode = async (req, res) => {
 
     const validatedPaymentMethod = validatePaymentMethod(paymentMethod);
 
-    const request = transaction.request();
-    request.input("bookingId", sql.Int, bookingId);
-    request.input("customerId", sql.Int, customerId);
-
-    console.log("Kiểm tra booking...");
-    const bookingCheck = await request.query(
+    // 1. Kiểm tra booking
+    const bookingCheckRequest = transaction.request();
+    bookingCheckRequest.input("bookingId", sql.Int, bookingId);
+    bookingCheckRequest.input("customerId", sql.Int, customerId);
+    const bookingCheck = await bookingCheckRequest.query(
       `SELECT Status, TotalSeats FROM Booking WITH (UPDLOCK, HOLDLOCK)
        WHERE BookingID = @bookingId AND CustomerID = @customerId`
     );
-    console.log("Kết quả kiểm tra booking:", bookingCheck.recordset);
-
     if (!bookingCheck.recordset.length) {
       await transaction.rollback();
-      console.log("Không tìm thấy đặt vé:", { bookingId, customerId });
       return res.status(400).json({ success: false, message: "Không tìm thấy đặt vé" });
     }
-
     const booking = bookingCheck.recordset[0];
     if (booking.Status !== "Pending") {
       await transaction.rollback();
-      console.log("Đặt vé không hợp lệ:", { bookingId, status: booking.Status });
       return res.status(400).json({
         success: false,
         message: `Đặt vé không hợp lệ do trạng thái hiện tại là '${booking.Status}'`
       });
     }
 
-    // Kiểm tra trạng thái ghế
-    const seatCheck = await request.query(
+    // 2. Kiểm tra trạng thái ghế
+    const seatCheckRequest = transaction.request();
+    seatCheckRequest.input("bookingId", sql.Int, bookingId);
+    const seatCheck = await seatCheckRequest.query(
       `SELECT chs.SeatID, chs.Status
        FROM BookingSeat bs
        JOIN CinemaHallSeat chs ON bs.SeatID = chs.SeatID
        WHERE bs.BookingID = @bookingId`
     );
-
     const invalidSeats = seatCheck.recordset.filter(seat => seat.Status !== 'Reserved');
     if (invalidSeats.length > 0) {
       await transaction.rollback();
-      console.log("Ghế không hợp lệ:", invalidSeats);
       return res.status(400).json({
         success: false,
         message: "Một số ghế đã bị thay đổi trạng thái. Vui lòng thử lại.",
@@ -757,8 +775,10 @@ const generateQRCode = async (req, res) => {
       });
     }
 
-    console.log("Tính tổng giá vé...");
-    const seatPriceResult = await request.query(
+    // 3. Tính tổng giá vé
+    const seatPriceRequest = transaction.request();
+    seatPriceRequest.input("bookingId", sql.Int, bookingId);
+    const seatPriceResult = await seatPriceRequest.query(
       `SELECT SUM(TicketPrice) as SeatTotalPrice 
        FROM BookingSeat 
        WHERE BookingID = @bookingId`
@@ -766,8 +786,8 @@ const generateQRCode = async (req, res) => {
     let totalPrice = parseFloat(seatPriceResult.recordset[0].SeatTotalPrice || 0);
     let productTotal = 0;
 
+    // 4. Xử lý sản phẩm
     if (selectedProducts.length > 0) {
-      console.log("Xử lý sản phẩm:", selectedProducts);
       const uniqueProducts = [];
       const productMap = new Map();
       selectedProducts.forEach(p => {
@@ -777,63 +797,65 @@ const generateQRCode = async (req, res) => {
           uniqueProducts.push(p);
         }
       });
-      console.log("Sản phẩm không trùng lặp:", uniqueProducts);
 
       const productIds = uniqueProducts.map((p) => p.productId);
-      const productsResult = await request
-        .input("ProductIDs", sql.VarChar, productIds.join(","))
-        .query(
+      if (productIds.length > 0) {
+        const productsRequest = transaction.request();
+        productsRequest.input("ProductIDs", sql.VarChar, productIds.join(","));
+        const productsResult = await productsRequest.query(
           `SELECT ProductID, ProductPrice 
            FROM Product 
            WHERE ProductID IN (SELECT value FROM STRING_SPLIT(@ProductIDs, ','))`
         );
 
-      const productPrices = {};
-      productsResult.recordset.forEach((product) => {
-        productPrices[product.ProductID] = parseFloat(product.ProductPrice);
-      });
+        const productPrices = {};
+        productsResult.recordset.forEach((product) => {
+          productPrices[product.ProductID] = parseFloat(product.ProductPrice);
+        });
 
-      for (const product of uniqueProducts) {
-        const productPrice = productPrices[product.productId] || 0;
-        const quantity = product.quantity || 0;
-        const productTotalPrice = productPrice * quantity;
-        productTotal += productTotalPrice;
+        for (const product of uniqueProducts) {
+          const productPrice = productPrices[product.productId] || 0;
+          const quantity = product.quantity || 0;
+          const productTotalPrice = productPrice * quantity;
+          productTotal += productTotalPrice;
 
-        if (quantity > 0) {
-          const checkProductRequest = transaction.request();
-          checkProductRequest.input("bookingId", sql.Int, bookingId);
-          checkProductRequest.input("productId", sql.Int, product.productId);
-          const existingProduct = await checkProductRequest.query(
-            `SELECT Quantity, TotalPriceBookingProduct 
-             FROM BookingProduct 
-             WHERE BookingID = @bookingId AND ProductID = @productId`
-          );
+          if (quantity > 0) {
+            // Kiểm tra đã có trong BookingProduct chưa
+            const checkProductRequest = transaction.request();
+            checkProductRequest.input("bookingId", sql.Int, bookingId);
+            checkProductRequest.input("productId", sql.Int, product.productId);
+            const existingProduct = await checkProductRequest.query(
+              `SELECT Quantity, TotalPriceBookingProduct 
+               FROM BookingProduct 
+               WHERE BookingID = @bookingId AND ProductID = @productId`
+            );
 
-          if (existingProduct.recordset.length > 0) {
-            const newQuantity = existingProduct.recordset[0].Quantity + quantity;
-            const newTotalPrice = productPrice * newQuantity;
-            const updateProductRequest = transaction.request();
-            await updateProductRequest
-              .input("bookingId", sql.Int, bookingId)
-              .input("productId", sql.Int, product.productId)
-              .input("quantity", sql.Int, newQuantity)
-              .input("totalPrice", sql.Decimal(10, 2), newTotalPrice)
-              .query(
-                `UPDATE BookingProduct 
-                 SET Quantity = @quantity, TotalPriceBookingProduct = @totalPrice
-                 WHERE BookingID = @bookingId AND ProductID = @productId`
-              );
-          } else {
-            const productRequest = transaction.request();
-            await productRequest
-              .input("bookingId", sql.Int, bookingId)
-              .input("productId", sql.Int, product.productId)
-              .input("quantity", sql.Int, quantity)
-              .input("totalPrice", sql.Decimal(10, 2), productTotalPrice)
-              .query(
-                `INSERT INTO BookingProduct (BookingID, ProductID, Quantity, TotalPriceBookingProduct)
-                 VALUES (@bookingId, @productId, @quantity, @totalPrice)`
-              );
+            if (existingProduct.recordset.length > 0) {
+              const newQuantity = existingProduct.recordset[0].Quantity + quantity;
+              const newTotalPrice = productPrice * newQuantity;
+              const updateProductRequest = transaction.request();
+              await updateProductRequest
+                .input("bookingId", sql.Int, bookingId)
+                .input("productId", sql.Int, product.productId)
+                .input("quantity", sql.Int, newQuantity)
+                .input("totalPrice", sql.Decimal(10, 2), newTotalPrice)
+                .query(
+                  `UPDATE BookingProduct 
+                   SET Quantity = @quantity, TotalPriceBookingProduct = @totalPrice
+                   WHERE BookingID = @bookingId AND ProductID = @productId`
+                );
+            } else {
+              const productRequest = transaction.request();
+              await productRequest
+                .input("bookingId", sql.Int, bookingId)
+                .input("productId", sql.Int, product.productId)
+                .input("quantity", sql.Int, quantity)
+                .input("totalPrice", sql.Decimal(10, 2), productTotalPrice)
+                .query(
+                  `INSERT INTO BookingProduct (BookingID, ProductID, Quantity, TotalPriceBookingProduct)
+                   VALUES (@bookingId, @productId, @quantity, @totalPrice)`
+                );
+            }
           }
         }
       }
@@ -842,36 +864,41 @@ const generateQRCode = async (req, res) => {
     totalPrice += productTotal;
     let discountAmount = 0;
 
+    // 5. Xử lý voucher
     if (voucherId) {
-      console.log("Xử lý voucher:", voucherId);
       const voucherRequest = transaction.request();
-      const voucherResult = await voucherRequest
-        .input("voucherId", sql.Int, voucherId)
-        .input("customerId", sql.Int, customerId)
-        .query(
-          `SELECT DiscountValue 
-           FROM Voucher 
-           WHERE VoucherID = @voucherId 
-           AND IsActive = 1 
-           AND StartDate <= GETDATE() AND EndDate >= GETDATE()`
-        );
+      voucherRequest.input("voucherId", sql.Int, voucherId);
+      voucherRequest.input("customerId", sql.Int, customerId);
+      const voucherResult = await voucherRequest.query(
+        `SELECT DiscountValue 
+         FROM Voucher 
+         WHERE VoucherID = @voucherId 
+         AND IsActive = 1 
+         AND StartDate <= GETDATE() AND EndDate >= GETDATE()`
+      );
 
       if (voucherResult.recordset.length > 0) {
         discountAmount = parseFloat(voucherResult.recordset[0].DiscountValue);
-        const voucherUsageCheck = await voucherRequest
-          .input("bookingId", sql.Int, bookingId)
-          .query(
-            `SELECT * FROM VoucherUsage 
-             WHERE VoucherID = @voucherId AND BookingID = @bookingId`
-          );
+
+        // Tạo request mới cho mỗi truy vấn voucher usage
+        const voucherUsageCheckRequest = transaction.request();
+        voucherUsageCheckRequest.input("voucherId", sql.Int, voucherId);
+        voucherUsageCheckRequest.input("bookingId", sql.Int, bookingId);
+        const voucherUsageCheck = await voucherUsageCheckRequest.query(
+          `SELECT * FROM VoucherUsage 
+           WHERE VoucherID = @voucherId AND BookingID = @bookingId`
+        );
+
         if (voucherUsageCheck.recordset.length === 0) {
-          await voucherRequest
-            .input("bookingId", sql.Int, bookingId)
-            .query(
-              `INSERT INTO VoucherUsage (VoucherID, CustomerID, BookingID, UsedAt)
-               VALUES (@voucherId, @customerId, @bookingId, GETDATE());
-               UPDATE Voucher SET UsageCount = UsageCount + 1 WHERE VoucherID = @voucherId`
-            );
+          const insertVoucherUsageRequest = transaction.request();
+          insertVoucherUsageRequest.input("voucherId", sql.Int, voucherId);
+          insertVoucherUsageRequest.input("customerId", sql.Int, customerId);
+          insertVoucherUsageRequest.input("bookingId", sql.Int, bookingId);
+          await insertVoucherUsageRequest.query(
+            `INSERT INTO VoucherUsage (VoucherID, CustomerID, BookingID, UsedAt)
+             VALUES (@voucherId, @customerId, @bookingId, GETDATE());
+             UPDATE Voucher SET UsageCount = UsageCount + 1 WHERE VoucherID = @voucherId`
+          );
         }
       }
     }
@@ -879,6 +906,7 @@ const generateQRCode = async (req, res) => {
     const finalAmount = Math.max(0, totalPrice - discountAmount);
     console.log("Tổng tiền cuối cùng:", finalAmount);
 
+    // 6. Sinh mã QR
     let qrData;
     let transactionInfo;
     if (validatedPaymentMethod === "Online") {
@@ -892,7 +920,6 @@ const generateQRCode = async (req, res) => {
       qrData = `momo://payment?orderId=${bookingId}&amount=${finalAmount}&orderInfo=Thanh%20toan%20don%20hang%20${bookingId}`;
     } else {
       await transaction.rollback();
-      console.log("Phương thức thanh toán không hỗ trợ:", validatedPaymentMethod);
       return res.status(400).json({ success: false, message: "Phương thức thanh toán không hỗ trợ" });
     }
 
@@ -914,7 +941,6 @@ const generateQRCode = async (req, res) => {
   } catch (error) {
     console.error("Lỗi khi sinh mã QR:", error);
     if (transaction) {
-      console.log("Rollback transaction...");
       await transaction.rollback();
       console.log("Đã rollback transaction");
     }
@@ -930,7 +956,7 @@ const generateQRCode = async (req, res) => {
 // Hàm giả lập thanh toán Momo
 const simulateMomoPayment = async (req, res) => {
   const { bookingId } = req.params;
-  const { selectedProducts = [], voucherId, paymentConfirmed } = req.body;
+  const { selectedProducts = [], voucherId, paymentConfirmed, finalAmount } = req.body;
   const customerId = req.user?.customerID;
 
   if (!paymentConfirmed) {
@@ -1030,25 +1056,32 @@ const simulateMomoPayment = async (req, res) => {
 
       if (voucherResult.recordset.length > 0) {
         discountAmount = parseFloat(voucherResult.recordset[0].DiscountValue);
-        const voucherUsageCheck = await voucherRequest
-          .input("bookingId", sql.Int, bookingId)
-          .query(
-            `SELECT * FROM VoucherUsage 
-             WHERE VoucherID = @voucherId AND BookingID = @bookingId`
-          );
+
+        // Tạo request mới cho mỗi truy vấn voucher usage
+        const voucherUsageCheckRequest = transaction.request();
+        voucherUsageCheckRequest.input("voucherId", sql.Int, voucherId);
+        voucherUsageCheckRequest.input("bookingId", sql.Int, bookingId);
+        const voucherUsageCheck = await voucherUsageCheckRequest.query(
+          `SELECT * FROM VoucherUsage 
+           WHERE VoucherID = @voucherId AND BookingID = @bookingId`
+        );
+
         if (voucherUsageCheck.recordset.length === 0) {
-          await voucherRequest
-            .input("bookingId", sql.Int, bookingId)
-            .query(
-              `INSERT INTO VoucherUsage (VoucherID, CustomerID, BookingID, UsedAt)
-               VALUES (@voucherId, @customerId, @bookingId, GETDATE());
-               UPDATE Voucher SET UsageCount = UsageCount + 1 WHERE VoucherID = @voucherId`
-            );
+          const insertVoucherUsageRequest = transaction.request();
+          insertVoucherUsageRequest.input("voucherId", sql.Int, voucherId);
+          insertVoucherUsageRequest.input("customerId", sql.Int, customerId);
+          insertVoucherUsageRequest.input("bookingId", sql.Int, bookingId);
+          await insertVoucherUsageRequest.query(
+            `INSERT INTO VoucherUsage (VoucherID, CustomerID, BookingID, UsedAt)
+             VALUES (@voucherId, @customerId, @bookingId, GETDATE());
+             UPDATE Voucher SET UsageCount = UsageCount + 1 WHERE VoucherID = @voucherId`
+          );
         }
       }
     }
 
-    const finalAmount = Math.max(0, totalPrice - discountAmount);
+    // Không tự tính lại finalAmount nữa, mà dùng finalAmount client gửi lên
+    // Nếu muốn kiểm tra, có thể so sánh với số backend tự tính, nếu lệch thì báo lỗi
 
     const paymentRequest = transaction.request();
     paymentRequest.input("bookingId", sql.Int, bookingId);
