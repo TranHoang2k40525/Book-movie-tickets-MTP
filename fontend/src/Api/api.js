@@ -2,8 +2,8 @@ import axios from "axios";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import jwtDecode from "jwt-decode"; // Sửa import jwt-decode
 
-const BASE_URL = "http://10.10.2.206:3000/api";
-const WS_URL = "ws://10.10.2.206:3000"; // Địa chỉ WebSocket
+const BASE_URL = "http://192.168.100.184:3000/api";
+const WS_URL = "ws://192.168.100.184:3000"; // Địa chỉ WebSocket
 
 const api = axios.create({
   baseURL: BASE_URL,
@@ -349,6 +349,7 @@ export const getCustomer = async () => {
 
 export const register = (data) => api.post("/register", data);
 export const sendOtp = (data) => api.post("/send-otp", data);
+export const verifyOtp = (data) => api.post("/verify-otp", data);
 export const resetPassword = (data) => api.post("/reset-password", data);
 export const updateAvatar = async (avatarUrl) => {
   try {
