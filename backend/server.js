@@ -7,7 +7,7 @@ require("dotenv").config();
 const { connectDB } = require("./config/db");
 const { initializeWebSocket } = require("./websocket");
 const { releaseExpiredSeatsCron } = require("./controllers/datgheController");
-const errorHandler = require('./middleware/errorHandler');
+
 
 // Import routes
 const authRoutes = require("./routes/auth");

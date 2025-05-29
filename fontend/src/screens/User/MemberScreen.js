@@ -150,19 +150,9 @@ export default function MemberScreen({ navigation }) {
           <Text style={styles.menuText}>Thông tin tài khoản</Text>
           <Icon name="chevron-right" size={16} color="#000" />
         </TouchableOpacity>
-        <TouchableOpacity
-          style={styles.menuItem}
-          onPress={() => navigation.navigate("ForgotPassword", { from: "Member" })}
-        >
-          <Icon name="lock" size={20} color="#000" />
-          <Text style={styles.menuText}>Thay đổi mật khẩu</Text>
-          <Icon name="chevron-right" size={16} color="#000" />
-        </TouchableOpacity>
+        
       </View>
-      <TouchableOpacity style={styles.menuItem}>
-        <Text style={styles.menuText}>Lịch sử giao dịch</Text>
-        <Icon name="chevron-right" size={16} color="#000" />
-      </TouchableOpacity>
+      
     </ScrollView>
   );
 }

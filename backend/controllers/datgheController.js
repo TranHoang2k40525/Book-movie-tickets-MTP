@@ -206,13 +206,13 @@ const releaseExpiredSeats = async (transaction) => {
         const affectedShows = await transaction.request().query(`
             SELECT DISTINCT ShowID
             FROM BookingSeat
-            WHERE Status = 'Pending' AND HoldUntil < DATEADD(SECOND, -5, DATEADD(HOUR, 7, GETDATE()));
+      WHERE Status = 'Reserved' AND HoldUntil < DATEADD(SECOND, -5, DATEADD(HOUR, 7, GETUTCDATE()))
         `);
 
         const checkResult = await transaction.request().query(`
             SELECT COUNT(*) AS ExpiredCount
             FROM BookingSeat
-            WHERE Status = 'Pending' AND HoldUntil < DATEADD(SECOND, -5, DATEADD(HOUR, 7, GETDATE()));
+      WHERE Status = 'Reserved' AND HoldUntil < DATEADD(SECOND, -5, DATEADD(HOUR, 7, GETUTCDATE()))
         `);
         const expiredCount = checkResult.recordset[0].ExpiredCount;
 
@@ -250,7 +250,7 @@ const releaseExpiredSeats = async (transaction) => {
             }
         }
     } catch (err) {
-        console.error(`[${new Date().toISOString()}] Lỗi khi giải phóng ghế lỗi thời hạn:`, err);
+    console.error(`[${new Date().toISOString()}] Lỗi khi giải phóng ghế hết hạn trong transaction:`, err);
         throw err;
     }
 }
