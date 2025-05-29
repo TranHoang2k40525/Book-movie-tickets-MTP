@@ -4,6 +4,7 @@ const { isValidEmail } = require("../utils/validators");
 const bcrypt = require("bcrypt");
 const SALT_ROUNDS = 10;
 const { verifyRefreshToken, generateToken, generateRefreshToken } = require("../utils/JsonWebToken");
+const { sendOtpEmail } = require("../config/email");
 const login = async (req, res) => {
   const { email, password } = req.body;
 
@@ -211,18 +212,90 @@ const sendOtp = async (req, res) => {
 
   try {
     const pool = await sql.connect(dbConfig);
-    const result = await pool
+    // Kiểm tra email trong bảng Account (AccountName)
+    const accountResult = await pool
       .request()
       .input("email", sql.VarChar, email)
-      .query("SELECT * FROM Account WHERE AccountName = @email");
+      .query("SELECT AccountName FROM Account WHERE AccountName = @email");
 
-    if (result.recordset.length === 0) {
+    if (accountResult.recordset.length === 0) {
       return res.status(404).json({ message: "Tài khoản không tồn tại!" });
     }
 
-    res.json({ message: `Mã OTP đã được gửi đến ${email}` });
+    // Lấy email từ AccountName
+    const accountEmail = accountResult.recordset[0].AccountName;
+
+    // Tạo mã OTP 6 chữ số
+    const otp = Math.floor(100000 + Math.random() * 900000).toString();
+
+    // Gửi OTP qua email
+    const emailSent = await sendOtpEmail(accountEmail, otp);
+
+    if (!emailSent) {
+      return res.status(500).json({ message: "Không thể gửi mã OTP. Vui lòng thử lại sau!" });
+    }
+
+    // Lưu OTP vào session hoặc cache (trong thực tế)
+    global.otpStore = global.otpStore || {};
+    global.otpStore[accountEmail] = {
+      otp: otp,
+      timestamp: Date.now()
+    };
+
+    res.json({ 
+      message: "Mã OTP đã được gửi đến email của bạn!"
+    });
   } catch (err) {
     console.error("Lỗi gửi OTP:", err);
+    res.status(500).json({ message: "Lỗi server!", error: err.message });
+  }
+};
+
+// Thêm hàm xác thực OTP
+const verifyOtp = async (req, res) => {
+  const { email, otp } = req.body;
+
+  if (!email || !otp) {
+    return res.status(400).json({ message: "Vui lòng cung cấp email và mã OTP!" });
+  }
+
+  try {
+    const pool = await sql.connect(dbConfig);
+    // Kiểm tra email trong bảng Account (AccountName)
+    const accountResult = await pool
+      .request()
+      .input("email", sql.VarChar, email)
+      .query("SELECT AccountName FROM Account WHERE AccountName = @email");
+
+    if (accountResult.recordset.length === 0) {
+      return res.status(404).json({ message: "Tài khoản không tồn tại!" });
+    }
+
+    const accountEmail = accountResult.recordset[0].AccountName;
+
+    // Kiểm tra OTP trong store
+    const otpData = global.otpStore?.[accountEmail];
+    if (!otpData) {
+      return res.status(400).json({ message: "Mã OTP không tồn tại hoặc đã hết hạn!" });
+    }
+
+    // Kiểm tra thời gian hết hạn (60 giây)
+    if (Date.now() - otpData.timestamp > 180000) {
+      delete global.otpStore[accountEmail];
+      return res.status(400).json({ message: "Mã OTP đã hết hạn!" });
+    }
+
+    // Kiểm tra mã OTP
+    if (otpData.otp !== otp) {
+      return res.status(400).json({ message: "Mã OTP không đúng!" });
+    }
+
+    // Xóa OTP sau khi xác thực thành công
+    delete global.otpStore[accountEmail];
+
+    res.json({ message: "Xác thực OTP thành công!" });
+  } catch (err) {
+    console.error("Lỗi xác thực OTP:", err);
     res.status(500).json({ message: "Lỗi server!", error: err.message });
   }
 };
@@ -303,6 +376,7 @@ module.exports = {
   login,
   register,
   sendOtp,
+  verifyOtp,
   resetPassword,
   refreshToken,
 };
