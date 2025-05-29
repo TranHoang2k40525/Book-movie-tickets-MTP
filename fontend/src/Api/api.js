@@ -2,8 +2,8 @@ import axios from "axios";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import jwtDecode from "jwt-decode"; // Sửa import jwt-decode
 
-const BASE_URL = "http://192.168.1.103:3000/api";
-const WS_URL = "ws://192.168.1.103:3000"; // Địa chỉ WebSocket
+const BASE_URL = "http://10.10.2.210:3000/api";
+const WS_URL = "ws://10.10.2.210:3000"; // Địa chỉ WebSocket
 
 const api = axios.create({
   baseURL: BASE_URL,
@@ -271,9 +271,9 @@ export const getVouchers = async () => {
   }
 };
 
-export const useVoucher = async (voucherId) => {
+export const useVoucher = async (voucherID) => {
   try {
-    const response = await api.post("/use-voucher", { voucherId });
+    const response = await api.post("/use-voucher", { voucherID }); // Đúng trường voucherID
     return response.data;
   } catch (error) {
     console.error("Lỗi khi sử dụng voucher:", {
@@ -561,6 +561,10 @@ export const generateQRCode = async (bookingId, data) => {
     });
     throw error;
   }
+};
+
+export const restoreVoucher = async ({ voucherID, bookingID }) => {
+  return await axios.post("/vouchers/restore-voucher", { voucherID, bookingID });
 };
 
 export default api;
