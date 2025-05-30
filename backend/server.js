@@ -34,17 +34,10 @@ const server = http.createServer(app);
 // Khởi tạo WebSocket
 initializeWebSocket(server);
 
-// Cấu hình CORS
-app.use(cors({
-    origin: ['http://127.0.0.1:5500', 'http://localhost:5500'], // Cho phép origin của frontend
-    methods: ['GET', 'POST', 'PUT', 'DELETE'],
-    allowedHeaders: ['Content-Type', 'Authorization'],
-    credentials: true
-}));
+// Cấu hình CORS với giới hạn header size
+app.use(bodyParser.json());
+app.use(cors());
 
-// Cấu hình body parser với giới hạn kích thước 10MB
-app.use(bodyParser.json({ limit: '10mb' }));
-app.use(bodyParser.urlencoded({ limit: '10mb', extended: true }));
 
 
 
